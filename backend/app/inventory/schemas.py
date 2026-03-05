@@ -1,0 +1,80 @@
+from pydantic import BaseModel, field_validator
+from typing import Optional
+from decimal import Decimal
+from datetime import datetime, date
+
+
+class GRNCreate(BaseModel):
+    material_id: int
+    supplier_id: Optional[int] = None
+    batch_number: str
+    manufacture_date: Optional[date] = None
+    expiry_date: Optional[date] = None
+    pack_size: Optional[Decimal] = None
+    pack_type: str = "BAG"
+    total_quantity: Decimal
+    invoice_number: Optional[str] = None
+    remarks: Optional[str] = None
+
+    @field_validator("total_quantity")
+    @classmethod
+    def qty_must_be_positive(cls, v):
+        if v <= 0:
+            raise ValueError("Total quantity must be positive")
+        return v
+
+
+class IssueStockRequest(BaseModel):
+    batch_id: int
+    quantity: Decimal
+    remarks: Optional[str] = None
+
+    @field_validator("quantity")
+    @classmethod
+    def qty_must_be_positive(cls, v):
+        if v <= 0:
+            raise ValueError("Quantity must be positive")
+        return v
+
+
+class StockAdjustmentRequest(BaseModel):
+    batch_id: int
+    quantity: Decimal
+    reason: str
+
+
+class BatchResponse(BaseModel):
+    id: int
+    material_id: int
+    material_name: Optional[str] = None
+    material_code: Optional[str] = None
+    supplier_id: Optional[int] = None
+    supplier_name: Optional[str] = None
+    batch_number: str
+    grn_number: Optional[str] = None
+    manufacture_date: Optional[date] = None
+    expiry_date: Optional[date] = None
+    pack_size: Optional[Decimal] = None
+    pack_type: str
+    total_quantity: Decimal
+    remaining_quantity: Decimal
+    status: str
+    retest_date: Optional[date] = None
+    retest_cycle: int
+    qr_code_path: Optional[str] = None
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class StockReportItem(BaseModel):
+    batch_number: str
+    material_name: str
+    material_code: str
+    supplier_name: Optional[str]
+    total_quantity: Decimal
+    remaining_quantity: Decimal
+    status: str
+    expiry_date: Optional[date]
+    retest_date: Optional[date]
+    ar_number: Optional[str]
