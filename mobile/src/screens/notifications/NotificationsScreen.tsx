@@ -72,7 +72,7 @@ export const NotificationsScreen: React.FC = () => {
   };
 
   return (
-    <SafeAreaView style={styles.safe}>
+    <SafeAreaView style={styles.safe} edges={['top']}>
       <View style={styles.header}>
         <View>
           <Text style={styles.title}>Notifications</Text>
@@ -87,6 +87,7 @@ export const NotificationsScreen: React.FC = () => {
         data={notifications}
         keyExtractor={(n) => n.id.toString()}
         renderItem={renderItem}
+        style={styles.listArea}
         contentContainerStyle={styles.list}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); loadNotifications(); }} tintColor={Colors.primary} />}
         ListEmptyComponent={
@@ -101,7 +102,7 @@ export const NotificationsScreen: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: Colors.background },
+  safe: { flex: 1, backgroundColor: Colors.primary },
   header: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
     padding: Spacing.md, backgroundColor: Colors.primary,
@@ -110,6 +111,7 @@ const styles = StyleSheet.create({
   subtitle: { fontSize: FontSize.xs, color: Colors.accent, marginTop: 2, fontWeight: '600' },
   markAllBtn: { paddingVertical: 6, paddingHorizontal: 10 },
   markAllText: { color: Colors.accent, fontSize: FontSize.sm },
+  listArea: { flex: 1, backgroundColor: Colors.background },
   list: { padding: Spacing.md },
   notifCard: { marginBottom: Spacing.sm },
   unreadCard: { borderLeftWidth: 3, borderLeftColor: Colors.primary },

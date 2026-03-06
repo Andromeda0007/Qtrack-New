@@ -28,9 +28,12 @@ export const ChatRoomScreen: React.FC = () => {
   }, [roomId]);
 
   useEffect(() => {
-    navigation.setOptions({ title: roomName });
+    navigation.setOptions({
+      title: roomName,
+      headerStyle: { backgroundColor: Colors.primary },
+    });
     loadMessages();
-    const interval = setInterval(loadMessages, 5000); // polling every 5s
+    const interval = setInterval(loadMessages, 5000);
     return () => clearInterval(interval);
   }, []);
 
@@ -70,16 +73,6 @@ export const ChatRoomScreen: React.FC = () => {
 
   return (
     <SafeAreaView style={styles.safe} edges={['bottom']}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <Ionicons name="arrow-back" size={22} color="#fff" />
-        </TouchableOpacity>
-        <View>
-          <Text style={styles.headerTitle}>{roomName}</Text>
-          <Text style={styles.headerSub}>Polling every 5s</Text>
-        </View>
-      </View>
-
       <FlatList
         ref={flatListRef}
         data={messages}
@@ -116,10 +109,6 @@ export const ChatRoomScreen: React.FC = () => {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.background },
-  header: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, backgroundColor: Colors.primary, padding: Spacing.md },
-  backBtn: { padding: 4 },
-  headerTitle: { fontSize: FontSize.md, fontWeight: '700', color: '#fff' },
-  headerSub: { fontSize: 10, color: 'rgba(255,255,255,0.6)' },
   messageList: { padding: Spacing.md, paddingBottom: Spacing.sm },
   messageBubble: { maxWidth: '80%', marginBottom: Spacing.sm, padding: 10, borderRadius: 14 },
   myBubble: { alignSelf: 'flex-end', backgroundColor: Colors.primary, borderBottomRightRadius: 4 },

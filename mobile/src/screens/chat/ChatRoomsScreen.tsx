@@ -71,7 +71,7 @@ export const ChatRoomsScreen: React.FC = () => {
   );
 
   return (
-    <SafeAreaView style={styles.safe}>
+    <SafeAreaView style={styles.safe} edges={['top']}>
       <View style={styles.header}>
         <Text style={styles.title}>Chat</Text>
         <TouchableOpacity onPress={() => setShowCreate(true)} style={styles.addBtn}>
@@ -83,6 +83,7 @@ export const ChatRoomsScreen: React.FC = () => {
         data={rooms}
         keyExtractor={(r) => r.id.toString()}
         renderItem={renderRoom}
+        style={styles.listArea}
         contentContainerStyle={styles.list}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); loadRooms(); }} tintColor={Colors.primary} />}
         ListEmptyComponent={
@@ -111,10 +112,11 @@ export const ChatRoomsScreen: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: Colors.background },
+  safe: { flex: 1, backgroundColor: Colors.primary },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: Spacing.md, backgroundColor: Colors.primary },
   title: { fontSize: FontSize.xl, fontWeight: '800', color: '#fff' },
   addBtn: { padding: 8 },
+  listArea: { flex: 1, backgroundColor: Colors.background },
   list: { padding: Spacing.md },
   roomRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
   roomIcon: { width: 44, height: 44, borderRadius: 12, justifyContent: 'center', alignItems: 'center' },

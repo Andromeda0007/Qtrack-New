@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, FlatList, TouchableOpacity, Alert, RefreshControl, Modal } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { usersApi } from '../../api/users';
 import { Card } from '../../components/common/Card';
@@ -14,7 +15,8 @@ import { extractError } from '../../api/client';
 type Tab = 'users' | 'audit';
 
 export const AdminScreen: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<Tab>('users');
+  const route = useRoute<any>();
+  const [activeTab, setActiveTab] = useState<Tab>(route.params?.tab || 'users');
   const [users, setUsers] = useState<User[]>([]);
   const [roles, setRoles] = useState<Role[]>([]);
   const [auditLogs, setAuditLogs] = useState<any[]>([]);
@@ -84,7 +86,7 @@ export const AdminScreen: React.FC = () => {
   };
 
   return (
-    <SafeAreaView style={styles.safe}>
+    <SafeAreaView style={styles.safe} edges={['top']}>
       <View style={styles.header}>
         <Text style={styles.title}>Admin Panel</Text>
         {activeTab === 'users' && (
@@ -109,6 +111,7 @@ export const AdminScreen: React.FC = () => {
         <FlatList
           data={users}
           keyExtractor={(u) => u.id.toString()}
+          style={styles.listArea}
           contentContainerStyle={styles.list}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); loadData(); }} tintColor={Colors.primary} />}
           renderItem={({ item }) => (
@@ -139,6 +142,7 @@ export const AdminScreen: React.FC = () => {
         <FlatList
           data={auditLogs}
           keyExtractor={(a) => a.id.toString()}
+          style={styles.listArea}
           contentContainerStyle={styles.list}
           renderItem={({ item }) => (
             <Card padding={12}>
@@ -191,7 +195,7 @@ export const AdminScreen: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: Colors.background },
+  safe: { flex: 1, backgroundColor: Colors.primary },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: Spacing.md, backgroundColor: Colors.primary },
   title: { fontSize: FontSize.xl, fontWeight: '800', color: '#fff' },
   addBtn: { padding: 8 },
@@ -200,6 +204,7 @@ const styles = StyleSheet.create({
   tabActive: { borderBottomWidth: 2, borderBottomColor: Colors.primary },
   tabText: { fontSize: FontSize.sm, fontWeight: '600', color: Colors.textMuted },
   tabTextActive: { color: Colors.primary },
+  listArea: { flex: 1, backgroundColor: Colors.background },
   list: { padding: Spacing.md },
   userRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
   avatar: { width: 44, height: 44, borderRadius: 22, justifyContent: 'center', alignItems: 'center' },
