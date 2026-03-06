@@ -1,0 +1,33 @@
+{
+  "expo": {
+    "name": "QTrack",
+    "slug": "qtrack",
+    "version": "1.0.0",
+    "sdkVersion": "54.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.qtrack.app"
+    },
+    "android": {
+      "package": "com.qtrack.app",
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE"
+      ]
+    },
+    "plugins": [
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow QTrack to access your camera to scan QR codes."
+        }
+      ]
+    ]
+  }
+}
