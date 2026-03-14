@@ -1,5 +1,5 @@
 """
-Seed script: creates tables, default roles, permissions, locations, and Super Admin.
+Seed script: creates tables, default roles, permissions, locations, and Warehouse Head admin.
 Run: python seed.py
 """
 import asyncio
@@ -12,9 +12,8 @@ from app.utils.password import hash_password
 
 
 ROLES = [
-    {"role_name": "SUPER_ADMIN", "description": "System administrator"},
+    {"role_name": "WAREHOUSE_HEAD", "description": "Warehouse Head - full system access"},
     {"role_name": "WAREHOUSE_USER", "description": "Warehouse operational staff"},
-    {"role_name": "WAREHOUSE_HEAD", "description": "Warehouse supervisor"},
     {"role_name": "QC_EXECUTIVE", "description": "Quality Control testing staff"},
     {"role_name": "QC_HEAD", "description": "Quality Control authority"},
     {"role_name": "QA_EXECUTIVE", "description": "Quality Assurance inspection staff"},
@@ -38,19 +37,16 @@ PERMISSIONS = [
 ]
 
 ROLE_PERMISSION_MAP = {
-    "SUPER_ADMIN": [
-        "CREATE_USER", "MANAGE_USERS", "VIEW_AUDIT_LOGS", "VIEW_STOCK",
-        "VIEW_REPORTS", "MANAGE_CHAT",
+    "WAREHOUSE_HEAD": [
+        "CREATE_USER", "MANAGE_USERS", "VIEW_AUDIT_LOGS",
+        "CREATE_GRN", "UPDATE_LOCATION", "ISSUE_STOCK", "RECEIVE_FG",
+        "DISPATCH_FG", "REVISE_GRN", "REPRINT_LABEL", "APPROVE_CORRECTION",
+        "ADJUST_STOCK", "VIEW_STOCK", "VIEW_REPORTS", "SEND_MESSAGE",
+        "REQUEST_GRADE_TRANSFER", "MANAGE_CHAT",
     ],
     "WAREHOUSE_USER": [
         "CREATE_GRN", "UPDATE_LOCATION", "ISSUE_STOCK", "RECEIVE_FG",
         "DISPATCH_FG", "VIEW_STOCK", "SEND_MESSAGE",
-    ],
-    "WAREHOUSE_HEAD": [
-        "CREATE_GRN", "UPDATE_LOCATION", "ISSUE_STOCK", "RECEIVE_FG",
-        "DISPATCH_FG", "REVISE_GRN", "REPRINT_LABEL", "APPROVE_CORRECTION",
-        "ADJUST_STOCK", "VIEW_STOCK", "VIEW_REPORTS", "SEND_MESSAGE",
-        "REQUEST_GRADE_TRANSFER",
     ],
     "QC_EXECUTIVE": [
         "GENERATE_AR_NUMBER", "WITHDRAW_SAMPLE", "SET_UNDER_TEST",
@@ -151,23 +147,24 @@ async def seed():
                 db.add(Location(**loc))
         print("Locations seeded.")
 
-        # Seed Super Admin user
-        existing = await db.execute(select(User).where(User.username == "superadmin"))
+        # Seed Warehouse Head admin user
+        existing = await db.execute(select(User).where(User.email == "andromeda@gmail.com"))
         if not existing.scalar_one_or_none():
-            admin_role = role_map.get("SUPER_ADMIN")
+            admin_role = role_map.get("WAREHOUSE_HEAD")
             admin = User(
-                name="Super Admin",
-                username="superadmin",
-                email="admin@qtrack.com",
-                password_hash=hash_password("Admin@123"),
+                name="Andromeda",
+                username="Andromeda007",
+                email="andromeda@gmail.com",
+                phone=1234567890,
+                password_hash=hash_password("andromeda@123"),
                 role_id=admin_role.id,
                 is_first_login=False,
                 is_active=True,
             )
             db.add(admin)
-            print("Super Admin created: username=superadmin, password=Admin@123")
+            print("Warehouse Head created: username=Andromeda007, email=andromeda@gmail.com, password=andromeda@123")
         else:
-            print("Super Admin already exists.")
+            print("Warehouse Head admin already exists.")
 
         await db.commit()
     print("Seed completed successfully.")

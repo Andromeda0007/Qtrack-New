@@ -126,7 +126,7 @@ async def delete_message(db: AsyncSession, message_id: int, user: User) -> bool:
     if not msg:
         raise HTTPException(status_code=404, detail="Message not found")
 
-    is_admin = user.role and user.role.role_name == "SUPER_ADMIN"
+    is_admin = user.role and user.role.role_name == "WAREHOUSE_HEAD"
     if msg.sender_id != user.id and not is_admin:
         raise HTTPException(status_code=403, detail="Cannot delete this message")
 

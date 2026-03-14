@@ -15,7 +15,7 @@ import { AdminScreen } from '../screens/admin/AdminScreen';
 const Tab = createBottomTabNavigator();
 
 const ROLE_TABS: Record<RoleName, Array<{ name: string; component: any; icon: string; label: string }>> = {
-  SUPER_ADMIN: [
+  WAREHOUSE_HEAD: [
     { name: 'Dashboard',     component: DashboardScreen,     icon: 'home',          label: 'Home' },
     { name: 'Admin',         component: AdminScreen,         icon: 'shield',        label: 'Admin' },
     { name: 'Notifications', component: NotificationsScreen, icon: 'notifications', label: 'Notifications' },
@@ -23,24 +23,21 @@ const ROLE_TABS: Record<RoleName, Array<{ name: string; component: any; icon: st
   ],
   WAREHOUSE_USER: [
     { name: 'Dashboard',     component: DashboardScreen,     icon: 'home',          label: 'Home' },
-    { name: 'Batches',       component: BatchListScreen,     icon: 'cube',          label: 'Stock' },
-    { name: 'Notifications', component: NotificationsScreen, icon: 'notifications', label: 'Notifications' },
-    { name: 'Chat',          component: ChatRoomsScreen,     icon: 'chatbubbles',   label: 'Chat' },
-  ],
-  WAREHOUSE_HEAD: [
-    { name: 'Dashboard',     component: DashboardScreen,     icon: 'home',          label: 'Home' },
+    { name: 'Scanner',       component: QCScanScreen,        icon: 'scan',          label: 'Scan' },
     { name: 'Batches',       component: BatchListScreen,     icon: 'cube',          label: 'Stock' },
     { name: 'Notifications', component: NotificationsScreen, icon: 'notifications', label: 'Notifications' },
     { name: 'Chat',          component: ChatRoomsScreen,     icon: 'chatbubbles',   label: 'Chat' },
   ],
   QC_EXECUTIVE: [
     { name: 'Dashboard',     component: DashboardScreen,     icon: 'home',          label: 'Home' },
+    { name: 'Scanner',       component: QCScanScreen,        icon: 'scan',          label: 'Scan' },
     { name: 'Batches',       component: BatchListScreen,     icon: 'flask',         label: 'Batches' },
     { name: 'Notifications', component: NotificationsScreen, icon: 'notifications', label: 'Notifications' },
     { name: 'Chat',          component: ChatRoomsScreen,     icon: 'chatbubbles',   label: 'Chat' },
   ],
   QC_HEAD: [
     { name: 'Dashboard',     component: DashboardScreen,     icon: 'home',          label: 'Home' },
+    { name: 'Scanner',       component: QCScanScreen,        icon: 'scan',          label: 'Scan' },
     { name: 'Batches',       component: BatchListScreen,     icon: 'flask',         label: 'Batches' },
     { name: 'Notifications', component: NotificationsScreen, icon: 'notifications', label: 'Notifications' },
     { name: 'Chat',          component: ChatRoomsScreen,     icon: 'chatbubbles',   label: 'Chat' },

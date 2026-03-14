@@ -33,17 +33,16 @@ export const Colors = {
   statusUnderTest: '#007bff',
   statusApproved: '#28a745',
   statusRejected: '#dc3545',
-  statusRetest: '#6f42c1',
+  statusRetest: '#0d6efd',
   statusIssued: '#20c997',
 };
 
 // Role colors — cool, modern, non-vibrant tones
 export const RoleColors: Record<string, string> = {
-  SUPER_ADMIN:      '#1e3a5f', // navy blue     — same as brand primary
+  WAREHOUSE_HEAD:   '#1e3a5f', // navy blue     — warehouse head (top admin)
   WAREHOUSE_USER:   '#2d6a9f', // medium blue   — warehouse
-  WAREHOUSE_HEAD:   '#1e4d7b', // deep blue     — warehouse head
-  QC_EXECUTIVE:     '#6b5b95', // muted purple  — quality control
-  QC_HEAD:          '#4a3f72', // deep purple   — QC head
+  QC_EXECUTIVE:     '#1a6ea8', // medium blue   — quality control
+  QC_HEAD:          '#134f7a', // deep blue     — QC head
   QA_EXECUTIVE:     '#2e7d7e', // muted teal    — quality assurance
   QA_HEAD:          '#1d5c5d', // deep teal     — QA head
   PRODUCTION_USER:  '#b7791f', // warm amber    — production
@@ -72,9 +71,8 @@ export const FGStatusColors: Record<string, { bg: string; text: string; label: s
 
 // Role display labels
 export const RoleLabels: Record<string, string> = {
-  SUPER_ADMIN:      'Super Admin',
-  WAREHOUSE_USER:   'Warehouse User',
   WAREHOUSE_HEAD:   'Warehouse Head',
+  WAREHOUSE_USER:   'Warehouse User',
   QC_EXECUTIVE:     'QC Executive',
   QC_HEAD:          'QC Head',
   QA_EXECUTIVE:     'QA Executive',

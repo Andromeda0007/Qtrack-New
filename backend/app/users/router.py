@@ -23,7 +23,7 @@ async def create_user(
         "message": "User created successfully",
         "user_id": user.id,
         "username": user.username,
-        "temp_password_sent_via_email": True,
+        "temp_password": result["temp_password"],
     }
 
 

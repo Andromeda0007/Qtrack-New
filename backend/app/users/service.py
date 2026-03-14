@@ -4,7 +4,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
 from app.models.user_models import User, Role
-from app.utils.password import hash_password, generate_temp_password
+from app.utils.password import hash_password
 from app.utils.email_sender import send_account_created_email
 from app.audit.service import log_action
 
@@ -23,7 +23,7 @@ async def create_user(db: AsyncSession, data: dict, created_by: User) -> dict:
     if not role:
         raise HTTPException(status_code=404, detail="Role not found")
 
-    temp_password = generate_temp_password()
+    temp_password = "temp-password"
 
     user = User(
         name=data["name"],
@@ -42,7 +42,7 @@ async def create_user(db: AsyncSession, data: dict, created_by: User) -> dict:
         db,
         action_type="CREATE_USER",
         user_id=created_by.id,
-        username=created_by.username,
+        performed_by=created_by.username,
         entity_type="user",
         entity_id=user.id,
         description=f"Created user '{user.username}' with role '{role.role_name}'",

@@ -34,8 +34,8 @@ def decode_token(token: str) -> dict:
         )
 
 
-async def login(db: AsyncSession, username: str, password: str) -> dict:
-    user = await repo.get_user_by_username(db, username)
+async def login(db: AsyncSession, login_id: str, password: str) -> dict:
+    user = await repo.get_user_by_login_id(db, login_id)  # checks email OR username
 
     if not user:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")

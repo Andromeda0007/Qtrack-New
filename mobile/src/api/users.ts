@@ -11,8 +11,8 @@ export const usersApi = {
     name: string;
     username: string;
     email: string;
+    phone: number;
     role_id: number;
-    phone?: string;
   }) => {
     const res = await apiClient.post('/users/', data);
     return res.data;
@@ -38,7 +38,7 @@ export const usersApi = {
     return res.data;
   },
 
-  getAuditLogs: async (params?: { action_type?: string; entity_type?: string; username?: string; limit?: number }) => {
+  getAuditLogs: async (params?: { action_type?: string; entity_type?: string; performed_by?: string; limit?: number }) => {
     const res = await apiClient.get('/audit/', { params });
     return res.data;
   },

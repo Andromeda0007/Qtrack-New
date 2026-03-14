@@ -13,6 +13,7 @@ export interface UserProfile {
   name: string;
   username: string;
   email: string;
+  phone: number | null;
   role: string;
   is_first_login: boolean;
   is_active: boolean;
@@ -21,9 +22,8 @@ export interface UserProfile {
 
 // ─── Roles ───────────────────────────────────────────────────────────────────
 export type RoleName =
-  | 'SUPER_ADMIN'
-  | 'WAREHOUSE_USER'
   | 'WAREHOUSE_HEAD'
+  | 'WAREHOUSE_USER'
   | 'QC_EXECUTIVE'
   | 'QC_HEAD'
   | 'QA_EXECUTIVE'
@@ -174,9 +174,9 @@ export interface User {
   name: string;
   username: string;
   email: string;
+  phone: number | null;
   role_id: number;
   role_name: string | null;
-  phone: string | null;
   is_active: boolean;
   is_first_login: boolean;
   last_login: string | null;

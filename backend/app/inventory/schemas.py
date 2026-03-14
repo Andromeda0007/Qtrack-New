@@ -5,23 +5,28 @@ from datetime import datetime, date
 
 
 class GRNCreate(BaseModel):
-    material_id: int
-    supplier_id: Optional[int] = None
+    item_code: str
+    item_name: str
+    supplier_name: str
+    manufacturer_name: str
     batch_number: str
-    manufacture_date: Optional[date] = None
-    expiry_date: Optional[date] = None
-    pack_size: Optional[Decimal] = None
-    pack_type: str = "BAG"
     total_quantity: Decimal
-    invoice_number: Optional[str] = None
-    remarks: Optional[str] = None
+    container_quantity: Decimal
+    pack_type: str = "BAG"
+    manufacture_date: date
+    expiry_date: date
 
-    @field_validator("total_quantity")
+    @field_validator("total_quantity", "container_quantity")
     @classmethod
     def qty_must_be_positive(cls, v):
         if v <= 0:
-            raise ValueError("Total quantity must be positive")
+            raise ValueError("Quantity must be positive")
         return v
+
+    @field_validator("pack_type")
+    @classmethod
+    def normalize_pack_type(cls, v):
+        return v.upper()
 
 
 class IssueStockRequest(BaseModel):

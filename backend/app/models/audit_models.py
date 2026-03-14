@@ -10,7 +10,7 @@ class AuditLog(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     user_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("users.id"), nullable=True, index=True)
-    username: Mapped[str | None] = mapped_column(String(50))
+    performed_by: Mapped[str | None] = mapped_column(String(200))
     action_type: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
     entity_type: Mapped[str | None] = mapped_column(String(50), index=True)
     entity_id: Mapped[int | None] = mapped_column(Integer)

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, FlatList, TouchableOpacity, Alert, RefreshControl, Modal } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, FlatList, TouchableOpacity, Alert, RefreshControl, Modal, Clipboard } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -7,7 +7,7 @@ import { usersApi } from '../../api/users';
 import { Card } from '../../components/common/Card';
 import { Button } from '../../components/common/Button';
 import { Input } from '../../components/common/Input';
-import { Colors, FontSize, Spacing } from '../../utils/theme';
+import { Colors, FontSize, Spacing, BorderRadius, Shadow } from '../../utils/theme';
 import { formatDateTime, formatRole } from '../../utils/formatters';
 import { User, Role } from '../../types';
 import { extractError } from '../../api/client';
@@ -23,26 +23,42 @@ export const AdminScreen: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [showCreateUser, setShowCreateUser] = useState(false);
-  const [createForm, setCreateForm] = useState({ name: '', username: '', email: '', role_id: 0 });
+  const [createForm, setCreateForm] = useState({ name: '', username: '', email: '', phone: '', role_id: 0 });
   const [creating, setCreating] = useState(false);
+  const [successInfo, setSuccessInfo] = useState<{ name: string; username: string } | null>(null);
 
   const loadData = useCallback(async () => {
+    // Load users and audit logs independently — one failure won't block the other
     try {
-      const [usersData, rolesData, auditData] = await Promise.all([
-        usersApi.getUsers(),
-        usersApi.getRoles(),
-        usersApi.getAuditLogs({ limit: 50 }),
-      ]);
+      const usersData = await usersApi.getUsers();
       setUsers(usersData);
-      setRoles(rolesData);
+    } catch (e) {
+      setUsers([]);
+    }
+    try {
+      const auditData = await usersApi.getAuditLogs({ limit: 50 });
       setAuditLogs(auditData);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
+    } catch (e) {
+      setAuditLogs([]);
+    }
+    setLoading(false);
+    setRefreshing(false);
+  }, []);
+
+  const loadRoles = useCallback(async () => {
+    try {
+      const data = await usersApi.getRoles();
+      setRoles(data);
+      const purchaseUser = data.find((r: Role) => r.role_name === 'PURCHASE_USER');
+      if (purchaseUser) {
+        setCreateForm((f) => ({ ...f, role_id: purchaseUser.id }));
+      }
+    } catch (e) {
+      // roles will be empty — retry on next modal open
     }
   }, []);
 
-  useEffect(() => { loadData(); }, []);
+  useEffect(() => { loadData(); loadRoles(); }, []);
 
   const handleToggleActive = async (user: User) => {
     const action = user.is_active ? 'deactivate' : 'reactivate';
@@ -68,15 +84,26 @@ export const AdminScreen: React.FC = () => {
   };
 
   const handleCreateUser = async () => {
-    if (!createForm.name || !createForm.username || !createForm.email || !createForm.role_id) {
-      Alert.alert('Error', 'All fields are required'); return;
+    if (!createForm.name || !createForm.username || !createForm.email || !createForm.phone || !createForm.role_id) {
+      Alert.alert('Error', 'All fields are required. Please fill in Full Name, Username, Email, Phone and select a Role.'); return;
+    }
+    const phoneNum = parseInt(createForm.phone, 10);
+    if (isNaN(phoneNum) || createForm.phone.length < 10) {
+      Alert.alert('Error', 'Please enter a valid phone number (at least 10 digits).'); return;
     }
     setCreating(true);
     try {
-      await usersApi.createUser(createForm);
+      const result = await usersApi.createUser({
+        name: createForm.name,
+        username: createForm.username,
+        email: createForm.email,
+        phone: phoneNum,
+        role_id: createForm.role_id,
+      });
       setShowCreateUser(false);
-      setCreateForm({ name: '', username: '', email: '', role_id: 0 });
-      Alert.alert('Success', 'User created. Temporary password has been sent to their email.');
+      const purchaseUser = roles.find((r) => r.role_name === 'PURCHASE_USER');
+      setSuccessInfo({ name: createForm.name, username: result.username });
+      setCreateForm({ name: '', username: '', email: '', phone: '', role_id: purchaseUser?.id || 0 });
       loadData();
     } catch (error) {
       Alert.alert('Error', extractError(error));
@@ -90,7 +117,7 @@ export const AdminScreen: React.FC = () => {
       <View style={styles.header}>
         <Text style={styles.title}>Admin Panel</Text>
         {activeTab === 'users' && (
-          <TouchableOpacity onPress={() => setShowCreateUser(true)} style={styles.addBtn}>
+          <TouchableOpacity onPress={() => { setShowCreateUser(true); loadRoles(); }} style={styles.addBtn}>
             <Ionicons name="person-add" size={22} color="#fff" />
           </TouchableOpacity>
         )}
@@ -113,6 +140,7 @@ export const AdminScreen: React.FC = () => {
           keyExtractor={(u) => u.id.toString()}
           style={styles.listArea}
           contentContainerStyle={styles.list}
+          ListEmptyComponent={<Text style={{ textAlign: 'center', color: Colors.textMuted, marginTop: 40 }}>{loading ? 'Loading...' : 'No users found'}</Text>}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); loadData(); }} tintColor={Colors.primary} />}
           renderItem={({ item }) => (
             <Card>
@@ -151,7 +179,7 @@ export const AdminScreen: React.FC = () => {
                 <View style={styles.auditInfo}>
                   <Text style={styles.auditAction}>{item.action_type.replace(/_/g, ' ')}</Text>
                   <Text style={styles.auditDesc} numberOfLines={2}>{item.description || '—'}</Text>
-                  <Text style={styles.auditMeta}>by {item.username || '?'} · {formatDateTime(item.created_at)}</Text>
+                  <Text style={styles.auditMeta}>by {item.performed_by || '?'} · {formatDateTime(item.created_at)}</Text>
                 </View>
               </View>
             </Card>
@@ -159,28 +187,94 @@ export const AdminScreen: React.FC = () => {
         />
       )}
 
+      {/* Success Modal */}
+      <Modal visible={!!successInfo} animationType="fade" transparent>
+        <View style={styles.successOverlay}>
+          <View style={styles.successCard}>
+            <View style={styles.successIconWrap}>
+              <Ionicons name="checkmark-circle" size={56} color={Colors.success} />
+            </View>
+            <Text style={styles.successTitle}>User Created!</Text>
+            <Text style={styles.successSubtitle}>
+              Share these login credentials with{'\n'}
+              <Text style={{ fontWeight: '700', color: Colors.textPrimary }}>{successInfo?.name}</Text>
+            </Text>
+
+            <View style={styles.credentialBox}>
+              <View style={styles.credentialRow}>
+                <View style={styles.credentialIconWrap}>
+                  <Ionicons name="person-outline" size={16} color={Colors.primary} />
+                </View>
+                <View style={styles.credentialContent}>
+                  <Text style={styles.credentialLabel}>Username</Text>
+                  <Text style={styles.credentialValue}>{successInfo?.username}</Text>
+                </View>
+              </View>
+              <View style={styles.credentialDivider} />
+              <View style={styles.credentialRow}>
+                <View style={styles.credentialIconWrap}>
+                  <Ionicons name="lock-closed-outline" size={16} color={Colors.primary} />
+                </View>
+                <View style={styles.credentialContent}>
+                  <Text style={styles.credentialLabel}>Password</Text>
+                  <Text style={styles.credentialValue}>temp-password</Text>
+                </View>
+              </View>
+            </View>
+
+            <View style={styles.successNote}>
+              <Ionicons name="information-circle-outline" size={16} color={Colors.info} />
+              <Text style={styles.successNoteText}>
+                They will be prompted to set a new password on first login.
+              </Text>
+            </View>
+
+            <TouchableOpacity
+              style={styles.successBtn}
+              onPress={() => setSuccessInfo(null)}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.successBtnText}>Done</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
       {/* Create User Modal */}
       <Modal visible={showCreateUser} animationType="slide" transparent>
         <View style={styles.modalOverlay}>
           <ScrollView style={styles.modalSheet} keyboardShouldPersistTaps="handled">
             <Text style={styles.modalTitle}>Create New User</Text>
-            <Input label="Full Name" placeholder="John Doe" value={createForm.name} onChangeText={(v) => setCreateForm((f) => ({ ...f, name: v }))} />
-            <Input label="Username" placeholder="john.doe" value={createForm.username} onChangeText={(v) => setCreateForm((f) => ({ ...f, username: v }))} />
-            <Input label="Email" placeholder="john@company.com" value={createForm.email} onChangeText={(v) => setCreateForm((f) => ({ ...f, email: v }))} keyboardType="email-address" />
+            <Input label="Full Name" placeholder="Enter the name" value={createForm.name} onChangeText={(v) => setCreateForm((f) => ({ ...f, name: v }))} />
+            <Input label="Username" placeholder="Create username" value={createForm.username} onChangeText={(v) => setCreateForm((f) => ({ ...f, username: v }))} autoCapitalize="none" />
+            <Input label="Email" placeholder="Enter your email" value={createForm.email} onChangeText={(v) => setCreateForm((f) => ({ ...f, email: v }))} keyboardType="email-address" autoCapitalize="none" />
+            <Input label="Phone" placeholder="9876543210" value={createForm.phone} onChangeText={(v) => setCreateForm((f) => ({ ...f, phone: v }))} keyboardType="phone-pad" />
 
             <Text style={styles.roleLabel}>Role</Text>
-            <View style={styles.roleGrid}>
-              {roles.map((r) => (
-                <TouchableOpacity
-                  key={r.id}
-                  style={[styles.roleChip, createForm.role_id === r.id && styles.roleChipActive]}
-                  onPress={() => setCreateForm((f) => ({ ...f, role_id: r.id }))}
-                >
-                  <Text style={[styles.roleChipText, createForm.role_id === r.id && styles.roleChipTextActive]}>
-                    {formatRole(r.role_name)}
-                  </Text>
-                </TouchableOpacity>
-              ))}
+            <View style={styles.roleList}>
+              {roles.map((r, index) => {
+                const isSelected = createForm.role_id === r.id;
+                const label = r.role_name.replace(/_/g, ' ')
+                  .split(' ').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+                  .join(' ').replace('Qc', 'QC').replace('Qa', 'QA');
+                return (
+                  <TouchableOpacity
+                    key={r.id}
+                    style={[
+                      styles.roleRow,
+                      isSelected && styles.roleRowActive,
+                      index === roles.length - 1 && { borderBottomWidth: 0 },
+                    ]}
+                    onPress={() => setCreateForm((f) => ({ ...f, role_id: r.id }))}
+                    activeOpacity={0.7}
+                  >
+                    <View style={[styles.roleRadio, isSelected && styles.roleRadioActive]}>
+                      {isSelected && <View style={styles.roleRadioDot} />}
+                    </View>
+                    <Text style={[styles.roleRowText, isSelected && styles.roleRowTextActive]}>{label}</Text>
+                  </TouchableOpacity>
+                );
+              })}
             </View>
 
             <View style={styles.modalActions}>
@@ -224,11 +318,75 @@ const styles = StyleSheet.create({
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
   modalSheet: { backgroundColor: '#fff', borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: Spacing.lg, maxHeight: '90%' },
   modalTitle: { fontSize: FontSize.lg, fontWeight: '700', color: Colors.textPrimary, marginBottom: Spacing.md },
-  roleLabel: { fontSize: FontSize.sm, fontWeight: '600', color: Colors.textPrimary, marginBottom: Spacing.xs },
-  roleGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.xs, marginBottom: Spacing.md },
-  roleChip: { paddingHorizontal: 12, paddingVertical: 7, borderRadius: 20, borderWidth: 1, borderColor: Colors.border, backgroundColor: '#fff' },
-  roleChipActive: { backgroundColor: Colors.primary, borderColor: Colors.primary },
-  roleChipText: { fontSize: FontSize.xs, fontWeight: '600', color: Colors.textSecondary },
-  roleChipTextActive: { color: '#fff' },
+  roleLabel: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.textPrimary, marginBottom: Spacing.sm, marginTop: Spacing.xs },
+  roleLabelRequired: { color: Colors.danger, fontSize: FontSize.sm },
+  roleList: { marginBottom: Spacing.md, borderWidth: 1, borderColor: Colors.border, borderRadius: 12, overflow: 'hidden' },
+  roleRow: {
+    flexDirection: 'row', alignItems: 'center', paddingVertical: 13, paddingHorizontal: Spacing.md,
+    backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: Colors.borderLight,
+  },
+  roleRowActive: { backgroundColor: Colors.primary + '10' },
+  roleRadio: {
+    width: 20, height: 20, borderRadius: 10, borderWidth: 2,
+    borderColor: Colors.border, marginRight: 12,
+    justifyContent: 'center', alignItems: 'center',
+  },
+  roleRadioActive: { borderColor: Colors.primary },
+  roleRadioDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: Colors.primary },
+  roleRowText: { fontSize: FontSize.sm, color: Colors.textSecondary, fontWeight: '500' },
+  roleRowTextActive: { color: Colors.primary, fontWeight: '700' },
   modalActions: { flexDirection: 'row', gap: Spacing.sm, marginTop: Spacing.sm, marginBottom: Spacing.xl },
+
+  // Success modal
+  successOverlay: {
+    flex: 1, backgroundColor: 'rgba(0,0,0,0.55)',
+    justifyContent: 'center', alignItems: 'center',
+    paddingHorizontal: Spacing.lg,
+  },
+  successCard: {
+    backgroundColor: '#fff', borderRadius: 24, padding: Spacing.lg,
+    width: '100%', alignItems: 'center', ...Shadow.lg,
+  },
+  successIconWrap: { marginBottom: Spacing.sm },
+  successTitle: {
+    fontSize: FontSize.xl, fontWeight: '800',
+    color: Colors.textPrimary, marginBottom: 6,
+  },
+  successSubtitle: {
+    fontSize: FontSize.sm, color: Colors.textSecondary,
+    textAlign: 'center', marginBottom: Spacing.md, lineHeight: 20,
+  },
+  credentialBox: {
+    width: '100%', backgroundColor: Colors.background,
+    borderRadius: BorderRadius.md, borderWidth: 1,
+    borderColor: Colors.borderLight, marginBottom: Spacing.md,
+    overflow: 'hidden',
+  },
+  credentialRow: {
+    flexDirection: 'row', alignItems: 'center',
+    paddingVertical: 12, paddingHorizontal: Spacing.md,
+  },
+  credentialIconWrap: {
+    width: 32, height: 32, borderRadius: 16,
+    backgroundColor: Colors.primary + '12',
+    justifyContent: 'center', alignItems: 'center', marginRight: 12,
+  },
+  credentialContent: { flex: 1 },
+  credentialLabel: { fontSize: FontSize.xs, color: Colors.textMuted, marginBottom: 2 },
+  credentialValue: { fontSize: FontSize.md, fontWeight: '700', color: Colors.textPrimary },
+  credentialDivider: { height: 1, backgroundColor: Colors.borderLight, marginHorizontal: Spacing.md },
+  successNote: {
+    flexDirection: 'row', alignItems: 'flex-start', gap: 6,
+    backgroundColor: Colors.info + '12', borderRadius: BorderRadius.sm,
+    padding: 10, width: '100%', marginBottom: Spacing.md,
+  },
+  successNoteText: {
+    flex: 1, fontSize: FontSize.xs, color: Colors.info,
+    lineHeight: 17, fontWeight: '500',
+  },
+  successBtn: {
+    backgroundColor: Colors.primary, borderRadius: BorderRadius.md,
+    paddingVertical: 14, width: '100%', alignItems: 'center',
+  },
+  successBtnText: { color: '#fff', fontSize: FontSize.md, fontWeight: '700' },
 });

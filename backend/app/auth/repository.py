@@ -1,13 +1,16 @@
 from datetime import datetime, timedelta
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, or_
 
 from app.models.user_models import User, PasswordResetToken
 from app.config import settings
 
 
-async def get_user_by_username(db: AsyncSession, username: str) -> User | None:
-    result = await db.execute(select(User).where(User.username == username))
+async def get_user_by_login_id(db: AsyncSession, login_id: str) -> User | None:
+    """Lookup by email or username — whichever matches."""
+    result = await db.execute(
+        select(User).where(or_(User.email == login_id, User.username == login_id))
+    )
     return result.scalar_one_or_none()
 
 

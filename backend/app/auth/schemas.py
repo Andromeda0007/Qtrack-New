@@ -2,7 +2,7 @@ from pydantic import BaseModel, EmailStr
 
 
 class UserLoginRequest(BaseModel):
-    username: str
+    username: str   # accepts email or username
     password: str
 
 

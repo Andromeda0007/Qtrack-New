@@ -7,13 +7,13 @@ class UserCreate(BaseModel):
     name: str
     username: str
     email: EmailStr
+    phone: int
     role_id: int
-    phone: Optional[str] = None
 
 
 class UserUpdate(BaseModel):
     name: Optional[str] = None
-    phone: Optional[str] = None
+    phone: Optional[int] = None
 
 
 class UserRoleUpdate(BaseModel):
@@ -25,9 +25,9 @@ class UserResponse(BaseModel):
     name: str
     username: str
     email: str
+    phone: int
     role_id: int
     role_name: Optional[str] = None
-    phone: Optional[str] = None
     is_active: bool
     is_first_login: bool
     last_login: Optional[datetime] = None

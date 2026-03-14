@@ -10,6 +10,7 @@ import { ChangePasswordScreen } from '../screens/auth/ChangePasswordScreen';
 import { MainNavigator } from './MainNavigator';
 import { ChatRoomScreen } from '../screens/chat/ChatRoomScreen';
 import { ProfileScreen } from '../screens/profile/ProfileScreen';
+import { CreateGRNScreen } from '../screens/warehouse/CreateGRNScreen';
 import { Colors } from '../utils/theme';
 
 const Stack = createNativeStackNavigator();
@@ -55,6 +56,11 @@ export const AppNavigator: React.FC = () => {
             <Stack.Screen
               name="Profile"
               component={ProfileScreen}
+              options={{ headerShown: false }}
+            />
+            <Stack.Screen
+              name="CreateGRN"
+              component={CreateGRNScreen}
               options={{ headerShown: false }}
             />
           </>

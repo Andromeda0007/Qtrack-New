@@ -66,9 +66,13 @@ export const ProfileScreen: React.FC = () => {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Account Information</Text>
           <View style={styles.card}>
+            <InfoRow icon="text-outline" label="Full Name" value={user?.name || ''} />
+            <Divider />
             <InfoRow icon="mail-outline" label="Email" value={user?.email || ''} />
             <Divider />
             <InfoRow icon="person-outline" label="Username" value={user?.username || ''} />
+            <Divider />
+            <InfoRow icon="call-outline" label="Phone" value={user?.phone ? String(user.phone) : '—'} />
             <Divider />
             <InfoRow icon="shield-checkmark-outline" label="Role" value={roleLabel} />
             <Divider />

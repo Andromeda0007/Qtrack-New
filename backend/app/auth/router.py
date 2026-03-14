@@ -47,6 +47,7 @@ async def get_me(current_user: User = Depends(get_current_user)):
         "name": current_user.name,
         "username": current_user.username,
         "email": current_user.email,
+        "phone": current_user.phone,
         "role": current_user.role.role_name if current_user.role else None,
         "is_first_login": current_user.is_first_login,
         "is_active": current_user.is_active,

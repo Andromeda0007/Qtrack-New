@@ -13,15 +13,15 @@ import { Colors, FontSize, Spacing } from '../../utils/theme';
 import { extractError } from '../../api/client';
 
 export const LoginScreen: React.FC = () => {
-  const [username, setUsername] = useState('');
+  const [loginId, setLoginId] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const [errors, setErrors] = useState<{ username?: string; password?: string }>({});
+  const [errors, setErrors] = useState<{ loginId?: string; password?: string }>({});
   const { setAuth } = useAuthStore();
 
   const validate = () => {
     const errs: typeof errors = {};
-    if (!username.trim()) errs.username = 'Username is required';
+    if (!loginId.trim()) errs.loginId = 'Email or username is required';
     if (!password) errs.password = 'Password is required';
     setErrors(errs);
     return Object.keys(errs).length === 0;
@@ -31,7 +31,7 @@ export const LoginScreen: React.FC = () => {
     if (!validate()) return;
     setLoading(true);
     try {
-      const response = await authApi.login(username.trim(), password);
+      const response = await authApi.login(loginId.trim(), password);
       // Pass token directly so we don't depend on AsyncStorage timing
       const userProfile = await authApi.getMe(response.access_token);
       await setAuth(response.access_token, userProfile);
@@ -63,12 +63,13 @@ export const LoginScreen: React.FC = () => {
             <Text style={styles.formTitle}>Sign In</Text>
 
             <Input
-              label="Username"
-              placeholder="Enter your username"
-              value={username}
-              onChangeText={setUsername}
-              error={errors.username}
+              label="Email or Username"
+              placeholder="Enter your email or username"
+              value={loginId}
+              onChangeText={setLoginId}
+              error={errors.loginId}
               autoComplete="username"
+              autoCapitalize="none"
               returnKeyType="next"
             />
 

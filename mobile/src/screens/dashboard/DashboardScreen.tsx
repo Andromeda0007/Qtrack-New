@@ -33,27 +33,12 @@ interface QuickAction {
 }
 
 const ROLE_QUICK_ACTIONS: Record<RoleName, QuickAction[]> = {
-  SUPER_ADMIN: [
-    {
-      label: "Manage Users",
-      icon: "people",
-      color: Colors.primary,
-      screen: "Admin",
-    },
-    {
-      label: "Audit Logs",
-      icon: "document-text",
-      color: Colors.info,
-      screen: "Admin",
-      params: { tab: "audit" },
-    },
-  ],
   WAREHOUSE_USER: [
     {
       label: "Create GRN",
       icon: "add-circle",
       color: Colors.primary,
-      screen: "Scanner",
+      screen: "CreateGRN",
     },
     { label: "Scan QR", icon: "scan", color: Colors.accent, screen: "Scanner" },
     {
@@ -66,23 +51,17 @@ const ROLE_QUICK_ACTIONS: Record<RoleName, QuickAction[]> = {
   ],
   WAREHOUSE_HEAD: [
     {
-      label: "Create GRN",
-      icon: "add-circle",
+      label: "Manage Users",
+      icon: "people",
       color: Colors.primary,
-      screen: "Scanner",
-    },
-    { label: "Scan QR", icon: "scan", color: Colors.accent, screen: "Scanner" },
-    {
-      label: "Issue Stock",
-      icon: "arrow-up-circle",
-      color: Colors.success,
-      screen: "Batches",
+      screen: "Admin",
     },
     {
-      label: "Stock Report",
-      icon: "bar-chart",
+      label: "Audit Logs",
+      icon: "document-text",
       color: Colors.info,
-      screen: "Batches",
+      screen: "Admin",
+      params: { tab: "audit" },
     },
   ],
   QC_EXECUTIVE: [

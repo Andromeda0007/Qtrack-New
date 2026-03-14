@@ -15,7 +15,7 @@ router = APIRouter()
 async def get_audit_logs(
     action_type: Optional[str] = Query(None),
     entity_type: Optional[str] = Query(None),
-    username: Optional[str] = Query(None),
+    performed_by: Optional[str] = Query(None),
     limit: int = Query(50, le=200),
     offset: int = Query(0),
     current_user: User = Depends(require_permission("VIEW_AUDIT_LOGS")),
@@ -27,8 +27,8 @@ async def get_audit_logs(
         query = query.where(AuditLog.action_type == action_type)
     if entity_type:
         query = query.where(AuditLog.entity_type == entity_type)
-    if username:
-        query = query.where(AuditLog.username.ilike(f"%{username}%"))
+    if performed_by:
+        query = query.where(AuditLog.performed_by.ilike(f"%{performed_by}%"))
 
     query = query.limit(limit).offset(offset)
     result = await db.execute(query)
@@ -38,7 +38,7 @@ async def get_audit_logs(
         {
             "id": log.id,
             "user_id": log.user_id,
-            "username": log.username,
+            "performed_by": log.performed_by,
             "action_type": log.action_type,
             "entity_type": log.entity_type,
             "entity_id": log.entity_id,
