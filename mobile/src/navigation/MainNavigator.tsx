@@ -23,7 +23,6 @@ const ROLE_TABS: Record<RoleName, Array<{ name: string; component: any; icon: st
   ],
   WAREHOUSE_USER: [
     { name: 'Dashboard',     component: DashboardScreen,     icon: 'home',          label: 'Home' },
-    { name: 'Scanner',       component: QCScanScreen,        icon: 'scan',          label: 'Scan' },
     { name: 'Batches',       component: BatchListScreen,     icon: 'cube',          label: 'Stock' },
     { name: 'Notifications', component: NotificationsScreen, icon: 'notifications', label: 'Notifications' },
     { name: 'Chat',          component: ChatRoomsScreen,     icon: 'chatbubbles',   label: 'Chat' },

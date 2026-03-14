@@ -20,13 +20,29 @@ async def create_grn(
     current_user: User = Depends(require_permission("CREATE_GRN")),
     db: AsyncSession = Depends(get_db),
 ):
-    batch = await service.create_grn(db, payload.model_dump(), current_user)
+    result = await service.create_grn(db, payload.model_dump(), current_user)
+    batch = result["batch"]
+    material = result["material"]
+    supplier = result["supplier"]
     return {
-        "message": "GRN created successfully",
+        "message": "Product card created successfully",
         "batch_id": batch.id,
+        "item_code": material.material_code,
+        "item_name": material.material_name,
         "batch_number": batch.batch_number,
+        "grn_number": result["grn_number"],
+        "total_quantity": str(batch.total_quantity),
+        "container_quantity": str(batch.pack_size or ""),
+        "pack_type": batch.pack_type,
+        "supplier_name": supplier.supplier_name,
+        "manufacturer_name": result["manufacturer_name"],
+        "date_of_receipt": result["date_of_receipt"],
+        "manufacture_date": str(batch.manufacture_date) if batch.manufacture_date else "",
+        "expiry_date": str(batch.expiry_date) if batch.expiry_date else "",
         "status": batch.status,
-        "qr_code_path": batch.qr_code_path,
+        "created_at": str(batch.created_at),
+        "qr_data": result["qr_data"],
+        "qr_base64": result["qr_base64"],
     }
 
 
@@ -52,6 +68,7 @@ async def list_batches(
             "expiry_date": b.expiry_date,
             "retest_date": b.retest_date,
             "retest_cycle": b.retest_cycle,
+            "created_at": b.created_at,
         }
         for b in batches
     ]
@@ -70,6 +87,8 @@ async def get_batch(
         "material": {"id": batch.material.id, "name": batch.material.material_name, "code": batch.material.material_code} if batch.material else None,
         "supplier": {"id": batch.supplier.id, "name": batch.supplier.supplier_name} if batch.supplier else None,
         "grn_number": batch.grn.grn_number if batch.grn else None,
+        "date_of_receipt": str(batch.grn.received_date) if batch.grn and batch.grn.received_date else None,
+        "manufacturer_name": batch.manufacturer_name,
         "manufacture_date": batch.manufacture_date,
         "expiry_date": batch.expiry_date,
         "pack_size": batch.pack_size,

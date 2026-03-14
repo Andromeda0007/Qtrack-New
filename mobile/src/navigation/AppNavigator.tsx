@@ -10,7 +10,14 @@ import { ChangePasswordScreen } from '../screens/auth/ChangePasswordScreen';
 import { MainNavigator } from './MainNavigator';
 import { ChatRoomScreen } from '../screens/chat/ChatRoomScreen';
 import { ProfileScreen } from '../screens/profile/ProfileScreen';
-import { CreateGRNScreen } from '../screens/warehouse/CreateGRNScreen';
+import { CreateCardScreen } from '../screens/warehouse/CreateCardScreen';
+import { BatchDetailScreen } from '../screens/warehouse/BatchDetailScreen';
+import { QCScanScreen } from '../screens/scanner/QRScannerScreen';
+import { QuarantineListScreen } from '../screens/inventory/QuarantineListScreen';
+import { UnderTestListScreen } from '../screens/inventory/UnderTestListScreen';
+import { ApprovedListScreen } from '../screens/inventory/ApprovedListScreen';
+import { RejectedListScreen } from '../screens/inventory/RejectedListScreen';
+import { RetestListScreen } from '../screens/inventory/RetestListScreen';
 import { Colors } from '../utils/theme';
 
 const Stack = createNativeStackNavigator();
@@ -59,10 +66,25 @@ export const AppNavigator: React.FC = () => {
               options={{ headerShown: false }}
             />
             <Stack.Screen
-              name="CreateGRN"
-              component={CreateGRNScreen}
+              name="CreateCard"
+              component={CreateCardScreen}
               options={{ headerShown: false }}
             />
+            <Stack.Screen
+              name="BatchDetail"
+              component={BatchDetailScreen}
+              options={{ headerShown: false }}
+            />
+            <Stack.Screen
+              name="Scanner"
+              component={QCScanScreen}
+              options={{ headerShown: false }}
+            />
+            <Stack.Screen name="QuarantineList" component={QuarantineListScreen} options={{ headerShown: false }} />
+            <Stack.Screen name="UnderTestList"  component={UnderTestListScreen}  options={{ headerShown: false }} />
+            <Stack.Screen name="ApprovedList"   component={ApprovedListScreen}   options={{ headerShown: false }} />
+            <Stack.Screen name="RejectedList"   component={RejectedListScreen}   options={{ headerShown: false }} />
+            <Stack.Screen name="RetestList"     component={RetestListScreen}     options={{ headerShown: false }} />
           </>
         )}
       </Stack.Navigator>

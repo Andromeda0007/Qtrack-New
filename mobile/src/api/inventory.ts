@@ -2,18 +2,20 @@ import apiClient from './client';
 import { Batch, Material, Supplier, StockMovement } from '../types';
 
 export const inventoryApi = {
-  // GRN
+  // Create product card (GRN)
   createGRN: async (data: {
-    material_id: number;
-    supplier_id?: number;
+    item_code: string;
+    item_name: string;
+    grn_number: string;
     batch_number: string;
-    manufacture_date?: string;
-    expiry_date?: string;
-    pack_size?: number;
-    pack_type?: string;
     total_quantity: number;
-    invoice_number?: string;
-    remarks?: string;
+    container_quantity: number;
+    pack_type: string;
+    supplier_name: string;
+    manufacturer_name: string;
+    date_of_receipt: string;
+    manufacture_date: string;
+    expiry_date: string;
   }) => {
     const res = await apiClient.post('/inventory/grn', data);
     return res.data;

@@ -97,6 +97,7 @@ class Batch(Base):
     qr_code_path: Mapped[str | None] = mapped_column(String(500))
     retest_date: Mapped[date | None] = mapped_column(Date, index=True)
     retest_cycle: Mapped[int] = mapped_column(Integer, default=0)
+    manufacturer_name: Mapped[str | None] = mapped_column(String(150))
     remarks: Mapped[str | None] = mapped_column(Text)
     created_by: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)

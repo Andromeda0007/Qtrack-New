@@ -1,7 +1,17 @@
 import os
+import base64
 import qrcode
 from qrcode.image.pure import PyPNGImage
 from app.config import settings
+
+
+def get_qr_base64(filepath: str) -> str:
+    """Read a saved QR PNG and return base64-encoded string."""
+    try:
+        with open(filepath, "rb") as f:
+            return base64.b64encode(f.read()).decode("utf-8")
+    except Exception:
+        return ""
 
 
 def generate_batch_qr(batch_id: int, batch_number: str) -> str:

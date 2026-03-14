@@ -7,12 +7,14 @@ from datetime import datetime, date
 class GRNCreate(BaseModel):
     item_code: str
     item_name: str
-    supplier_name: str
-    manufacturer_name: str
+    grn_number: str
     batch_number: str
     total_quantity: Decimal
     container_quantity: Decimal
     pack_type: str = "BAG"
+    supplier_name: str
+    manufacturer_name: str
+    date_of_receipt: date
     manufacture_date: date
     expiry_date: date
 
@@ -55,6 +57,7 @@ class BatchResponse(BaseModel):
     material_code: Optional[str] = None
     supplier_id: Optional[int] = None
     supplier_name: Optional[str] = None
+    manufacturer_name: Optional[str] = None
     batch_number: str
     grn_number: Optional[str] = None
     manufacture_date: Optional[date] = None

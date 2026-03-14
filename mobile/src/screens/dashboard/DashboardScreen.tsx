@@ -35,19 +35,12 @@ interface QuickAction {
 const ROLE_QUICK_ACTIONS: Record<RoleName, QuickAction[]> = {
   WAREHOUSE_USER: [
     {
-      label: "Create GRN",
+      label: "Create Card",
       icon: "add-circle",
       color: Colors.primary,
-      screen: "CreateGRN",
+      screen: "CreateCard",
     },
-    { label: "Scan QR", icon: "scan", color: Colors.accent, screen: "Scanner" },
-    {
-      label: "Issue Stock",
-      icon: "arrow-up-circle",
-      color: Colors.success,
-      screen: "Batches",
-    },
-    { label: "All Stock", icon: "cube", color: Colors.info, screen: "Batches" },
+    { label: "Scan QR", icon: "scan", color: Colors.info, screen: "Scanner" },
   ],
   WAREHOUSE_HEAD: [
     {
@@ -254,58 +247,65 @@ export const DashboardScreen: React.FC = () => {
         <View style={styles.body}>
           {/* Product Stats */}
           <Text style={styles.sectionTitle}>Product Stats</Text>
-          <View style={styles.statsGrid}>
-            {[
-              {
-                label: "Quarantine",
-                value: stats.quarantine,
-                color: Colors.warning,
-                icon: "hourglass-outline",
-              },
-              {
-                label: "Under Test",
-                value: stats.underTest,
-                color: Colors.info,
-                icon: "flask",
-              },
-              {
-                label: "Approved",
-                value: stats.approved,
-                color: Colors.success,
-                icon: "checkmark-circle",
-              },
-              {
-                label: "Rejected",
-                value: stats.rejected,
-                color: Colors.danger,
-                icon: "close-circle",
-              },
-            ].map((stat) => (
+          {role === "WAREHOUSE_USER" ? (
+            <View style={styles.statsGrid}>
               <TouchableOpacity
-                key={stat.label}
-                style={styles.statCard}
-                onPress={() => navigation.navigate("Batches")}
+                style={styles.statCardFull}
+                onPress={() => navigation.navigate("QuarantineList")}
                 activeOpacity={0.8}
               >
                 <View
                   style={[
-                    styles.statIconWrap,
-                    { backgroundColor: stat.color + "18" },
+                    styles.statIconWrapLg,
+                    { backgroundColor: Colors.warning + "18" },
                   ]}
                 >
                   <Ionicons
-                    name={stat.icon as any}
-                    size={22}
-                    color={stat.color}
+                    name="hourglass-outline"
+                    size={36}
+                    color={Colors.warning}
                   />
                 </View>
-                <Text style={[styles.statValue, { color: stat.color }]}>
-                  {stat.value}
+                <Text style={[styles.statValueLg, { color: Colors.warning, flex: 1 }]}>
+                  {stats.quarantine}
                 </Text>
-                <Text style={styles.statLabel}>{stat.label}</Text>
+                <Ionicons name="chevron-forward" size={22} color={Colors.warning} />
               </TouchableOpacity>
-            ))}
-          </View>
+            </View>
+          ) : (
+            <View style={styles.statsGrid}>
+              {[
+                { label: "Quarantine", value: stats.quarantine, color: Colors.warning,  icon: "hourglass-outline",        screen: "QuarantineList" },
+                { label: "Under Test", value: stats.underTest,  color: Colors.info,     icon: "flask",                    screen: "UnderTestList"  },
+                { label: "Approved",   value: stats.approved,   color: Colors.success,  icon: "checkmark-circle",         screen: "ApprovedList"   },
+                { label: "Rejected",   value: stats.rejected,   color: Colors.danger,   icon: "close-circle",             screen: "RejectedList"   },
+              ].map((stat) => (
+                <TouchableOpacity
+                  key={stat.label}
+                  style={styles.statCard}
+                  onPress={() => navigation.navigate(stat.screen)}
+                  activeOpacity={0.8}
+                >
+                  <View
+                    style={[
+                      styles.statIconWrap,
+                      { backgroundColor: stat.color + "18" },
+                    ]}
+                  >
+                    <Ionicons
+                      name={stat.icon as any}
+                      size={22}
+                      color={stat.color}
+                    />
+                  </View>
+                  <Text style={[styles.statValue, { color: stat.color }]}>
+                    {stat.value}
+                  </Text>
+                  <Text style={styles.statLabel}>{stat.label}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
 
           {/* Quick Actions */}
           {quickActions.length > 0 && (
@@ -422,6 +422,38 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.md,
     paddingHorizontal: Spacing.sm,
     ...Shadow.sm,
+  },
+  statCardFull: {
+    width: "100%",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 25,
+    backgroundColor: Colors.surface,
+    borderRadius: 16,
+    paddingVertical: Spacing.lg,
+    paddingHorizontal: Spacing.lg,
+    ...Shadow.sm,
+  },
+  statIconWrapLg: {
+    width: 64,
+    height: 64,
+    borderRadius: 18,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  statCardFullText: {
+    flexDirection: "column",
+    gap: 4,
+  },
+  statValueLg: {
+    fontSize: 36,
+    fontWeight: "600",
+    lineHeight: 40,
+  },
+  statLabelLg: {
+    fontSize: FontSize.sm,
+    color: Colors.textSecondary,
+    fontWeight: "600",
   },
   statIconWrap: {
     width: 38,
