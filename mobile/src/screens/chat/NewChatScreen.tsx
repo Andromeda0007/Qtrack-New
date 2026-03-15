@@ -5,7 +5,6 @@ import {
   StyleSheet,
   SectionList,
   TouchableOpacity,
-  TextInput,
   ActivityIndicator,
   Pressable,
 } from "react-native";
@@ -13,6 +12,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 import { chatApi } from "../../api/chat";
+import { SearchInput } from "../../components/common/SearchInput";
 import {
   Colors,
   FontSize,
@@ -95,12 +95,13 @@ export const NewChatScreen: React.FC = () => {
           onPress={() => navigation.goBack()}
           style={styles.backBtn}
         >
-          <Ionicons name="chevron-back" size={22} color={Colors.textPrimary} />
+          <Ionicons name="chevron-back" size={22} color="#fff" />
         </TouchableOpacity>
-        <Text style={styles.title}>New Message</Text>
+        <Text style={styles.headerTitle}>New Message</Text>
         <View style={{ width: 38 }} />
       </View>
 
+      <View style={styles.content}>
       <Pressable
         style={({ pressed }) => [
           styles.createGroupRow,
@@ -116,21 +117,12 @@ export const NewChatScreen: React.FC = () => {
       </Pressable>
 
       <View style={styles.searchWrap}>
-        <Ionicons name="search-outline" size={18} color={Colors.textMuted} />
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Search..."
-          placeholderTextColor={Colors.textMuted}
+        <SearchInput
           value={query}
           onChangeText={setQuery}
+          placeholder="Search..."
           autoFocus
-          autoCapitalize="none"
         />
-        {query.length > 0 && (
-          <TouchableOpacity onPress={() => setQuery("")}>
-            <Ionicons name="close-circle" size={18} color={Colors.textMuted} />
-          </TouchableOpacity>
-        )}
       </View>
 
       {loading ? (
@@ -174,20 +166,20 @@ export const NewChatScreen: React.FC = () => {
           stickySectionHeadersEnabled
         />
       )}
+      </View>
     </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: Colors.surface },
+  safe: { flex: 1, backgroundColor: Colors.primary },
   header: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: Spacing.md,
     paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.borderLight,
+    backgroundColor: Colors.primary,
   },
   backBtn: {
     width: 38,
@@ -195,11 +187,12 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  title: {
+  headerTitle: {
     fontSize: FontSize.lg,
     fontWeight: "800",
-    color: Colors.textPrimary,
+    color: "#fff",
   },
+  content: { flex: 1, backgroundColor: Colors.background },
 
   createGroupRow: {
     flexDirection: "row",
@@ -208,9 +201,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.md,
     paddingVertical: 9,
     marginHorizontal: Spacing.md,
-    marginTop: Spacing.sm,
+    marginTop: Spacing.md,
     marginBottom: Spacing.sm,
-    backgroundColor: Colors.background,
+    backgroundColor: "#fff",
     borderRadius: BorderRadius.md,
     borderWidth: 1,
     borderColor: Colors.borderLight,
@@ -233,19 +226,10 @@ const styles = StyleSheet.create({
   },
 
   searchWrap: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.sm,
-    margin: Spacing.md,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: 11,
-    backgroundColor: Colors.background,
-    borderRadius: BorderRadius.md,
-    borderWidth: 1,
-    borderColor: Colors.borderLight,
-    ...Shadow.sm,
+    marginHorizontal: Spacing.md,
+    marginTop: Spacing.md,
+    marginBottom: Spacing.xs,
   },
-  searchInput: { flex: 1, fontSize: FontSize.sm, color: Colors.textPrimary },
 
   centered: { flex: 1, justifyContent: "center", alignItems: "center" },
 

@@ -16,6 +16,7 @@ import { useNavigation } from "@react-navigation/native";
 import { createMaterial } from "../store/materialSlice";
 import { COLORS } from "../config/constants";
 import DateTimePicker from "@react-native-community/datetimepicker";
+import { formatDate } from "../utils/formatters";
 
 const CreateMaterialScreen = () => {
   const dispatch = useDispatch();
@@ -257,7 +258,7 @@ const CreateMaterialScreen = () => {
             }
           >
             <Text style={styles.dateText}>
-              {formData.dateOfReceipt.toLocaleDateString()}
+              {formatDate(formData.dateOfReceipt.toISOString())}
             </Text>
           </TouchableOpacity>
 
@@ -268,7 +269,7 @@ const CreateMaterialScreen = () => {
           >
             <Text style={[styles.dateText, !formData.mfgDate && styles.placeholderText]}>
               {formData.mfgDate
-                ? formData.mfgDate.toLocaleDateString()
+                ? formatDate(formData.mfgDate.toISOString())
                 : "Select date (optional)"}
             </Text>
           </TouchableOpacity>
@@ -280,7 +281,7 @@ const CreateMaterialScreen = () => {
           >
             <Text style={[styles.dateText, !formData.expDate && styles.placeholderText]}>
               {formData.expDate
-                ? formData.expDate.toLocaleDateString()
+                ? formatDate(formData.expDate.toISOString())
                 : "Select date (optional)"}
             </Text>
           </TouchableOpacity>

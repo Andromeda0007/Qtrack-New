@@ -1,26 +1,19 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   View, Text, StyleSheet, SectionList, TouchableOpacity,
-  RefreshControl, ActivityIndicator, TextInput, Pressable,
+  RefreshControl, ActivityIndicator, Pressable,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { chatApi, createChatWebSocket } from '../../api/chat';
 import { useAuthStore } from '../../store/authStore';
+import { SearchInput } from '../../components/common/SearchInput';
 import { Colors, FontSize, Spacing, BorderRadius, Shadow } from '../../utils/theme';
+import { formatTimeOrDateIST } from '../../utils/formatters';
 import { ChatConversation } from '../../types';
 
 type UserResult = { id: number; name: string; username: string; role: string | null };
-
-const formatTime = (iso: string | null): string => {
-  if (!iso) return '';
-  const d = new Date(iso);
-  const now = new Date();
-  if (d.toDateString() === now.toDateString())
-    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  return d.toLocaleDateString([], { day: '2-digit', month: 'short' });
-};
 
 const Avatar: React.FC<{ name: string; size?: number; isGroup?: boolean }> = ({ name, size = 48, isGroup }) => (
   <View style={[styles.avatar, { width: size, height: size, borderRadius: size / 2 }]}>
@@ -138,7 +131,12 @@ export const ChatRoomsScreen: React.FC = () => {
   }, [query, rooms, allUsers]);
 
   const openRoom = (room: ChatConversation) => {
-    navigation.navigate('ChatRoom', { roomId: room.id, roomName: room.name });
+    navigation.navigate('ChatRoom', {
+      roomId: room.id,
+      roomName: room.name,
+      otherUserId: room.other_user?.id,
+      isGroup: room.is_group ?? false,
+    });
   };
 
   const startDM = (user: UserResult) => {
@@ -158,7 +156,7 @@ export const ChatRoomsScreen: React.FC = () => {
           <View style={styles.roomInfo}>
             <View style={styles.roomTop}>
               <Text style={styles.roomName} numberOfLines={1}>{r.name}</Text>
-              <Text style={styles.roomTime}>{formatTime(r.last_message_at)}</Text>
+              <Text style={styles.roomTime}>{formatTimeOrDateIST(r.last_message_at)}</Text>
             </View>
             <View style={styles.roomBottom}>
               <Text style={styles.lastMsg} numberOfLines={1}>
@@ -192,30 +190,23 @@ export const ChatRoomsScreen: React.FC = () => {
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
-      {/* Header */}
+      {/* Header — primary to match app */}
       <View style={styles.header}>
-        <Text style={styles.title}>Chats</Text>
+        <Text style={styles.headerTitle}>Chats</Text>
         <TouchableOpacity style={styles.newBtn} onPress={() => navigation.navigate('NewChat')} activeOpacity={0.8}>
-          <Ionicons name="add" size={28} color={Colors.primary} />
+          <Ionicons name="add" size={28} color="#fff" />
         </TouchableOpacity>
       </View>
 
+      {/* Search + list */}
+      <View style={styles.content}>
       {/* Search */}
       <View style={styles.searchWrap}>
-        <Ionicons name="search-outline" size={17} color={Colors.textMuted} />
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Search chats or people..."
-          placeholderTextColor={Colors.textMuted}
+        <SearchInput
           value={query}
           onChangeText={setQuery}
-          autoCapitalize="none"
+          placeholder="Search chats or people..."
         />
-        {query.length > 0 && (
-          <TouchableOpacity onPress={() => setQuery('')}>
-            <Ionicons name="close-circle" size={17} color={Colors.textMuted} />
-          </TouchableOpacity>
-        )}
       </View>
 
       {loading ? (
@@ -254,27 +245,27 @@ export const ChatRoomsScreen: React.FC = () => {
           stickySectionHeadersEnabled={false}
         />
       )}
+      </View>
     </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: Colors.surface },
+  safe: { flex: 1, backgroundColor: Colors.primary },
   header: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
     paddingHorizontal: Spacing.md, paddingVertical: 12,
+    backgroundColor: Colors.primary,
   },
-  title: { fontSize: FontSize.xl, fontWeight: '800', color: Colors.textPrimary },
+  headerTitle: { fontSize: FontSize.xl, fontWeight: '800', color: '#fff' },
   newBtn: { padding: 4 },
+  content: { flex: 1, backgroundColor: Colors.background },
 
   searchWrap: {
-    flexDirection: 'row', alignItems: 'center', gap: Spacing.sm,
-    marginHorizontal: Spacing.md, marginBottom: Spacing.sm,
-    paddingHorizontal: Spacing.md, paddingVertical: 10,
-    backgroundColor: Colors.background, borderRadius: BorderRadius.md,
-    borderWidth: 1, borderColor: Colors.borderLight, ...Shadow.sm,
+    marginHorizontal: Spacing.md,
+    marginTop: Spacing.md,
+    marginBottom: Spacing.sm,
   },
-  searchInput: { flex: 1, fontSize: 14, color: Colors.textPrimary },
 
   centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
 

@@ -135,7 +135,7 @@ async def delete_message(
     return {"ok": True}
 
 
-# ─── REST: User search ────────────────────────────────────────────────────────
+# ─── REST: User search (must be before /users/{user_id}/profile) ───────────────
 
 @router.get("/users/search")
 async def search_users(
@@ -144,3 +144,22 @@ async def search_users(
     db: AsyncSession = Depends(get_db),
 ):
     return await service.search_users(db, q, current_user.id)
+
+
+@router.get("/users/{user_id}/profile")
+async def get_contact_profile(
+    user_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    from app.users import service as users_service
+    user = await users_service.get_user_by_id(db, user_id)
+    role_name = user.role.role_name if user.role else None
+    return {
+        "id": user.id,
+        "name": user.name or "",
+        "username": user.username or "",
+        "email": user.email or "",
+        "phone": str(user.phone) if user.phone is not None else "",
+        "role_name": role_name or "",
+    }

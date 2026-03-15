@@ -10,6 +10,7 @@ import { inventoryApi } from '../../api/inventory';
 import { Input } from '../../components/common/Input';
 import { Button } from '../../components/common/Button';
 import { Colors, FontSize, Spacing, BorderRadius, Shadow } from '../../utils/theme';
+import { formatDateTime } from '../../utils/formatters';
 import { extractError } from '../../api/client';
 
 const PACK_TYPES = [
@@ -297,7 +298,7 @@ export const CreateCardScreen: React.FC = () => {
               <View style={styles.divider} />
               <CardRow
                 label="Created At"
-                value={card?.created_at ? new Date(card.created_at).toLocaleString() : ''}
+                value={card?.created_at ? formatDateTime(card.created_at) : ''}
               />
             </View>
 

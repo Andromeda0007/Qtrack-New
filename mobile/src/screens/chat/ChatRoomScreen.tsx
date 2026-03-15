@@ -4,24 +4,21 @@ import {
   TouchableOpacity, KeyboardAvoidingView, Platform,
   ActivityIndicator, Modal, Pressable,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { chatApi, createChatWebSocket } from '../../api/chat';
 import { useAuthStore } from '../../store/authStore';
 import { Colors, FontSize, Spacing } from '../../utils/theme';
+import { formatTimeIST } from '../../utils/formatters';
 import { ChatMessage } from '../../types';
-
-const formatTime = (iso: string): string => {
-  const d = new Date(iso);
-  return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-};
 
 export const ChatRoomScreen: React.FC = () => {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
-  const { roomId: initialRoomId, userId, roomName } = route.params;
+  const { roomId: initialRoomId, userId, roomName, otherUserId: otherUserIdParam, isGroup } = route.params;
+  const otherUserId = otherUserIdParam ?? userId ?? null;
   const { user, token } = useAuthStore();
 
   const [roomId, setRoomId] = useState<number | null>(initialRoomId ?? null);
@@ -40,6 +37,7 @@ export const ChatRoomScreen: React.FC = () => {
 
   const flatListRef = useRef<FlatList>(null);
   const wsRef = useRef<WebSocket | null>(null);
+  const insets = useSafeAreaInsets();
 
   const connectWS = useCallback((rid: number) => {
     if (!token || wsRef.current) return;
@@ -216,7 +214,7 @@ export const ChatRoomScreen: React.FC = () => {
                 {isDeleted ? 'This message was deleted' : item.content}
               </Text>
               <Text style={[styles.bubbleTime, isMe && !isDeleted && styles.bubbleTimeMe]}>
-                {formatTime(item.created_at)}
+                {formatTimeIST(item.created_at)}
               </Text>
             </View>
           </TouchableOpacity>
@@ -225,22 +223,38 @@ export const ChatRoomScreen: React.FC = () => {
     );
   };
 
+  const bottomPadding = Math.round(insets.bottom * 0.8);
+
   return (
-    <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
-      {/* Header */}
+    <SafeAreaView style={styles.safe} edges={[]}>
+      {/* Header — primary, extends into status bar */}
+      <View style={[styles.headerWrap, { paddingTop: insets.top || 12 }]}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
           <Ionicons name="chevron-back" size={22} color="#fff" />
         </TouchableOpacity>
-        <View style={styles.headerInfo}>
-          <Text style={styles.headerName} numberOfLines={1}>{roomName}</Text>
-          <View style={styles.statusRow}>
-            <View style={[styles.statusDot, { backgroundColor: connected ? '#4ade80' : '#9ca3af' }]} />
-            <Text style={styles.statusText}>{connected ? 'Online' : 'Connecting...'}</Text>
+        <TouchableOpacity
+          style={styles.headerInfo}
+          onPress={() => otherUserId && navigation.navigate('ChatContactDetail', { userId: otherUserId, displayName: roomName })}
+          disabled={!otherUserId}
+          activeOpacity={otherUserId ? 0.7 : 1}
+        >
+          <View style={styles.headerAvatar}>
+            <Text style={styles.headerAvatarText}>{(roomName || '?')[0].toUpperCase()}</Text>
           </View>
-        </View>
+          <View style={styles.headerNameWrap}>
+            <Text style={styles.headerName} numberOfLines={1}>{roomName}</Text>
+            {otherUserId ? (
+              <Text style={styles.headerHint} numberOfLines={1}>Tap for contact info</Text>
+            ) : isGroup ? (
+              <Text style={styles.headerHint} numberOfLines={1}>Tap here for group info</Text>
+            ) : null}
+          </View>
+        </TouchableOpacity>
+      </View>
       </View>
 
+      <View style={styles.chatContent}>
       {/* Messages */}
       {loading ? (
         <View style={styles.centered}>
@@ -264,9 +278,9 @@ export const ChatRoomScreen: React.FC = () => {
         />
       )}
 
-      {/* Input */}
+      {/* Input — bottom padding 80% of safe area (20% reduction) */}
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <View style={styles.inputBar}>
+        <View style={[styles.inputBar, { paddingBottom: Spacing.sm + bottomPadding }]}>
           <TextInput
             style={styles.input}
             placeholder="Message..."
@@ -286,6 +300,7 @@ export const ChatRoomScreen: React.FC = () => {
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
+      </View>
 
       {/* Action Sheet Modal */}
       <Modal visible={!!selectedMsg} transparent animationType="slide" onRequestClose={() => setSelectedMsg(null)}>
@@ -335,18 +350,26 @@ export const ChatRoomScreen: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: Colors.background },
+  safe: { flex: 1, backgroundColor: '#fff' },
 
+  headerWrap: { backgroundColor: Colors.primary },
   header: {
     flexDirection: 'row', alignItems: 'center',
-    backgroundColor: Colors.primary, paddingHorizontal: Spacing.sm, paddingVertical: 10, gap: 4,
+    paddingHorizontal: Spacing.sm, paddingVertical: 10, gap: 10,
   },
   backBtn: { width: 38, height: 38, justifyContent: 'center', alignItems: 'center' },
-  headerInfo: { flex: 1 },
+  headerInfo: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10 },
+  headerNameWrap: { flex: 1, justifyContent: 'center', minWidth: 0 },
   headerName: { fontSize: FontSize.md, fontWeight: '700', color: '#fff' },
-  statusRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 2 },
-  statusDot: { width: 7, height: 7, borderRadius: 4 },
-  statusText: { fontSize: 11, color: 'rgba(255,255,255,0.75)' },
+  headerHint: { fontSize: 11, color: 'rgba(255,255,255,0.7)', marginTop: 2 },
+  headerAvatar: {
+    width: 48, height: 48, borderRadius: 24,
+    backgroundColor: 'rgba(255,255,255,0.3)',
+    justifyContent: 'center', alignItems: 'center',
+  },
+  headerAvatarText: { fontSize: 18, fontWeight: '700', color: '#fff' },
+
+  chatContent: { flex: 1, backgroundColor: Colors.background },
 
   centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   messageList: { padding: Spacing.md, paddingBottom: 8 },
@@ -394,7 +417,7 @@ const styles = StyleSheet.create({
 
   inputBar: {
     flexDirection: 'row', alignItems: 'flex-end', gap: Spacing.sm,
-    paddingHorizontal: Spacing.sm, paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm,
     backgroundColor: '#fff', borderTopWidth: 1, borderTopColor: Colors.borderLight,
   },
   input: {

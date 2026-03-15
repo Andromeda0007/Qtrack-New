@@ -9,6 +9,7 @@ import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { chatApi } from '../../api/chat';
 import { useAuthStore } from '../../store/authStore';
+import { SearchInput } from '../../components/common/SearchInput';
 import { Colors, FontSize, Spacing, BorderRadius, Shadow } from '../../utils/theme';
 
 type UserResult = { id: number; name: string; username: string; role: string | null };
@@ -108,7 +109,7 @@ export const NewGroupScreen: React.FC = () => {
     setCreating(true);
     try {
       const { room_id } = await chatApi.createGroup(groupName.trim(), Array.from(selectedIds));
-      navigation.replace('ChatRoom', { roomId: room_id, roomName: groupName.trim() });
+      navigation.replace('ChatRoom', { roomId: room_id, roomName: groupName.trim(), isGroup: true });
     } catch {
       setCreating(false);
     }
@@ -118,20 +119,11 @@ export const NewGroupScreen: React.FC = () => {
   const renderStep1 = () => (
     <>
       <View style={styles.searchWrap}>
-        <Ionicons name="search-outline" size={20} color={Colors.textMuted} />
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Search contacts"
-          placeholderTextColor={Colors.textMuted}
+        <SearchInput
           value={query}
           onChangeText={setQuery}
-          autoCapitalize="none"
+          placeholder="Search contacts"
         />
-        {query.length > 0 && (
-          <TouchableOpacity onPress={() => setQuery('')}>
-            <Ionicons name="close-circle" size={20} color={Colors.textMuted} />
-          </TouchableOpacity>
-        )}
       </View>
 
       {loading ? (
@@ -287,13 +279,15 @@ export const NewGroupScreen: React.FC = () => {
         <View style={{ width: 44 }} />
       </View>
 
-      {step === STEP_1 ? renderStep1() : renderStep2()}
+      <View style={styles.stepContainer}>
+        {step === STEP_1 ? renderStep1() : renderStep2()}
+      </View>
     </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#f0f2f5' },
+  safe: { flex: 1, backgroundColor: Colors.primary },
   keyboard: { flex: 1 },
 
   header: {
@@ -315,20 +309,13 @@ const styles = StyleSheet.create({
   },
   stepDotActive: { backgroundColor: '#fff' },
 
+  stepContainer: { flex: 1, backgroundColor: '#f0f2f5' },
+
   searchWrap: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.sm,
     marginHorizontal: Spacing.md,
     marginTop: Spacing.md,
     marginBottom: 4,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: 12,
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    ...Shadow.sm,
   },
-  searchInput: { flex: 1, fontSize: FontSize.md, color: Colors.textPrimary },
 
   listContent: { paddingBottom: 88 },
   sectionHeader: {

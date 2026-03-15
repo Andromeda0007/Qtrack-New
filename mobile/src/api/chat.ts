@@ -38,6 +38,13 @@ export const chatApi = {
     const res = await apiClient.get('/chat/users/search', { params: { q } });
     return res.data;
   },
+
+  getContactProfile: async (userId: number): Promise<{
+    id: number; name: string; username: string; email: string; phone: string; role_name: string;
+  }> => {
+    const res = await apiClient.get(`/chat/users/${userId}/profile`);
+    return res.data;
+  },
 };
 
 export const createChatWebSocket = (token: string): WebSocket => {

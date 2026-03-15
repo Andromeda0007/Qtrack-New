@@ -13,6 +13,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import api from "../config/api";
 import { API_ENDPOINTS, COLORS, ROLE_COLORS } from "../config/constants";
+import { formatDate } from "../utils/formatters";
 
 export default function AdminApprovalScreen() {
   const [pendingUsers, setPendingUsers] = useState([]);
@@ -137,7 +138,7 @@ export default function AdminApprovalScreen() {
           <View style={styles.detailRow}>
             <Ionicons name="calendar-outline" size={16} color={COLORS.gray} style={styles.detailIcon} />
             <Text style={styles.detailText}>
-              Registered {new Date(item.created_at).toLocaleDateString()}
+              Registered {formatDate(item.created_at)}
             </Text>
           </View>
         </View>

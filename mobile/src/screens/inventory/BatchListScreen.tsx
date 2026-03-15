@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
-  RefreshControl, TextInput, ActivityIndicator,
+  RefreshControl, ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { inventoryApi } from '../../api/inventory';
+import { SearchInput } from '../../components/common/SearchInput';
 import { Card } from '../../components/common/Card';
 import { StatusBadge } from '../../components/common/StatusBadge';
 import { Colors, FontSize, Spacing } from '../../utils/theme';
@@ -99,20 +100,12 @@ export const BatchListScreen: React.FC = () => {
       </View>
 
       {/* Search */}
-      <View style={styles.searchBar}>
-        <Ionicons name="search" size={18} color={Colors.textMuted} />
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Search batch, material, GRN..."
+      <View style={styles.searchWrap}>
+        <SearchInput
           value={search}
           onChangeText={handleSearch}
-          placeholderTextColor={Colors.textMuted}
+          placeholder="Search batch, material, GRN..."
         />
-        {search ? (
-          <TouchableOpacity onPress={() => handleSearch('')}>
-            <Ionicons name="close-circle" size={18} color={Colors.textMuted} />
-          </TouchableOpacity>
-        ) : null}
       </View>
 
       {/* Status Filters */}
@@ -165,13 +158,7 @@ const styles = StyleSheet.create({
   header: { padding: Spacing.md, backgroundColor: Colors.primary, paddingBottom: Spacing.lg },
   title: { fontSize: FontSize.xl, fontWeight: '800', color: '#fff' },
   subtitle: { fontSize: FontSize.xs, color: 'rgba(255,255,255,0.7)', marginTop: 2 },
-  searchBar: {
-    flexDirection: 'row', alignItems: 'center', gap: Spacing.sm,
-    backgroundColor: '#fff', margin: Spacing.md, marginBottom: 0,
-    borderRadius: 10, paddingHorizontal: Spacing.md, paddingVertical: 10,
-    borderWidth: 1, borderColor: Colors.border,
-  },
-  searchInput: { flex: 1, fontSize: FontSize.sm, color: Colors.textPrimary },
+  searchWrap: { margin: Spacing.md, marginBottom: 0 },
   filterRow: { paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm, gap: Spacing.xs },
   filterChip: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20, backgroundColor: '#fff', borderWidth: 1, borderColor: Colors.border },
   filterChipActive: { backgroundColor: Colors.primary, borderColor: Colors.primary },

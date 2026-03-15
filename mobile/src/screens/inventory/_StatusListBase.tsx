@@ -1,12 +1,14 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
-  RefreshControl, TextInput, ActivityIndicator,
+  RefreshControl, ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { inventoryApi } from '../../api/inventory';
+import { SearchInput } from '../../components/common/SearchInput';
+import { formatDate } from '../../utils/formatters';
 import { Colors, FontSize, Spacing, Shadow, BorderRadius } from '../../utils/theme';
 
 type SortMode = 'last_created' | 'first_created' | 'expiry_soon';
@@ -94,7 +96,7 @@ export const StatusListBase: React.FC<Props> = ({ status, title, bgColor, textCo
             {item.expiry_date ? (
               <View style={styles.metaItem}>
                 <Ionicons name="calendar-outline" size={13} color={Colors.textMuted} />
-                <Text style={styles.metaText}>{formatDateDisplay(item.expiry_date)}</Text>
+                <Text style={styles.metaText}>{formatDate(item.expiry_date)}</Text>
               </View>
             ) : null}
             <View style={styles.metaItem}>
@@ -124,22 +126,7 @@ export const StatusListBase: React.FC<Props> = ({ status, title, bgColor, textCo
 
       {/* Search */}
       <View style={styles.searchRow}>
-        <View style={styles.searchBar}>
-          <Ionicons name="search-outline" size={17} color={Colors.textMuted} />
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Search"
-            value={search}
-            onChangeText={setSearch}
-            placeholderTextColor={Colors.textMuted}
-            autoCapitalize="none"
-          />
-          {search ? (
-            <TouchableOpacity onPress={() => setSearch('')}>
-              <Ionicons name="close-circle" size={17} color={Colors.textMuted} />
-            </TouchableOpacity>
-          ) : null}
-        </View>
+        <SearchInput value={search} onChangeText={setSearch} placeholder="Search..." />
       </View>
 
       {/* Sort Options */}
@@ -185,15 +172,6 @@ export const StatusListBase: React.FC<Props> = ({ status, title, bgColor, textCo
   );
 };
 
-const formatDateDisplay = (val: string | null | undefined): string => {
-  if (!val) return '—';
-  const parts = String(val).split('-');
-  if (parts.length === 3 && parts[0].length === 4) {
-    return `${parts[2]}-${parts[1]}-${parts[0]}`;
-  }
-  return val;
-};
-
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.surface },
   centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
@@ -207,14 +185,6 @@ const styles = StyleSheet.create({
   headerTitle: { fontSize: FontSize.lg, fontWeight: '800', color: '#fff' },
 
   searchRow: { paddingHorizontal: Spacing.md, paddingTop: Spacing.md, paddingBottom: Spacing.sm },
-  searchBar: {
-    flexDirection: 'row', alignItems: 'center', gap: Spacing.sm,
-    backgroundColor: Colors.surface, borderRadius: BorderRadius.md,
-    paddingHorizontal: Spacing.md, paddingVertical: 13,
-    borderWidth: 1, borderColor: Colors.borderLight,
-    ...Shadow.sm,
-  },
-  searchInput: { flex: 1, fontSize: 15, color: Colors.textPrimary },
 
   sortRow: {
     flexDirection: 'row', gap: Spacing.xs,
