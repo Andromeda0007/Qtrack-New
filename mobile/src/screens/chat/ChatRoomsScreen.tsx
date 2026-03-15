@@ -1,132 +1,317 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, FlatList, StyleSheet, TouchableOpacity, RefreshControl, Alert, TextInput, Modal } from 'react-native';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import {
+  View, Text, StyleSheet, SectionList, TouchableOpacity,
+  RefreshControl, ActivityIndicator, TextInput, Pressable,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
-import { chatApi } from '../../api/chat';
-import { Card } from '../../components/common/Card';
-import { Button } from '../../components/common/Button';
-import { Input } from '../../components/common/Input';
-import { Colors, FontSize, Spacing } from '../../utils/theme';
-import { ChatRoom } from '../../types';
-import { extractError } from '../../api/client';
+import { chatApi, createChatWebSocket } from '../../api/chat';
+import { useAuthStore } from '../../store/authStore';
+import { Colors, FontSize, Spacing, BorderRadius, Shadow } from '../../utils/theme';
+import { ChatConversation } from '../../types';
 
-const ROOM_TYPE_ICONS: Record<string, string> = {
-  GLOBAL: 'globe',
-  DEPARTMENT: 'people',
-  PRIVATE: 'lock-closed',
+type UserResult = { id: number; name: string; username: string; role: string | null };
+
+const formatTime = (iso: string | null): string => {
+  if (!iso) return '';
+  const d = new Date(iso);
+  const now = new Date();
+  if (d.toDateString() === now.toDateString())
+    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  return d.toLocaleDateString([], { day: '2-digit', month: 'short' });
 };
 
+const Avatar: React.FC<{ name: string; size?: number; isGroup?: boolean }> = ({ name, size = 48, isGroup }) => (
+  <View style={[styles.avatar, { width: size, height: size, borderRadius: size / 2 }]}>
+    {isGroup
+      ? <Ionicons name="people" size={size * 0.45} color="#fff" />
+      : <Text style={[styles.avatarText, { fontSize: size * 0.38 }]}>{(name || '?')[0].toUpperCase()}</Text>
+    }
+  </View>
+);
+
 export const ChatRoomsScreen: React.FC = () => {
-  const [rooms, setRooms] = useState<ChatRoom[]>([]);
+  const navigation = useNavigation<any>();
+  const { token } = useAuthStore();
+  const [rooms, setRooms] = useState<ChatConversation[]>([]);
+  const [allUsers, setAllUsers] = useState<UserResult[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [showCreate, setShowCreate] = useState(false);
-  const [roomName, setRoomName] = useState('');
-  const [creating, setCreating] = useState(false);
-  const navigation = useNavigation<any>();
+  const [query, setQuery] = useState('');
 
-  const loadRooms = useCallback(async () => {
+  const wsRef = useRef<WebSocket | null>(null);
+  const roomsRef = useRef<ChatConversation[]>([]);
+
+  // Keep ref in sync so WS handler always sees latest rooms
+  useEffect(() => { roomsRef.current = rooms; }, [rooms]);
+
+  const load = useCallback(async () => {
     try {
-      const data = await chatApi.getRooms();
-      setRooms(data);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
+      const [roomData, userData] = await Promise.all([
+        chatApi.getRooms(),
+        chatApi.searchUsers(''),
+      ]);
+      setRooms(roomData);
+      setAllUsers(userData);
+    } catch {}
+    finally { setLoading(false); setRefreshing(false); }
   }, []);
 
-  useEffect(() => { loadRooms(); }, []);
+  // Connect WS when screen is focused, disconnect on blur
+  useFocusEffect(
+    useCallback(() => {
+      load();
 
-  const handleCreateRoom = async () => {
-    if (!roomName.trim()) { Alert.alert('Error', 'Room name is required'); return; }
-    setCreating(true);
-    try {
-      await chatApi.createRoom(roomName.trim(), 'DEPARTMENT');
-      setRoomName('');
-      setShowCreate(false);
-      loadRooms();
-    } catch (error) {
-      Alert.alert('Error', extractError(error));
-    } finally {
-      setCreating(false);
+      if (token && !wsRef.current) {
+        const ws = createChatWebSocket(token);
+        wsRef.current = ws;
+
+        ws.onmessage = (event) => {
+          try {
+            const payload = JSON.parse(event.data);
+
+            if (payload.type === 'message') {
+              const rid: number = payload.room_id;
+              const existing = roomsRef.current.find(r => r.id === rid);
+
+              if (existing) {
+                // Update last message preview + timestamp in place, bubble room to top
+                setRooms(prev => {
+                  const updated = prev.map(r =>
+                    r.id === rid
+                      ? { ...r, last_message: payload.content, last_message_at: payload.created_at }
+                      : r
+                  );
+                  // Sort: room with latest message first
+                  return [...updated].sort((a, b) => {
+                    const ta = a.last_message_at ? new Date(a.last_message_at).getTime() : 0;
+                    const tb = b.last_message_at ? new Date(b.last_message_at).getTime() : 0;
+                    return tb - ta;
+                  });
+                });
+              } else {
+                // New room (first message ever) — reload full list
+                load();
+              }
+            }
+          } catch {}
+        };
+      }
+
+      return () => {
+        wsRef.current?.close();
+        wsRef.current = null;
+      };
+    }, [token])
+  );
+
+  const sections = useMemo(() => {
+    if (!query.trim()) {
+      return rooms.length > 0
+        ? [{ title: 'CONVERSATIONS', data: rooms.map(r => ({ type: 'room' as const, room: r })) }]
+        : [];
     }
+
+    const q = query.toLowerCase();
+
+    // Matching existing rooms
+    const matchedRooms = rooms
+      .filter(r => r.name?.toLowerCase().includes(q))
+      .map(r => ({ type: 'room' as const, room: r }));
+
+    // Users not already in a room
+    const existingUserIds = new Set(
+      rooms.filter(r => !r.is_group && r.other_user).map(r => r.other_user!.id)
+    );
+    const matchedUsers = allUsers
+      .filter(u =>
+        !existingUserIds.has(u.id) &&
+        (u.name.toLowerCase().includes(q) || u.username.toLowerCase().includes(q))
+      )
+      .map(u => ({ type: 'user' as const, user: u }));
+
+    const result = [];
+    if (matchedRooms.length) result.push({ title: 'CONVERSATIONS', data: matchedRooms });
+    if (matchedUsers.length) result.push({ title: 'START NEW CHAT', data: matchedUsers });
+    return result;
+  }, [query, rooms, allUsers]);
+
+  const openRoom = (room: ChatConversation) => {
+    navigation.navigate('ChatRoom', { roomId: room.id, roomName: room.name });
   };
 
-  const renderRoom = ({ item }: { item: ChatRoom }) => (
-    <TouchableOpacity onPress={() => navigation.navigate('ChatRoom', { roomId: item.id, roomName: item.name })} activeOpacity={0.8}>
-      <Card>
-        <View style={styles.roomRow}>
-          <View style={[styles.roomIcon, { backgroundColor: item.room_type === 'GLOBAL' ? Colors.primaryLight + '20' : Colors.accent + '20' }]}>
-            <Ionicons name={ROOM_TYPE_ICONS[item.room_type] as any} size={22} color={item.room_type === 'GLOBAL' ? Colors.primary : Colors.accent} />
-          </View>
+  const startDM = (user: UserResult) => {
+    navigation.navigate('ChatRoom', { userId: user.id, roomName: user.name });
+  };
+
+  type ListItem =
+    | { type: 'room'; room: ChatConversation }
+    | { type: 'user'; user: UserResult };
+
+  const renderItem = ({ item }: { item: ListItem }) => {
+    if (item.type === 'room') {
+      const r = item.room;
+      return (
+        <TouchableOpacity style={styles.roomItem} onPress={() => openRoom(r)} activeOpacity={0.75}>
+          <Avatar name={r.name ?? '?'} isGroup={r.is_group} />
           <View style={styles.roomInfo}>
-            <Text style={styles.roomName}>{item.name}</Text>
-            <Text style={styles.roomType}>{item.room_type.charAt(0) + item.room_type.slice(1).toLowerCase()}</Text>
+            <View style={styles.roomTop}>
+              <Text style={styles.roomName} numberOfLines={1}>{r.name}</Text>
+              <Text style={styles.roomTime}>{formatTime(r.last_message_at)}</Text>
+            </View>
+            <View style={styles.roomBottom}>
+              <Text style={styles.lastMsg} numberOfLines={1}>
+                {r.last_message ?? 'No messages yet'}
+              </Text>
+              {r.unread_count > 0 && (
+                <View style={styles.unreadBadge}>
+                  <Text style={styles.unreadText}>{r.unread_count}</Text>
+                </View>
+              )}
+            </View>
           </View>
-          <Ionicons name="chevron-forward" size={18} color={Colors.textMuted} />
+        </TouchableOpacity>
+      );
+    }
+
+    const u = item.user;
+    return (
+      <Pressable
+        style={({ pressed }) => [styles.roomItem, pressed && styles.itemPressed]}
+        onPress={() => startDM(u)}
+      >
+        <Avatar name={u.name} />
+        <View style={styles.roomInfo}>
+          <Text style={styles.roomName}>{u.name}</Text>
+          <Text style={styles.lastMsg}>@{u.username}</Text>
         </View>
-      </Card>
-    </TouchableOpacity>
-  );
+      </Pressable>
+    );
+  };
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
+      {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.title}>Chat</Text>
-        <TouchableOpacity onPress={() => setShowCreate(true)} style={styles.addBtn}>
-          <Ionicons name="add" size={24} color="#fff" />
+        <Text style={styles.title}>Chats</Text>
+        <TouchableOpacity style={styles.newBtn} onPress={() => navigation.navigate('NewChat')} activeOpacity={0.8}>
+          <Ionicons name="add" size={28} color={Colors.primary} />
         </TouchableOpacity>
       </View>
 
-      <FlatList
-        data={rooms}
-        keyExtractor={(r) => r.id.toString()}
-        renderItem={renderRoom}
-        style={styles.listArea}
-        contentContainerStyle={styles.list}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); loadRooms(); }} tintColor={Colors.primary} />}
-        ListEmptyComponent={
-          <View style={styles.empty}>
-            <Ionicons name="chatbubbles-outline" size={48} color={Colors.textMuted} />
-            <Text style={styles.emptyText}>No chat rooms yet</Text>
-            <Button title="Create a Room" onPress={() => setShowCreate(true)} variant="outline" />
-          </View>
-        }
-      />
+      {/* Search */}
+      <View style={styles.searchWrap}>
+        <Ionicons name="search-outline" size={17} color={Colors.textMuted} />
+        <TextInput
+          style={styles.searchInput}
+          placeholder="Search chats or people..."
+          placeholderTextColor={Colors.textMuted}
+          value={query}
+          onChangeText={setQuery}
+          autoCapitalize="none"
+        />
+        {query.length > 0 && (
+          <TouchableOpacity onPress={() => setQuery('')}>
+            <Ionicons name="close-circle" size={17} color={Colors.textMuted} />
+          </TouchableOpacity>
+        )}
+      </View>
 
-      <Modal visible={showCreate} animationType="slide" transparent>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalSheet}>
-            <Text style={styles.modalTitle}>Create Chat Room</Text>
-            <Input label="Room Name" placeholder="e.g. QC Team, Warehouse" value={roomName} onChangeText={setRoomName} />
-            <View style={styles.modalActions}>
-              <Button title="Cancel" onPress={() => setShowCreate(false)} variant="outline" style={{ flex: 1 }} />
-              <Button title="Create" onPress={handleCreateRoom} loading={creating} style={{ flex: 1 }} />
-            </View>
-          </View>
+      {loading ? (
+        <View style={styles.centered}>
+          <ActivityIndicator size="large" color={Colors.primary} />
         </View>
-      </Modal>
+      ) : (
+        <SectionList
+          sections={sections as any}
+          keyExtractor={(item: any) =>
+            item.type === 'room' ? `room-${item.room.id}` : `user-${item.user.id}`
+          }
+          renderSectionHeader={({ section }) =>
+            sections.length > 1 ? (
+              <View style={styles.sectionHeader}>
+                <Text style={styles.sectionTitle}>{(section as any).title}</Text>
+              </View>
+            ) : null
+          }
+          renderItem={renderItem as any}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor={Colors.primary} />}
+          ItemSeparatorComponent={() => <View style={styles.separator} />}
+          ListEmptyComponent={
+            query.trim() ? (
+              <View style={styles.empty}>
+                <Text style={styles.emptyText}>No results for "{query}"</Text>
+              </View>
+            ) : (
+              <View style={styles.empty}>
+                <Ionicons name="chatbubbles-outline" size={56} color={Colors.textMuted} />
+                <Text style={styles.emptyTitle}>No conversations yet</Text>
+                <Text style={styles.emptySubtitle}>Tap + to start a chat</Text>
+              </View>
+            )
+          }
+          stickySectionHeadersEnabled={false}
+        />
+      )}
     </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: Colors.primary },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: Spacing.md, backgroundColor: Colors.primary },
-  title: { fontSize: FontSize.xl, fontWeight: '800', color: '#fff' },
-  addBtn: { padding: 8 },
-  listArea: { flex: 1, backgroundColor: Colors.background },
-  list: { padding: Spacing.md },
-  roomRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
-  roomIcon: { width: 44, height: 44, borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
+  safe: { flex: 1, backgroundColor: Colors.surface },
+  header: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    paddingHorizontal: Spacing.md, paddingVertical: 12,
+  },
+  title: { fontSize: FontSize.xl, fontWeight: '800', color: Colors.textPrimary },
+  newBtn: { padding: 4 },
+
+  searchWrap: {
+    flexDirection: 'row', alignItems: 'center', gap: Spacing.sm,
+    marginHorizontal: Spacing.md, marginBottom: Spacing.sm,
+    paddingHorizontal: Spacing.md, paddingVertical: 10,
+    backgroundColor: Colors.background, borderRadius: BorderRadius.md,
+    borderWidth: 1, borderColor: Colors.borderLight, ...Shadow.sm,
+  },
+  searchInput: { flex: 1, fontSize: 14, color: Colors.textPrimary },
+
+  centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+
+  sectionHeader: {
+    paddingHorizontal: Spacing.md, paddingVertical: 6,
+    backgroundColor: Colors.background,
+  },
+  sectionTitle: {
+    fontSize: FontSize.xs, fontWeight: '700',
+    color: Colors.textMuted, textTransform: 'uppercase', letterSpacing: 0.5,
+  },
+
+  roomItem: {
+    flexDirection: 'row', alignItems: 'center',
+    paddingHorizontal: Spacing.md, paddingVertical: 12, gap: Spacing.md,
+    backgroundColor: Colors.surface,
+  },
+  avatar: {
+    backgroundColor: Colors.primary, justifyContent: 'center', alignItems: 'center',
+  },
+  avatarText: { color: '#fff', fontWeight: '700' },
   roomInfo: { flex: 1 },
-  roomName: { fontSize: FontSize.md, fontWeight: '600', color: Colors.textPrimary },
-  roomType: { fontSize: FontSize.xs, color: Colors.textSecondary, marginTop: 2 },
-  empty: { alignItems: 'center', paddingTop: Spacing.xxl, gap: Spacing.md },
-  emptyText: { fontSize: FontSize.md, color: Colors.textMuted },
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
-  modalSheet: { backgroundColor: '#fff', borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: Spacing.lg },
-  modalTitle: { fontSize: FontSize.lg, fontWeight: '700', color: Colors.textPrimary, marginBottom: Spacing.md },
-  modalActions: { flexDirection: 'row', gap: Spacing.sm },
+  roomTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 3 },
+  roomName: { fontSize: FontSize.md, fontWeight: '700', color: Colors.textPrimary, flex: 1, marginRight: 8 },
+  roomTime: { fontSize: FontSize.xs, color: Colors.textMuted },
+  roomBottom: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  lastMsg: { fontSize: FontSize.sm, color: Colors.textSecondary, flex: 1, marginRight: 8 },
+  unreadBadge: {
+    backgroundColor: Colors.primary, borderRadius: 10,
+    minWidth: 20, height: 20, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 5,
+  },
+  unreadText: { fontSize: 11, fontWeight: '700', color: '#fff' },
+  itemPressed: { backgroundColor: Colors.primary + '12' },
+  separator: { height: 1, backgroundColor: Colors.borderLight, marginLeft: 76 },
+
+  empty: { alignItems: 'center', paddingTop: 70, gap: 10 },
+  emptyTitle: { fontSize: FontSize.md, fontWeight: '700', color: Colors.textPrimary },
+  emptySubtitle: { fontSize: FontSize.sm, color: Colors.textMuted },
+  emptyText: { fontSize: FontSize.sm, color: Colors.textMuted },
 });

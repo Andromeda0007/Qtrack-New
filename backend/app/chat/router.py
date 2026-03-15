@@ -1,23 +1,89 @@
-from fastapi import APIRouter, Depends, Query
+import json
+from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect, Query, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
 from app.auth.dependencies import get_current_user
+from app.auth.service import decode_token
 from app.models.user_models import User
+from app.models.chat_models import ChatMember
 from app.chat import service
-from app.chat.schemas import ChatRoomCreate, AddMemberRequest, SendMessageRequest, MessageResponse
+from app.chat.ws_manager import manager
+from sqlalchemy import select
 
 router = APIRouter()
 
 
-@router.post("/rooms")
-async def create_room(
-    payload: ChatRoomCreate,
+# ─── WebSocket ────────────────────────────────────────────────────────────────
+
+@router.websocket("/ws")
+async def websocket_endpoint(websocket: WebSocket, token: str = Query(...), db: AsyncSession = Depends(get_db)):
+    try:
+        payload = decode_token(token)
+        user_id = int(payload.get("user_id"))
+    except Exception:
+        await websocket.close(code=4001)
+        return
+
+    await manager.connect(user_id, websocket)
+    try:
+        while True:
+            raw = await websocket.receive_text()
+            data = json.loads(raw)
+
+            room_id = data.get("room_id")
+            content = (data.get("content") or "").strip()
+            if not room_id or not content:
+                continue
+
+            # Verify sender is a member
+            member_check = await db.execute(
+                select(ChatMember).where(ChatMember.room_id == room_id, ChatMember.user_id == user_id)
+            )
+            if not member_check.scalar_one_or_none():
+                continue
+
+            # Save message
+            msg = await service.save_message(db, room_id, user_id, content)
+
+            # Broadcast to all room members
+            members_res = await db.execute(
+                select(ChatMember.user_id).where(ChatMember.room_id == room_id)
+            )
+            member_ids = [row[0] for row in members_res.fetchall()]
+            await manager.broadcast_to_users(member_ids, {"type": "message", **msg})
+
+    except WebSocketDisconnect:
+        manager.disconnect(user_id)
+
+
+# ─── REST: Rooms ──────────────────────────────────────────────────────────────
+
+@router.post("/dm")
+async def start_dm(
+    payload: dict,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    room = await service.create_room(db, payload.name, payload.room_type, payload.description, current_user)
-    return {"message": "Room created", "room_id": room.id, "name": room.name, "room_type": room.room_type}
+    other_id = payload.get("user_id")
+    if not other_id or other_id == current_user.id:
+        raise HTTPException(status_code=400, detail="Invalid user")
+    room = await service.get_or_create_dm(db, current_user.id, other_id)
+    return {"room_id": room.id, "is_group": room.is_group}
+
+
+@router.post("/group")
+async def create_group(
+    payload: dict,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    name = payload.get("name", "").strip()
+    member_ids = payload.get("member_ids", [])
+    if not name:
+        raise HTTPException(status_code=400, detail="Group name required")
+    room = await service.create_group(db, name, member_ids, current_user.id)
+    return {"room_id": room.id, "is_group": True, "name": room.name}
 
 
 @router.get("/rooms")
@@ -25,33 +91,10 @@ async def list_rooms(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    rooms = await service.get_user_rooms(db, current_user.id)
-    return [{"id": r.id, "name": r.name, "room_type": r.room_type, "description": r.description} for r in rooms]
+    return await service.get_user_rooms(db, current_user.id)
 
 
-@router.post("/rooms/{room_id}/members")
-async def add_member(
-    room_id: int,
-    payload: AddMemberRequest,
-    current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
-):
-    await service.add_member(db, room_id, payload.user_id, current_user)
-    return {"message": "Member added"}
-
-
-@router.post("/rooms/{room_id}/messages", response_model=MessageResponse)
-async def send_message(
-    room_id: int,
-    payload: SendMessageRequest,
-    current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
-):
-    message = await service.send_message(db, room_id, payload.message_text, payload.media_url, current_user)
-    return message
-
-
-@router.get("/rooms/{room_id}/messages", response_model=list[MessageResponse])
+@router.get("/rooms/{room_id}/messages")
 async def get_messages(
     room_id: int,
     limit: int = Query(50, le=200),
@@ -59,7 +102,25 @@ async def get_messages(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    return await service.get_messages(db, room_id, limit, offset, current_user)
+    return await service.get_messages(db, room_id, current_user.id, limit, offset)
+
+
+# ─── REST: Message actions ───────────────────────────────────────────────────
+
+@router.patch("/messages/{message_id}")
+async def edit_message(
+    message_id: int,
+    payload: dict,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    content = (payload.get("content") or "").strip()
+    if not content:
+        raise HTTPException(status_code=400, detail="Content cannot be empty")
+    result = await service.edit_message(db, message_id, content, current_user.id)
+    member_ids = await service.get_room_member_ids(db, result["room_id"])
+    await manager.broadcast_to_users(member_ids, {"type": "edit", **result})
+    return result
 
 
 @router.delete("/messages/{message_id}")
@@ -68,5 +129,18 @@ async def delete_message(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    await service.delete_message(db, message_id, current_user)
-    return {"message": "Message deleted"}
+    result = await service.delete_message_for_all(db, message_id, current_user.id)
+    member_ids = await service.get_room_member_ids(db, result["room_id"])
+    await manager.broadcast_to_users(member_ids, {"type": "delete", **result})
+    return {"ok": True}
+
+
+# ─── REST: User search ────────────────────────────────────────────────────────
+
+@router.get("/users/search")
+async def search_users(
+    q: str = Query(""),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    return await service.search_users(db, q, current_user.id)

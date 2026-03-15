@@ -48,6 +48,7 @@ const ROLE_QUICK_ACTIONS: Record<RoleName, QuickAction[]> = {
       icon: "people",
       color: Colors.primary,
       screen: "Admin",
+      params: { tab: "users" },
     },
     {
       label: "Audit Logs",
@@ -68,13 +69,13 @@ const ROLE_QUICK_ACTIONS: Record<RoleName, QuickAction[]> = {
       label: "Quarantine",
       icon: "alert-circle",
       color: Colors.warning,
-      screen: "Batches",
+      screen: "QuarantineList",
     },
     {
       label: "Under Test",
       icon: "flask",
       color: Colors.info,
-      screen: "Batches",
+      screen: "UnderTestList",
     },
   ],
   QC_HEAD: [
@@ -88,13 +89,13 @@ const ROLE_QUICK_ACTIONS: Record<RoleName, QuickAction[]> = {
       label: "Pending Tests",
       icon: "flask",
       color: Colors.info,
-      screen: "Batches",
+      screen: "UnderTestList",
     },
     {
       label: "Approve / Reject",
       icon: "checkmark-circle",
       color: Colors.success,
-      screen: "Batches",
+      screen: "ApprovedList",
     },
   ],
   QA_EXECUTIVE: [
@@ -137,16 +138,16 @@ const ROLE_QUICK_ACTIONS: Record<RoleName, QuickAction[]> = {
   ],
   PURCHASE_USER: [
     {
-      label: "View Stock",
-      icon: "cube",
-      color: Colors.primary,
-      screen: "Batches",
+      label: "Approved",
+      icon: "checkmark-circle",
+      color: Colors.success,
+      screen: "ApprovedList",
     },
     {
-      label: "Stock Report",
-      icon: "bar-chart",
-      color: Colors.info,
-      screen: "Batches",
+      label: "All Products",
+      icon: "cube",
+      color: Colors.primary,
+      screen: "QuarantineList",
     },
   ],
 };

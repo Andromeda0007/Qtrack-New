@@ -152,20 +152,25 @@ export interface Notification {
 }
 
 // ─── Chat ─────────────────────────────────────────────────────────────────────
-export interface ChatRoom {
+export interface ChatConversation {
   id: number;
-  name: string;
-  room_type: 'GLOBAL' | 'DEPARTMENT' | 'PRIVATE';
-  description: string | null;
+  is_group: boolean;
+  name: string | null;
+  last_message: string | null;
+  last_message_at: string | null;
+  unread_count: number;
+  other_user: { id: number; name: string; username: string } | null;
+  members: { id: number; name: string; username: string }[];
 }
 
-export interface Message {
+export interface ChatMessage {
   id: number;
   room_id: number;
   sender_id: number;
-  message_text: string | null;
-  media_url: string | null;
+  sender_name: string;
+  content: string;
   created_at: string;
+  is_deleted: boolean;
 }
 
 // ─── Users ───────────────────────────────────────────────────────────────────

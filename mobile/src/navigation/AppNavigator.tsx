@@ -1,16 +1,16 @@
 import React, { useEffect } from 'react';
-import { TouchableOpacity } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '../store/authStore';
 import { LoadingScreen } from '../components/common/LoadingScreen';
 import { LoginScreen } from '../screens/auth/LoginScreen';
 import { ChangePasswordScreen } from '../screens/auth/ChangePasswordScreen';
 import { MainNavigator } from './MainNavigator';
-import { ChatRoomScreen } from '../screens/chat/ChatRoomScreen';
 import { ProfileScreen } from '../screens/profile/ProfileScreen';
 import { CreateCardScreen } from '../screens/warehouse/CreateCardScreen';
+import { ChatRoomScreen } from '../screens/chat/ChatRoomScreen';
+import { NewChatScreen } from '../screens/chat/NewChatScreen';
+import { NewGroupScreen } from '../screens/chat/NewGroupScreen';
 import { BatchDetailScreen } from '../screens/warehouse/BatchDetailScreen';
 import { QCScanScreen } from '../screens/scanner/QRScannerScreen';
 import { QuarantineListScreen } from '../screens/inventory/QuarantineListScreen';
@@ -18,7 +18,6 @@ import { UnderTestListScreen } from '../screens/inventory/UnderTestListScreen';
 import { ApprovedListScreen } from '../screens/inventory/ApprovedListScreen';
 import { RejectedListScreen } from '../screens/inventory/RejectedListScreen';
 import { RetestListScreen } from '../screens/inventory/RetestListScreen';
-import { Colors } from '../utils/theme';
 
 const Stack = createNativeStackNavigator();
 
@@ -41,25 +40,6 @@ export const AppNavigator: React.FC = () => {
         ) : (
           <>
             <Stack.Screen name="Main" component={MainNavigator} />
-            <Stack.Screen
-              name="ChatRoom"
-              component={ChatRoomScreen}
-              options={({ navigation: nav }) => ({
-                headerShown: true,
-                headerBackTitleVisible: false,
-                headerStyle: { backgroundColor: Colors.primary },
-                headerTintColor: '#fff',
-                headerTitleStyle: { fontWeight: '700', color: '#fff' },
-                headerLeft: () => (
-                  <TouchableOpacity
-                    onPress={() => nav.goBack()}
-                    style={{ paddingLeft: 0, paddingRight: 8, paddingVertical: 8 }}
-                  >
-                    <Ionicons name="chevron-back" size={22} color="#fff" />
-                  </TouchableOpacity>
-                ),
-              })}
-            />
             <Stack.Screen
               name="Profile"
               component={ProfileScreen}
@@ -85,6 +65,9 @@ export const AppNavigator: React.FC = () => {
             <Stack.Screen name="ApprovedList"   component={ApprovedListScreen}   options={{ headerShown: false }} />
             <Stack.Screen name="RejectedList"   component={RejectedListScreen}   options={{ headerShown: false }} />
             <Stack.Screen name="RetestList"     component={RetestListScreen}     options={{ headerShown: false }} />
+            <Stack.Screen name="ChatRoom"  component={ChatRoomScreen}  options={{ headerShown: false }} />
+            <Stack.Screen name="NewChat"   component={NewChatScreen}   options={{ headerShown: false }} />
+            <Stack.Screen name="NewGroup"  component={NewGroupScreen}  options={{ headerShown: false }} />
           </>
         )}
       </Stack.Navigator>

@@ -45,7 +45,7 @@ export const StatusListBase: React.FC<Props> = ({ status, title, bgColor, textCo
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [search, setSearch] = useState('');
-  const [sort, setSort] = useState<SortMode>('last_created');
+  const [sort, setSort] = useState<SortMode>('first_created');
 
   const load = useCallback(async () => {
     try {

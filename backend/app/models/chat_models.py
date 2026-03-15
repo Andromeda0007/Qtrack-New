@@ -1,53 +1,48 @@
 from datetime import datetime
-from sqlalchemy import Integer, String, Boolean, DateTime, ForeignKey, Text, Enum as SAEnum
+from sqlalchemy import Integer, String, Boolean, DateTime, ForeignKey, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-import enum
 
 from app.database import Base
-
-
-class ChatRoomType(str, enum.Enum):
-    GLOBAL = "GLOBAL"
-    DEPARTMENT = "DEPARTMENT"
-    PRIVATE = "PRIVATE"
 
 
 class ChatRoom(Base):
     __tablename__ = "chat_rooms"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
-    name: Mapped[str] = mapped_column(String(100), nullable=False)
-    room_type: Mapped[str] = mapped_column(SAEnum(ChatRoomType), default=ChatRoomType.GLOBAL)
-    description: Mapped[str | None] = mapped_column(String(255))
-    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    is_group: Mapped[bool] = mapped_column(Boolean, default=False)
+    name: Mapped[str | None] = mapped_column(String(100), nullable=True)  # None for DMs
     created_by: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
 
-    members: Mapped[list["ChatRoomMember"]] = relationship("ChatRoomMember", back_populates="room")
-    messages: Mapped[list["Message"]] = relationship("Message", back_populates="room")
+    members: Mapped[list["ChatMember"]] = relationship("ChatMember", back_populates="room", lazy="selectin")
+    messages: Mapped[list["ChatMessage"]] = relationship("ChatMessage", back_populates="room")
 
 
-class ChatRoomMember(Base):
-    __tablename__ = "chat_room_members"
+class ChatMember(Base):
+    __tablename__ = "chat_members"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     room_id: Mapped[int] = mapped_column(Integer, ForeignKey("chat_rooms.id"), nullable=False, index=True)
     user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False, index=True)
     joined_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
 
     room: Mapped["ChatRoom"] = relationship("ChatRoom", back_populates="members")
+    user: Mapped["User"] = relationship("User", foreign_keys=[user_id], lazy="selectin")
 
 
-class Message(Base):
-    __tablename__ = "messages"
+class ChatMessage(Base):
+    __tablename__ = "chat_messages"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     room_id: Mapped[int] = mapped_column(Integer, ForeignKey("chat_rooms.id"), nullable=False, index=True)
     sender_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False)
-    message_text: Mapped[str | None] = mapped_column(Text)
-    media_url: Mapped[str | None] = mapped_column(String(500))
+    content: Mapped[str] = mapped_column(Text, nullable=False)
     is_deleted: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
 
     room: Mapped["ChatRoom"] = relationship("ChatRoom", back_populates="messages")
+    sender: Mapped["User"] = relationship("User", foreign_keys=[sender_id], lazy="selectin")
+
+
+from app.models.user_models import User  # noqa: E402 — avoid circular at module level

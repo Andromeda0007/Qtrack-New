@@ -1,138 +1,430 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { View, Text, FlatList, StyleSheet, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, Alert } from 'react-native';
+import {
+  View, Text, StyleSheet, FlatList, TextInput,
+  TouchableOpacity, KeyboardAvoidingView, Platform,
+  ActivityIndicator, Modal, Pressable,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRoute, useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
-import { chatApi } from '../../api/chat';
+import * as Haptics from 'expo-haptics';
+import { chatApi, createChatWebSocket } from '../../api/chat';
 import { useAuthStore } from '../../store/authStore';
 import { Colors, FontSize, Spacing } from '../../utils/theme';
-import { formatDateTime } from '../../utils/formatters';
-import { Message } from '../../types';
-import { extractError } from '../../api/client';
+import { ChatMessage } from '../../types';
+
+const formatTime = (iso: string): string => {
+  const d = new Date(iso);
+  return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+};
 
 export const ChatRoomScreen: React.FC = () => {
-  const route = useRoute<any>();
   const navigation = useNavigation<any>();
-  const { roomId, roomName } = route.params;
-  const { user } = useAuthStore();
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [text, setText] = useState('');
-  const [sending, setSending] = useState(false);
-  const flatListRef = useRef<FlatList>(null);
+  const route = useRoute<any>();
+  const { roomId: initialRoomId, userId, roomName } = route.params;
+  const { user, token } = useAuthStore();
 
-  const loadMessages = useCallback(async () => {
-    try {
-      const data = await chatApi.getMessages(roomId);
-      setMessages(data.reverse());
-    } catch {}
-  }, [roomId]);
+  const [roomId, setRoomId] = useState<number | null>(initialRoomId ?? null);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [text, setText] = useState('');
+  const [loading, setLoading] = useState(!!initialRoomId);
+  const [connected, setConnected] = useState(false);
+  const [sending, setSending] = useState(false);
+
+  // Action sheet
+  const [selectedMsg, setSelectedMsg] = useState<ChatMessage | null>(null);
+
+  // Inline edit — tracked outside FlatList via separate state map
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editText, setEditText] = useState('');
+
+  const flatListRef = useRef<FlatList>(null);
+  const wsRef = useRef<WebSocket | null>(null);
+
+  const connectWS = useCallback((rid: number) => {
+    if (!token || wsRef.current) return;
+    const ws = createChatWebSocket(token);
+    wsRef.current = ws;
+    ws.onopen = () => setConnected(true);
+    ws.onclose = () => setConnected(false);
+    ws.onerror = () => setConnected(false);
+    ws.onmessage = (event) => {
+      try {
+        const payload = JSON.parse(event.data);
+        if (payload.room_id !== rid) return;
+
+        if (payload.type === 'message') {
+          setMessages((prev) => [...prev, payload as ChatMessage]);
+          setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 80);
+        } else if (payload.type === 'edit') {
+          setMessages((prev) =>
+            prev.map((m) => m.id === payload.message_id ? { ...m, content: payload.content } : m)
+          );
+        } else if (payload.type === 'delete') {
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === payload.message_id
+                ? { ...m, is_deleted: true, content: 'This message was deleted' }
+                : m
+            )
+          );
+        }
+      } catch {}
+    };
+  }, [token]);
 
   useEffect(() => {
-    navigation.setOptions({
-      title: roomName,
-      headerStyle: { backgroundColor: Colors.primary },
-    });
-    loadMessages();
-    const interval = setInterval(loadMessages, 5000);
-    return () => clearInterval(interval);
-  }, []);
+    if (initialRoomId) {
+      chatApi.getMessages(initialRoomId)
+        .then(setMessages).catch(() => {}).finally(() => setLoading(false));
+      connectWS(initialRoomId);
+    }
+    return () => { wsRef.current?.close(); wsRef.current = null; };
+  }, [initialRoomId]);
 
-  const handleSend = async () => {
-    if (!text.trim()) return;
-    const messageText = text.trim();
-    setText('');
+  const sendMessage = async () => {
+    const content = text.trim();
+    if (!content || sending) return;
     setSending(true);
+    setText('');
     try {
-      const msg = await chatApi.sendMessage(roomId, messageText);
-      setMessages((prev) => [...prev, msg]);
-      setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
-    } catch (error) {
-      const err = extractError(error);
-      if (err.includes('link')) {
-        Alert.alert('Not Allowed', 'External links are not permitted in chat messages.');
-      } else {
-        Alert.alert('Error', err);
+      let rid = roomId;
+      if (!rid) {
+        const res = await chatApi.startDM(userId);
+        rid = res.room_id;
+        setRoomId(rid);
+        connectWS(rid);
+        await new Promise((r) => setTimeout(r, 400));
       }
-      setText(messageText);
-    } finally {
-      setSending(false);
+      if (wsRef.current?.readyState === WebSocket.OPEN) {
+        wsRef.current.send(JSON.stringify({ room_id: rid, content }));
+      }
+    } catch { setText(content); }
+    finally { setSending(false); }
+  };
+
+  const handleLongPress = (msg: ChatMessage) => {
+    if (msg.sender_id !== user?.id || msg.is_deleted) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setSelectedMsg(msg);
+  };
+
+  const handleEdit = () => {
+    if (!selectedMsg) return;
+    setEditText(selectedMsg.content);
+    setEditingId(selectedMsg.id);
+    setSelectedMsg(null);
+  };
+
+  const handleDeleteForMe = () => {
+    if (!selectedMsg) return;
+    setMessages((prev) => prev.filter((m) => m.id !== selectedMsg.id));
+    setSelectedMsg(null);
+  };
+
+  const handleDeleteForAll = async () => {
+    if (!selectedMsg) return;
+    const id = selectedMsg.id;
+    setSelectedMsg(null);
+    // Optimistic
+    setMessages((prev) =>
+      prev.map((m) =>
+        m.id === id ? { ...m, is_deleted: true, content: 'This message was deleted' } : m
+      )
+    );
+    try {
+      await chatApi.deleteMessageForAll(id);
+    } catch {}
+  };
+
+  const submitEdit = async () => {
+    const content = editText.trim();
+    const id = editingId;
+    if (!id || !content) return;
+    // Close edit mode first
+    setEditingId(null);
+    setEditText('');
+    // Optimistic update
+    setMessages((prev) => prev.map((m) => m.id === id ? { ...m, content } : m));
+    try {
+      await chatApi.editMessage(id, content);
+    } catch {
+      // On failure, keep optimistic — could revert if needed
     }
   };
 
-  const renderMessage = ({ item }: { item: Message }) => {
+  const cancelEdit = () => {
+    setEditingId(null);
+    setEditText('');
+  };
+
+  const renderMessage = ({ item, index }: { item: ChatMessage; index: number }) => {
     const isMe = item.sender_id === user?.id;
+    const prevItem = messages[index - 1];
+    const showSender = !isMe && (!prevItem || prevItem.sender_id !== item.sender_id);
+    const isDeleted = item.is_deleted;
+    const isEditing = editingId === item.id;
+
     return (
-      <View style={[styles.messageBubble, isMe ? styles.myBubble : styles.theirBubble]}>
-        {!isMe && <Text style={styles.senderName}>User #{item.sender_id}</Text>}
-        {item.message_text && <Text style={[styles.messageText, isMe && styles.myText]}>{item.message_text}</Text>}
-        {item.media_url && <Text style={[styles.mediaText, isMe && styles.myText]}>📎 Media attachment</Text>}
-        <Text style={[styles.messageTime, isMe && styles.myTime]}>{formatDateTime(item.created_at)}</Text>
+      <View style={[styles.bubbleWrap, isMe ? styles.bubbleWrapMe : styles.bubbleWrapThem]}>
+        {showSender && <Text style={styles.senderName}>{item.sender_name}</Text>}
+
+        {isEditing ? (
+          /* Edit mode: render outside bubble, full width */
+          <View style={styles.editContainer}>
+            <TextInput
+              style={styles.editInput}
+              value={editText}
+              onChangeText={setEditText}
+              autoFocus
+              multiline
+              maxLength={1000}
+              blurOnSubmit={false}
+              onSubmitEditing={submitEdit}
+            />
+            <View style={styles.editActions}>
+              <TouchableOpacity onPress={cancelEdit} style={styles.editActionBtn}>
+                <Ionicons name="close-circle-outline" size={22} color={Colors.danger} />
+                <Text style={[styles.editActionText, { color: Colors.danger }]}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={submitEdit}
+                style={styles.editActionBtn}
+                disabled={!editText.trim()}
+              >
+                <Ionicons name="checkmark-circle-outline" size={22} color={Colors.success} />
+                <Text style={[styles.editActionText, { color: Colors.success }]}>Save</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        ) : (
+          <TouchableOpacity
+            onLongPress={() => handleLongPress(item)}
+            delayLongPress={350}
+            activeOpacity={0.85}
+          >
+            <View style={[
+              styles.bubble,
+              isMe ? styles.bubbleMe : styles.bubbleThem,
+              isDeleted && styles.bubbleDeleted,
+            ]}>
+              <Text style={[
+                styles.bubbleText,
+                isMe && !isDeleted && styles.bubbleTextMe,
+                isDeleted && styles.deletedText,
+              ]}>
+                {isDeleted ? 'This message was deleted' : item.content}
+              </Text>
+              <Text style={[styles.bubbleTime, isMe && !isDeleted && styles.bubbleTimeMe]}>
+                {formatTime(item.created_at)}
+              </Text>
+            </View>
+          </TouchableOpacity>
+        )}
       </View>
     );
   };
 
   return (
-    <SafeAreaView style={styles.safe} edges={['bottom']}>
-      <FlatList
-        ref={flatListRef}
-        data={messages}
-        keyExtractor={(m) => m.id.toString()}
-        renderItem={renderMessage}
-        contentContainerStyle={styles.messageList}
-        onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: false })}
-        ListEmptyComponent={
-          <View style={styles.empty}>
-            <Text style={styles.emptyText}>No messages yet. Say hello!</Text>
+    <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
+      {/* Header */}
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
+          <Ionicons name="chevron-back" size={22} color="#fff" />
+        </TouchableOpacity>
+        <View style={styles.headerInfo}>
+          <Text style={styles.headerName} numberOfLines={1}>{roomName}</Text>
+          <View style={styles.statusRow}>
+            <View style={[styles.statusDot, { backgroundColor: connected ? '#4ade80' : '#9ca3af' }]} />
+            <Text style={styles.statusText}>{connected ? 'Online' : 'Connecting...'}</Text>
           </View>
-        }
-      />
+        </View>
+      </View>
 
+      {/* Messages */}
+      {loading ? (
+        <View style={styles.centered}>
+          <ActivityIndicator size="large" color={Colors.primary} />
+        </View>
+      ) : (
+        <FlatList
+          ref={flatListRef}
+          data={messages}
+          keyExtractor={(m) => m.id.toString()}
+          renderItem={renderMessage}
+          extraData={editingId}
+          contentContainerStyle={styles.messageList}
+          onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: false })}
+          ListEmptyComponent={
+            <View style={styles.emptyChat}>
+              <Ionicons name="chatbubbles-outline" size={48} color={Colors.textMuted} />
+              <Text style={styles.emptyChatText}>No messages yet. Say hello!</Text>
+            </View>
+          }
+        />
+      )}
+
+      {/* Input */}
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <View style={styles.inputBar}>
           <TextInput
             style={styles.input}
-            placeholder="Type a message..."
+            placeholder="Message..."
             placeholderTextColor={Colors.textMuted}
             value={text}
             onChangeText={setText}
             multiline
             maxLength={1000}
           />
-          <TouchableOpacity onPress={handleSend} disabled={sending || !text.trim()} style={[styles.sendBtn, (!text.trim() || sending) && styles.sendDisabled]}>
-            <Ionicons name="send" size={20} color="#fff" />
+          <TouchableOpacity
+            onPress={sendMessage}
+            disabled={!text.trim() || sending}
+            style={[styles.sendBtn, (!text.trim() || sending) && styles.sendDisabled]}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="send" size={18} color="#fff" />
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
+
+      {/* Action Sheet Modal */}
+      <Modal visible={!!selectedMsg} transparent animationType="slide" onRequestClose={() => setSelectedMsg(null)}>
+        <Pressable style={styles.sheetOverlay} onPress={() => setSelectedMsg(null)}>
+          <Pressable style={styles.sheet}>
+            {/* Preview */}
+            <View style={styles.sheetPreviewWrap}>
+              <Text style={styles.sheetPreviewLabel}>Message</Text>
+              <Text style={styles.sheetMsgPreview} numberOfLines={3}>
+                {selectedMsg?.content}
+              </Text>
+            </View>
+
+            <View style={styles.sheetDivider} />
+
+            <TouchableOpacity style={styles.sheetOption} onPress={handleEdit}>
+              <View style={[styles.sheetIconWrap, { backgroundColor: Colors.primary + '18' }]}>
+                <Ionicons name="pencil-outline" size={19} color={Colors.primary} />
+              </View>
+              <Text style={styles.sheetOptionText}>Edit</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.sheetOption} onPress={handleDeleteForMe}>
+              <View style={[styles.sheetIconWrap, { backgroundColor: '#6b728018' }]}>
+                <Ionicons name="eye-off-outline" size={19} color={Colors.textSecondary} />
+              </View>
+              <Text style={styles.sheetOptionText}>Delete for me</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.sheetOption} onPress={handleDeleteForAll}>
+              <View style={[styles.sheetIconWrap, { backgroundColor: Colors.danger + '18' }]}>
+                <Ionicons name="trash-outline" size={19} color={Colors.danger} />
+              </View>
+              <Text style={[styles.sheetOptionText, { color: Colors.danger }]}>Delete for everyone</Text>
+            </TouchableOpacity>
+
+            <View style={styles.sheetDivider} />
+
+            <TouchableOpacity style={[styles.sheetOption, styles.cancelOption]} onPress={() => setSelectedMsg(null)}>
+              <Text style={styles.cancelText}>Cancel</Text>
+            </TouchableOpacity>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.background },
-  messageList: { padding: Spacing.md, paddingBottom: Spacing.sm },
-  messageBubble: { maxWidth: '80%', marginBottom: Spacing.sm, padding: 10, borderRadius: 14 },
-  myBubble: { alignSelf: 'flex-end', backgroundColor: Colors.primary, borderBottomRightRadius: 4 },
-  theirBubble: { alignSelf: 'flex-start', backgroundColor: '#fff', borderBottomLeftRadius: 4, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 3, elevation: 1 },
-  senderName: { fontSize: 11, fontWeight: '700', color: Colors.primary, marginBottom: 3 },
-  messageText: { fontSize: FontSize.sm, color: Colors.textPrimary, lineHeight: 20 },
-  myText: { color: '#fff' },
-  mediaText: { fontSize: FontSize.sm, color: Colors.textSecondary, fontStyle: 'italic' },
-  messageTime: { fontSize: 10, color: Colors.textMuted, marginTop: 4, alignSelf: 'flex-end' },
-  myTime: { color: 'rgba(255,255,255,0.6)' },
-  empty: { flex: 1, alignItems: 'center', paddingTop: Spacing.xxl },
-  emptyText: { color: Colors.textMuted, fontSize: FontSize.sm },
+
+  header: {
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: Colors.primary, paddingHorizontal: Spacing.sm, paddingVertical: 10, gap: 4,
+  },
+  backBtn: { width: 38, height: 38, justifyContent: 'center', alignItems: 'center' },
+  headerInfo: { flex: 1 },
+  headerName: { fontSize: FontSize.md, fontWeight: '700', color: '#fff' },
+  statusRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 2 },
+  statusDot: { width: 7, height: 7, borderRadius: 4 },
+  statusText: { fontSize: 11, color: 'rgba(255,255,255,0.75)' },
+
+  centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  messageList: { padding: Spacing.md, paddingBottom: 8 },
+
+  bubbleWrap: { marginBottom: 6, maxWidth: '78%' },
+  bubbleWrapMe: { alignSelf: 'flex-end', alignItems: 'flex-end' },
+  bubbleWrapThem: { alignSelf: 'flex-start', alignItems: 'flex-start' },
+
+  senderName: { fontSize: 11, fontWeight: '700', color: Colors.primary, marginBottom: 3, marginLeft: 4 },
+
+  bubble: {
+    borderRadius: 18, paddingHorizontal: 14, paddingVertical: 9,
+    shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 3, elevation: 1,
+  },
+  bubbleMe: { backgroundColor: Colors.primary, borderBottomRightRadius: 5 },
+  bubbleThem: { backgroundColor: '#fff', borderBottomLeftRadius: 5 },
+  bubbleDeleted: { backgroundColor: '#f3f4f6', borderWidth: 1, borderColor: Colors.borderLight },
+
+  bubbleText: { fontSize: FontSize.sm, color: Colors.textPrimary, lineHeight: 20 },
+  bubbleTextMe: { color: '#fff' },
+  deletedText: { fontSize: FontSize.sm, color: Colors.textMuted, fontStyle: 'italic' },
+  bubbleTime: { fontSize: 10, color: Colors.textMuted, marginTop: 4, alignSelf: 'flex-end' },
+  bubbleTimeMe: { color: 'rgba(255,255,255,0.65)' },
+
+  // Inline edit (outside the bubble, full-width)
+  editContainer: {
+    backgroundColor: '#fff', borderRadius: 14, borderWidth: 1.5,
+    borderColor: Colors.primary, paddingHorizontal: 12, paddingTop: 10, paddingBottom: 8,
+    minWidth: 220, maxWidth: 300,
+    shadowColor: Colors.primary, shadowOpacity: 0.15, shadowRadius: 6, elevation: 3,
+  },
+  editInput: {
+    fontSize: FontSize.sm, color: Colors.textPrimary, lineHeight: 20,
+    maxHeight: 120, paddingVertical: 4,
+  },
+  editActions: {
+    flexDirection: 'row', justifyContent: 'flex-end', gap: Spacing.md,
+    marginTop: 8, borderTopWidth: 1, borderTopColor: Colors.borderLight, paddingTop: 8,
+  },
+  editActionBtn: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  editActionText: { fontSize: 13, fontWeight: '600' },
+
+  emptyChat: { alignItems: 'center', paddingTop: 80, gap: 12 },
+  emptyChatText: { fontSize: FontSize.sm, color: Colors.textMuted },
+
   inputBar: {
     flexDirection: 'row', alignItems: 'flex-end', gap: Spacing.sm,
-    padding: Spacing.sm, backgroundColor: '#fff',
-    borderTopWidth: 1, borderTopColor: Colors.border,
+    paddingHorizontal: Spacing.sm, paddingVertical: Spacing.sm,
+    backgroundColor: '#fff', borderTopWidth: 1, borderTopColor: Colors.borderLight,
   },
   input: {
-    flex: 1, minHeight: 44, maxHeight: 120,
-    backgroundColor: Colors.background, borderRadius: 22,
+    flex: 1, minHeight: 42, maxHeight: 120,
+    backgroundColor: Colors.background, borderRadius: 21,
     paddingHorizontal: Spacing.md, paddingVertical: 10,
     fontSize: FontSize.sm, color: Colors.textPrimary,
-    borderWidth: 1, borderColor: Colors.border,
+    borderWidth: 1, borderColor: Colors.borderLight,
   },
-  sendBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: Colors.primary, justifyContent: 'center', alignItems: 'center' },
-  sendDisabled: { opacity: 0.5 },
+  sendBtn: { width: 42, height: 42, borderRadius: 21, backgroundColor: Colors.primary, justifyContent: 'center', alignItems: 'center' },
+  sendDisabled: { opacity: 0.4 },
+
+  // Action sheet
+  sheetOverlay: {
+    flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end',
+  },
+  sheet: {
+    backgroundColor: '#fff', borderTopLeftRadius: 22, borderTopRightRadius: 22,
+    paddingBottom: 36, overflow: 'hidden',
+  },
+  sheetPreviewWrap: { paddingHorizontal: Spacing.lg, paddingVertical: 14 },
+  sheetPreviewLabel: { fontSize: 11, fontWeight: '700', color: Colors.textMuted, textTransform: 'uppercase', marginBottom: 4, letterSpacing: 0.5 },
+  sheetMsgPreview: { fontSize: FontSize.sm, color: Colors.textSecondary, fontStyle: 'italic' },
+  sheetDivider: { height: 1, backgroundColor: Colors.borderLight },
+  sheetOption: {
+    flexDirection: 'row', alignItems: 'center', gap: 14,
+    paddingHorizontal: Spacing.lg, paddingVertical: 15,
+  },
+  sheetIconWrap: { width: 36, height: 36, borderRadius: 18, justifyContent: 'center', alignItems: 'center' },
+  sheetOptionText: { fontSize: FontSize.md, color: Colors.textPrimary, fontWeight: '500' },
+  cancelOption: { justifyContent: 'center' },
+  cancelText: { fontSize: FontSize.md, color: Colors.textMuted, fontWeight: '600', textAlign: 'center', flex: 1 },
 });

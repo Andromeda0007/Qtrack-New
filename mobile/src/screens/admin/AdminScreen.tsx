@@ -17,6 +17,11 @@ type Tab = 'users' | 'audit';
 export const AdminScreen: React.FC = () => {
   const route = useRoute<any>();
   const [activeTab, setActiveTab] = useState<Tab>(route.params?.tab || 'users');
+
+  // Re-sync tab whenever navigation params change (e.g. quick actions from Dashboard)
+  useEffect(() => {
+    setActiveTab(route.params?.tab || 'users');
+  }, [route.params?.tab]);
   const [users, setUsers] = useState<User[]>([]);
   const [roles, setRoles] = useState<Role[]>([]);
   const [auditLogs, setAuditLogs] = useState<any[]>([]);
