@@ -24,7 +24,7 @@ AUDIT_CATEGORIES = {
     "user": [
         "CREATE_USER", "UPDATE_USER", "UPDATE_USER_ROLE", "DEACTIVATE_USER", "REACTIVATE_USER",
     ],
-    "card_creation": ["CREATE_PRODUCT"],
+    "product_creation": ["CREATE_PRODUCT"],
     "approvals": [
         "APPROVE_MATERIAL", "INITIATE_RETEST", "RETEST_APPROVED", "APPROVE_GRADE_TRANSFER",
         "RECEIVE_FG", "APPROVE_FG", "CREATE_FG_BATCH", "ADD_AR_NUMBER", "REQUEST_GRADE_TRANSFER",
@@ -50,7 +50,7 @@ def _search_conditions(term: str):
 
 @router.get("/")
 async def get_audit_logs(
-    category: Optional[str] = Query(None, description="all | user | card_creation | approvals | rejections"),
+    category: Optional[str] = Query(None, description="all | user | product_creation | approvals | rejections"),
     search: Optional[str] = Query(None, description="Match in any field; button-triggered; each log shown once"),
     sort: str = Query("desc", description="asc = oldest first, desc = newest first"),
     limit: int = Query(50, le=200),

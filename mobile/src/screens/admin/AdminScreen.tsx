@@ -13,13 +13,13 @@ import { User, Role } from '../../types';
 import { extractError } from '../../api/client';
 
 type Tab = 'users' | 'audit';
-type AuditCategory = 'all' | 'user' | 'card_creation' | 'approvals' | 'rejections';
+type AuditCategory = 'all' | 'user' | 'product_creation' | 'approvals' | 'rejections';
 type AuditSort = 'asc' | 'desc';
 
 const AUDIT_CATEGORY_OPTIONS: { value: AuditCategory; label: string }[] = [
   { value: 'all', label: 'All' },
   { value: 'user', label: 'User' },
-  { value: 'card_creation', label: 'Card creation' },
+  { value: 'product_creation', label: 'Product creation' },
   { value: 'approvals', label: 'Approved' },
   { value: 'rejections', label: 'Rejected' },
 ];

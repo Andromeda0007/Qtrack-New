@@ -322,15 +322,21 @@ export const ChatRoomScreen: React.FC = () => {
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.headerInfo}
-            onPress={() =>
-              otherUserId &&
-              navigation.navigate("ChatContactDetail", {
-                userId: otherUserId,
-                displayName: roomName,
-              })
-            }
-            disabled={!otherUserId}
-            activeOpacity={otherUserId ? 0.7 : 1}
+            onPress={() => {
+              if (otherUserId) {
+                navigation.navigate("ChatContactDetail", {
+                  userId: otherUserId,
+                  displayName: roomName,
+                });
+              } else if (isGroup && (roomId ?? initialRoomId)) {
+                navigation.navigate("ChatGroupInfo", {
+                  roomId: roomId ?? initialRoomId!,
+                  roomName: roomName ?? undefined,
+                });
+              }
+            }}
+            disabled={!otherUserId && !(isGroup && (roomId ?? initialRoomId))}
+            activeOpacity={0.7}
           >
             <View style={styles.headerAvatar}>
               <Text style={styles.headerAvatarText}>

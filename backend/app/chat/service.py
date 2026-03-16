@@ -38,8 +38,8 @@ async def get_or_create_dm(db: AsyncSession, user_a: int, user_b: int) -> ChatRo
     return room
 
 
-async def create_group(db: AsyncSession, name: str, member_ids: list[int], created_by: int) -> ChatRoom:
-    room = ChatRoom(is_group=True, name=name, created_by=created_by)
+async def create_group(db: AsyncSession, name: str, member_ids: list[int], created_by: int, description: str | None = None) -> ChatRoom:
+    room = ChatRoom(is_group=True, name=name, description=(description or "").strip() or None, created_by=created_by)
     db.add(room)
     await db.flush()
     all_ids = list({created_by} | set(member_ids))
@@ -178,6 +178,32 @@ async def delete_message_for_all(db: AsyncSession, message_id: int, sender_id: i
 async def get_room_member_ids(db: AsyncSession, room_id: int) -> list[int]:
     result = await db.execute(select(ChatMember.user_id).where(ChatMember.room_id == room_id))
     return [row[0] for row in result.fetchall()]
+
+
+async def get_room_info(db: AsyncSession, room_id: int, user_id: int) -> dict:
+    """Return group room info (name, description, members) if current user is a member."""
+    member_check = await db.execute(
+        select(ChatMember).where(ChatMember.room_id == room_id, ChatMember.user_id == user_id)
+    )
+    if not member_check.scalar_one_or_none():
+        raise HTTPException(status_code=403, detail="Not a member of this room")
+    result = await db.execute(
+        select(ChatRoom)
+        .where(ChatRoom.id == room_id, ChatRoom.is_group == True)
+        .options(selectinload(ChatRoom.members).selectinload(ChatMember.user))
+    )
+    room = result.scalar_one_or_none()
+    if not room:
+        raise HTTPException(status_code=404, detail="Room not found or not a group")
+    members = [
+        {"id": m.user.id, "name": m.user.name or m.user.username, "username": m.user.username}
+        for m in room.members
+    ]
+    return {
+        "name": room.name or "",
+        "description": (room.description or "").strip(),
+        "members": members,
+    }
 
 
 async def search_users(db: AsyncSession, query: str, exclude_id: int) -> list[dict]:

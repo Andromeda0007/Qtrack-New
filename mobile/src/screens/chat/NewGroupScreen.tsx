@@ -108,7 +108,7 @@ export const NewGroupScreen: React.FC = () => {
     if (!canCreate) return;
     setCreating(true);
     try {
-      const { room_id } = await chatApi.createGroup(groupName.trim(), Array.from(selectedIds));
+      const { room_id } = await chatApi.createGroup(groupName.trim(), Array.from(selectedIds), description.trim());
       navigation.replace('ChatRoom', { roomId: room_id, roomName: groupName.trim(), isGroup: true });
     } catch {
       setCreating(false);

@@ -10,6 +10,7 @@ import { ProfileScreen } from '../screens/profile/ProfileScreen';
 import { CreateCardScreen } from '../screens/warehouse/CreateCardScreen';
 import { ChatRoomScreen } from '../screens/chat/ChatRoomScreen';
 import { ChatContactDetailScreen } from '../screens/chat/ChatContactDetailScreen';
+import { ChatGroupInfoScreen } from '../screens/chat/ChatGroupInfoScreen';
 import { NewChatScreen } from '../screens/chat/NewChatScreen';
 import { NewGroupScreen } from '../screens/chat/NewGroupScreen';
 import { BatchDetailScreen } from '../screens/warehouse/BatchDetailScreen';
@@ -68,6 +69,7 @@ export const AppNavigator: React.FC = () => {
             <Stack.Screen name="RetestList"     component={RetestListScreen}     options={{ headerShown: false }} />
             <Stack.Screen name="ChatRoom"  component={ChatRoomScreen}  options={{ headerShown: false }} />
             <Stack.Screen name="ChatContactDetail" component={ChatContactDetailScreen} options={{ headerShown: false }} />
+            <Stack.Screen name="ChatGroupInfo" component={ChatGroupInfoScreen} options={{ headerShown: false }} />
             <Stack.Screen name="NewChat"   component={NewChatScreen}   options={{ headerShown: false }} />
             <Stack.Screen name="NewGroup"  component={NewGroupScreen}  options={{ headerShown: false }} />
           </>

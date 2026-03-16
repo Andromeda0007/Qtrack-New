@@ -80,9 +80,10 @@ async def create_group(
 ):
     name = payload.get("name", "").strip()
     member_ids = payload.get("member_ids", [])
+    description = payload.get("description", "").strip() or None
     if not name:
         raise HTTPException(status_code=400, detail="Group name required")
-    room = await service.create_group(db, name, member_ids, current_user.id)
+    room = await service.create_group(db, name, member_ids, current_user.id, description=description)
     return {"room_id": room.id, "is_group": True, "name": room.name}
 
 
@@ -92,6 +93,16 @@ async def list_rooms(
     db: AsyncSession = Depends(get_db),
 ):
     return await service.get_user_rooms(db, current_user.id)
+
+
+@router.get("/rooms/{room_id}")
+async def get_room_info(
+    room_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Get group room info (name, description, members). Only for group rooms."""
+    return await service.get_room_info(db, room_id, current_user.id)
 
 
 @router.get("/rooms/{room_id}/messages")

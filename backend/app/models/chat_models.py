@@ -11,6 +11,7 @@ class ChatRoom(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     is_group: Mapped[bool] = mapped_column(Boolean, default=False)
     name: Mapped[str | None] = mapped_column(String(100), nullable=True)  # None for DMs
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_by: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)

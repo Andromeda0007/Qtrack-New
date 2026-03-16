@@ -114,7 +114,7 @@ async def create_product(db: AsyncSession, data: dict, created_by: User) -> dict
 
     await db.flush()
 
-    # Generate QR code (non-blocking — failures don't abort the card creation)
+    # Generate QR code (non-blocking — failures don't abort the product creation)
     qr_base64 = ""
     try:
         qr_path = generate_batch_qr(batch.id, batch.batch_number)

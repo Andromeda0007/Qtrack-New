@@ -14,8 +14,8 @@ export const chatApi = {
     return res.data;
   },
 
-  createGroup: async (name: string, memberIds: number[]): Promise<{ room_id: number }> => {
-    const res = await apiClient.post('/chat/group', { name, member_ids: memberIds });
+  createGroup: async (name: string, memberIds: number[], description?: string): Promise<{ room_id: number }> => {
+    const res = await apiClient.post('/chat/group', { name, member_ids: memberIds, description: description ?? '' });
     return res.data;
   },
 
@@ -43,6 +43,13 @@ export const chatApi = {
     id: number; name: string; username: string; email: string; phone: string; role_name: string;
   }> => {
     const res = await apiClient.get(`/chat/users/${userId}/profile`);
+    return res.data;
+  },
+
+  getGroupInfo: async (roomId: number): Promise<{
+    name: string; description: string; members: { id: number; name: string; username: string }[];
+  }> => {
+    const res = await apiClient.get(`/chat/rooms/${roomId}`);
     return res.data;
   },
 };
