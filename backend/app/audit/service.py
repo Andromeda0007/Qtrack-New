@@ -11,6 +11,8 @@ async def log_action(
     entity_id: int | None = None,
     description: str | None = None,
     ip_address: str | None = None,
+    from_status: str | None = None,
+    to_status: str | None = None,
 ) -> None:
     """
     Central audit logging. Call after every important state change.
@@ -24,6 +26,8 @@ async def log_action(
         entity_id=entity_id,
         description=description,
         ip_address=ip_address,
+        from_status=from_status,
+        to_status=to_status,
     )
     db.add(log)
     await db.flush()

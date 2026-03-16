@@ -122,7 +122,7 @@ export const NewGroupScreen: React.FC = () => {
         <SearchInput
           value={query}
           onChangeText={setQuery}
-          placeholder="Search contacts"
+          placeholder="Search"
         />
       </View>
 

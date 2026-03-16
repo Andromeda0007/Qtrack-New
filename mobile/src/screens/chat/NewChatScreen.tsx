@@ -120,7 +120,7 @@ export const NewChatScreen: React.FC = () => {
         <SearchInput
           value={query}
           onChangeText={setQuery}
-          placeholder="Search..."
+          placeholder="Search"
           autoFocus
         />
       </View>

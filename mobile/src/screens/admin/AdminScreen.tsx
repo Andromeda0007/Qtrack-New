@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, FlatList, TouchableOpacity, Alert, RefreshControl, Modal, Clipboard } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, FlatList, TouchableOpacity, Alert, RefreshControl, Modal, TextInput, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -13,6 +13,50 @@ import { User, Role } from '../../types';
 import { extractError } from '../../api/client';
 
 type Tab = 'users' | 'audit';
+type AuditCategory = 'all' | 'user' | 'card_creation' | 'approvals' | 'rejections';
+type AuditSort = 'asc' | 'desc';
+
+const AUDIT_CATEGORY_OPTIONS: { value: AuditCategory; label: string }[] = [
+  { value: 'all', label: 'All' },
+  { value: 'user', label: 'User' },
+  { value: 'card_creation', label: 'Card creation' },
+  { value: 'approvals', label: 'Approvals' },
+  { value: 'rejections', label: 'Rejections' },
+];
+
+function getAuditStyle(actionType: string): { color: string; icon: string; bg: string } {
+  const u = (actionType || '').toUpperCase();
+  if (u.includes('REJECT')) return { color: Colors.danger, icon: 'close-circle', bg: Colors.dangerLight };
+  if ((u.includes('CREATE') || u.includes('ADD')) && u.includes('USER')) return { color: Colors.primary, icon: 'person-add', bg: Colors.primary + '18' };
+  if (u === 'CREATE_GRN' || ((u.includes('CREATE') || u.includes('ADD')) && !u.includes('USER'))) return { color: '#856404', icon: 'document-text', bg: Colors.warningLight };
+  if (u.includes('APPROVE') || u.includes('RECEIVE') || u.includes('INITIATE') || u.includes('DISPATCH') || u.includes('INSPECT') || u.includes('ISSUE') || u.includes('ADJUST') || u.includes('REQUEST')) return { color: Colors.success, icon: 'checkmark-circle', bg: Colors.successLight };
+  if (u.includes('DELETE') || u.includes('DEACTIVATE')) return { color: Colors.danger, icon: 'trash', bg: Colors.dangerLight };
+  if (u.includes('UPDATE') || u.includes('EDIT')) return { color: Colors.info, icon: 'create', bg: Colors.infoLight };
+  if (u.includes('LOGIN') || u.includes('LOGOUT')) return { color: Colors.primary, icon: u.includes('OUT') ? 'log-out' : 'log-in', bg: Colors.primary + '18' };
+  return { color: Colors.primary, icon: 'document-text', bg: Colors.primary + '18' };
+}
+
+function getEntityLabel(entityType: string | null): string {
+  if (!entityType) return '';
+  const m: Record<string, string> = { user: 'User #', batch: 'Batch #', material: 'Material #', supplier: 'Supplier #', fg_batch: 'FG Batch #' };
+  return m[entityType.toLowerCase()] || `${entityType} #`;
+}
+
+function getEntityDisplayKey(entityType: string | null): string {
+  if (!entityType) return '';
+  const m: Record<string, string> = { user: 'newUser', batch: 'Batch', material: 'Material', supplier: 'Supplier', fg_batch: 'FG Batch' };
+  return m[entityType.toLowerCase()] || entityType;
+}
+
+function getActionDisplayLabel(actionType: string): string {
+  const u = (actionType || '').toUpperCase();
+  if (u.includes('REJECT')) return 'Product Rejected';
+  if (u.includes('APPROVE') || u.includes('RECEIVE') || u.includes('INITIATE')) return 'Product Approved';
+  if ((u.includes('CREATE') || u.includes('ADD')) && u.includes('USER')) return 'User Created';
+  if (u === 'CREATE_GRN' || ((u.includes('CREATE') || u.includes('ADD')) && !u.includes('USER'))) return 'Product Created';
+  const label = (actionType || '').replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
+  return label;
+}
 
 export const AdminScreen: React.FC = () => {
   const route = useRoute<any>();
@@ -32,23 +76,40 @@ export const AdminScreen: React.FC = () => {
   const [creating, setCreating] = useState(false);
   const [successInfo, setSuccessInfo] = useState<{ name: string; username: string } | null>(null);
 
+  const [auditCategory, setAuditCategory] = useState<AuditCategory>('all');
+  const [auditSort, setAuditSort] = useState<AuditSort>('desc');
+  const [auditSearchInput, setAuditSearchInput] = useState('');
+  const [auditSearchApplied, setAuditSearchApplied] = useState('');
+  const [showCategoryPicker, setShowCategoryPicker] = useState(false);
+
   const loadData = useCallback(async () => {
-    // Load users and audit logs independently — one failure won't block the other
     try {
       const usersData = await usersApi.getUsers();
       setUsers(usersData);
     } catch (e) {
       setUsers([]);
     }
-    try {
-      const auditData = await usersApi.getAuditLogs({ limit: 50 });
-      setAuditLogs(auditData);
-    } catch (e) {
-      setAuditLogs([]);
-    }
     setLoading(false);
     setRefreshing(false);
   }, []);
+
+  const [auditLoading, setAuditLoading] = useState(false);
+  const loadAuditLogs = useCallback(async () => {
+    setAuditLoading(true);
+    try {
+      const auditData = await usersApi.getAuditLogs({
+        category: auditCategory === 'all' ? undefined : auditCategory,
+        search: auditSearchApplied.trim() || undefined,
+        sort: auditSort,
+        limit: 100,
+      });
+      setAuditLogs(auditData);
+    } catch (e) {
+      setAuditLogs([]);
+    } finally {
+      setAuditLoading(false);
+    }
+  }, [auditCategory, auditSort, auditSearchApplied]);
 
   const loadRoles = useCallback(async () => {
     try {
@@ -64,6 +125,9 @@ export const AdminScreen: React.FC = () => {
   }, []);
 
   useEffect(() => { loadData(); loadRoles(); }, []);
+  useEffect(() => {
+    if (activeTab === 'audit') loadAuditLogs();
+  }, [activeTab, loadAuditLogs]);
 
   const handleToggleActive = async (user: User) => {
     const action = user.is_active ? 'deactivate' : 'reactivate';
@@ -172,24 +236,140 @@ export const AdminScreen: React.FC = () => {
           )}
         />
       ) : (
-        <FlatList
-          data={auditLogs}
-          keyExtractor={(a) => a.id.toString()}
-          style={styles.listArea}
-          contentContainerStyle={styles.list}
-          renderItem={({ item }) => (
-            <Card padding={12}>
-              <View style={styles.auditRow}>
-                <View style={styles.auditDot} />
-                <View style={styles.auditInfo}>
-                  <Text style={styles.auditAction}>{item.action_type.replace(/_/g, ' ')}</Text>
-                  <Text style={styles.auditDesc} numberOfLines={2}>{item.description || '—'}</Text>
-                  <Text style={styles.auditMeta}>by {item.performed_by || '?'} · {formatDateTime(item.created_at)}</Text>
+        <View style={styles.auditContainer}>
+          <View style={styles.auditFilterRow}>
+            <TouchableOpacity style={styles.auditFilterBox} onPress={() => setShowCategoryPicker(true)}>
+              <Text style={styles.auditFilterBoxText} numberOfLines={1}>
+                {AUDIT_CATEGORY_OPTIONS.find((o) => o.value === auditCategory)?.label ?? 'All'}
+              </Text>
+              <Ionicons name="chevron-down" size={18} color={Colors.textSecondary} />
+            </TouchableOpacity>
+          </View>
+          <View style={styles.auditSearchRow}>
+            <TextInput
+              style={styles.auditSearchInput}
+              placeholder="Type a word or two, then tap Search"
+              placeholderTextColor={Colors.textMuted}
+              value={auditSearchInput}
+              onChangeText={setAuditSearchInput}
+              onSubmitEditing={() => { setAuditSearchApplied(auditSearchInput.trim()); }}
+            />
+            <TouchableOpacity
+              style={styles.auditSearchBtn}
+              onPress={() => { setAuditSearchApplied(auditSearchInput.trim()); }}
+            >
+              <Text style={styles.auditSearchBtnText}>Search</Text>
+            </TouchableOpacity>
+          </View>
+          <View style={styles.auditSortRow}>
+            <TouchableOpacity
+              style={[styles.auditSortChip, auditSort === 'asc' && styles.auditSortChipActive]}
+              onPress={() => setAuditSort('asc')}
+            >
+              <Text style={[styles.auditSortChipText, auditSort === 'asc' && styles.auditSortChipTextActive]}>First created</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.auditSortChip, auditSort === 'desc' && styles.auditSortChipActive]}
+              onPress={() => setAuditSort('desc')}
+            >
+              <Text style={[styles.auditSortChipText, auditSort === 'desc' && styles.auditSortChipTextActive]}>Last created</Text>
+            </TouchableOpacity>
+          </View>
+          <FlatList
+            data={auditLogs}
+            keyExtractor={(a) => a.id.toString()}
+            style={styles.listArea}
+            contentContainerStyle={styles.list}
+            refreshControl={
+              <RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); loadAuditLogs().finally(() => setRefreshing(false)); }} tintColor={Colors.primary} />
+            }
+            ListEmptyComponent={
+              <Text style={styles.auditEmpty}>{auditLoading ? 'Loading...' : 'No audit logs'}</Text>
+            }
+            renderItem={({ item }) => {
+              const style = getAuditStyle(item.action_type);
+              const actionLabel = getActionDisplayLabel(item.action_type);
+              const entityDisplayKey = getEntityDisplayKey(item.entity_type);
+              const entityValue = item.entity_type === 'user' && item.entity_id != null
+                ? (item.entity_username ?? String(item.entity_id))
+                : item.entity_id;
+              const isApproval = (item.action_type || '').toUpperCase().includes('APPROVE') || (item.action_type || '').toUpperCase().includes('RECEIVE') || (item.action_type || '').toUpperCase().includes('INITIATE');
+              const isRejection = (item.action_type || '').toUpperCase().includes('REJECT');
+              return (
+                <View style={[styles.auditCard, { borderLeftColor: style.color }]}>
+                  <View style={styles.auditCardInner}>
+                    <View style={[styles.auditPill, { backgroundColor: style.bg }]}>
+                      <Text style={[styles.auditPillText, { color: style.color }]}>{actionLabel}</Text>
+                    </View>
+                    <View style={styles.auditKvRow}>
+                      <Text style={styles.auditKey}>createdBy</Text>
+                      <Text style={styles.auditVal}>{item.performed_by || '—'}</Text>
+                    </View>
+                    <View style={styles.auditKvRow}>
+                      <Text style={styles.auditKey}>createdAt</Text>
+                      <Text style={styles.auditVal}>{formatDateTime(item.created_at)}</Text>
+                    </View>
+                    {entityDisplayKey && item.entity_id != null && (
+                      <View style={styles.auditKvRow}>
+                        <Text style={styles.auditKey}>{entityDisplayKey}</Text>
+                        <Text style={styles.auditVal}>{entityValue}</Text>
+                      </View>
+                    )}
+                    {isApproval && (item.from_status || item.to_status) && (
+                      <>
+                        {item.from_status && (
+                          <View style={styles.auditKvRow}>
+                            <Text style={styles.auditKey}>Approved from</Text>
+                            <Text style={styles.auditVal}>{item.from_status}</Text>
+                          </View>
+                        )}
+                        {item.to_status && (
+                          <View style={styles.auditKvRow}>
+                            <Text style={styles.auditKey}>Approved to</Text>
+                            <Text style={styles.auditVal}>{item.to_status}</Text>
+                          </View>
+                        )}
+                      </>
+                    )}
+                    {isRejection && (item.from_status || item.to_status) && (
+                      <>
+                        {item.from_status && (
+                          <View style={styles.auditKvRow}>
+                            <Text style={styles.auditKey}>Rejected from</Text>
+                            <Text style={styles.auditVal}>{item.from_status}</Text>
+                          </View>
+                        )}
+                        {item.to_status && (
+                          <View style={styles.auditKvRow}>
+                            <Text style={styles.auditKey}>Rejected to</Text>
+                            <Text style={styles.auditVal}>{item.to_status}</Text>
+                          </View>
+                        )}
+                      </>
+                    )}
+                  </View>
                 </View>
+              );
+            }}
+          />
+          <Modal visible={showCategoryPicker} transparent animationType="fade">
+            <Pressable style={styles.categoryPickerOverlay} onPress={() => setShowCategoryPicker(false)}>
+              <View style={styles.categoryPickerBox} onStartShouldSetResponder={() => true}>
+                <ScrollView style={styles.categoryPickerScroll}>
+                  {AUDIT_CATEGORY_OPTIONS.map((opt) => (
+                    <TouchableOpacity
+                      key={opt.value}
+                      style={[styles.categoryPickerItem, auditCategory === opt.value && styles.categoryPickerItemActive]}
+                      onPress={() => { setAuditCategory(opt.value); setShowCategoryPicker(false); }}
+                    >
+                      <Text style={[styles.categoryPickerItemText, auditCategory === opt.value && styles.categoryPickerItemTextActive]}>{opt.label}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
               </View>
-            </Card>
-          )}
-        />
+            </Pressable>
+          </Modal>
+        </View>
       )}
 
       {/* Success Modal */}
@@ -305,6 +485,60 @@ const styles = StyleSheet.create({
   tabTextActive: { color: Colors.primary },
   listArea: { flex: 1, backgroundColor: Colors.background },
   list: { padding: Spacing.md },
+  auditContainer: { flex: 1, backgroundColor: Colors.background },
+  auditFilterRow: { paddingHorizontal: Spacing.md, paddingTop: Spacing.sm, paddingBottom: Spacing.xs },
+  auditFilterBox: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.border, borderRadius: BorderRadius.md,
+    paddingVertical: 12, paddingHorizontal: Spacing.md,
+  },
+  auditFilterBoxText: { fontSize: FontSize.sm, fontWeight: '600', color: Colors.textPrimary },
+  auditSearchRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm },
+  auditSearchInput: {
+    flex: 1, backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.border, borderRadius: BorderRadius.md,
+    paddingVertical: 10, paddingHorizontal: Spacing.md, fontSize: FontSize.sm, color: Colors.textPrimary,
+  },
+  auditSearchBtn: { backgroundColor: Colors.primary, paddingVertical: 10, paddingHorizontal: Spacing.md, borderRadius: BorderRadius.md },
+  auditSearchBtnText: { color: '#fff', fontSize: FontSize.sm, fontWeight: '700' },
+  auditSortRow: { flexDirection: 'row', gap: Spacing.xs, paddingHorizontal: Spacing.md, paddingBottom: Spacing.sm },
+  auditSortChip: {
+    flex: 1, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: Colors.border,
+    backgroundColor: Colors.surface, alignItems: 'center',
+  },
+  auditSortChipActive: { borderColor: Colors.primary, backgroundColor: Colors.primary + '15' },
+  auditSortChipText: { fontSize: 12, fontWeight: '600', color: Colors.textSecondary },
+  auditSortChipTextActive: { color: Colors.primary },
+  auditEmpty: { textAlign: 'center', color: Colors.textMuted, marginTop: 40, fontSize: FontSize.sm },
+  auditCard: {
+    backgroundColor: Colors.surface,
+    borderRadius: BorderRadius.lg,
+    marginBottom: Spacing.sm,
+    borderLeftWidth: 4,
+    overflow: 'hidden',
+    ...Shadow.md,
+    shadowOpacity: 0.12,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  auditCardInner: { paddingHorizontal: 12, paddingVertical: 10 },
+  auditPill: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: BorderRadius.full,
+    marginBottom: 6,
+  },
+  auditPillText: { fontSize: FontSize.xs, fontWeight: '700' },
+  auditKvRow: { flexDirection: 'row', alignItems: 'center', marginTop: 4, gap: 8, paddingLeft: '2%' },
+  auditKey: { fontSize: 11, color: Colors.textMuted, minWidth: 72, fontWeight: '600' },
+  auditVal: { fontSize: FontSize.xs, color: Colors.textPrimary, flex: 1, flexWrap: 'wrap' },
+  categoryPickerOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: Spacing.lg },
+  categoryPickerBox: { backgroundColor: Colors.surface, borderRadius: BorderRadius.lg, maxHeight: 320 },
+  categoryPickerScroll: { maxHeight: 300 },
+  categoryPickerItem: { paddingVertical: 14, paddingHorizontal: Spacing.md, borderBottomWidth: 1, borderBottomColor: Colors.borderLight },
+  categoryPickerItemActive: { backgroundColor: Colors.primary + '12' },
+  categoryPickerItemText: { fontSize: FontSize.sm, color: Colors.textPrimary },
+  categoryPickerItemTextActive: { color: Colors.primary, fontWeight: '700' },
   userRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
   avatar: { width: 44, height: 44, borderRadius: 22, justifyContent: 'center', alignItems: 'center' },
   avatarText: { fontSize: FontSize.lg, fontWeight: '800' },
@@ -314,12 +548,13 @@ const styles = StyleSheet.create({
   roleBadge: { backgroundColor: Colors.primary + '15', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10, alignSelf: 'flex-start', marginTop: 3 },
   roleText: { fontSize: 10, fontWeight: '700', color: Colors.primary },
   statusBtn: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8 },
-  auditRow: { flexDirection: 'row', gap: Spacing.sm },
-  auditDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: Colors.primary, marginTop: 5 },
-  auditInfo: { flex: 1 },
-  auditAction: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.textPrimary },
-  auditDesc: { fontSize: FontSize.xs, color: Colors.textSecondary, marginTop: 2 },
-  auditMeta: { fontSize: 10, color: Colors.textMuted, marginTop: 3 },
+  auditRow: { flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.sm, padding: 14 },
+  auditIconWrap: { width: 40, height: 40, borderRadius: 20, justifyContent: 'center', alignItems: 'center' },
+  auditInfo: { flex: 1, minWidth: 0 },
+  auditAction: { fontSize: FontSize.sm, fontWeight: '800', textTransform: 'capitalize' },
+  auditDesc: { fontSize: FontSize.xs, color: Colors.textSecondary, marginTop: 4, lineHeight: 18 },
+  auditMetaRow: { flexDirection: 'row', alignItems: 'center', marginTop: 6, gap: 4, flexWrap: 'wrap' },
+  auditMeta: { fontSize: 10, color: Colors.textMuted },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
   modalSheet: { backgroundColor: '#fff', borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: Spacing.lg, maxHeight: '90%' },
   modalTitle: { fontSize: FontSize.lg, fontWeight: '700', color: Colors.textPrimary, marginBottom: Spacing.md },

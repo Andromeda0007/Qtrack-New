@@ -279,7 +279,7 @@ export const ChatRoomsScreen: React.FC = () => {
           <SearchInput
             value={query}
             onChangeText={setQuery}
-            placeholder="Search chats or people..."
+            placeholder="Search"
           />
         </View>
 

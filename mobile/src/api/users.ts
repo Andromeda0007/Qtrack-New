@@ -38,7 +38,13 @@ export const usersApi = {
     return res.data;
   },
 
-  getAuditLogs: async (params?: { action_type?: string; entity_type?: string; performed_by?: string; limit?: number }) => {
+  getAuditLogs: async (params?: {
+    category?: string; // 'all' | 'user' | 'card_creation' | 'approvals' | 'rejections'
+    search?: string;
+    sort?: 'asc' | 'desc';
+    limit?: number;
+    offset?: number;
+  }) => {
     const res = await apiClient.get('/audit/', { params });
     return res.data;
   },

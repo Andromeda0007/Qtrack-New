@@ -104,7 +104,7 @@ export const BatchListScreen: React.FC = () => {
         <SearchInput
           value={search}
           onChangeText={handleSearch}
-          placeholder="Search batch, material, GRN..."
+          placeholder="Search"
         />
       </View>
 

@@ -362,7 +362,7 @@ const styles = StyleSheet.create({
     alignItems: "flex-start",
     backgroundColor: Colors.primary,
     padding: 22,
-    paddingBottom: 39,
+    paddingBottom: 25,
   },
   greeting: { fontSize: FontSize.sm, color: "rgba(255,255,255,0.75)" },
   userName: {

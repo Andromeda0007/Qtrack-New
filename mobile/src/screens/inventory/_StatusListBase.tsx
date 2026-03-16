@@ -179,7 +179,7 @@ export const StatusListBase: React.FC<Props> = ({
         <SearchInput
           value={search}
           onChangeText={setSearch}
-          placeholder="Search..."
+          placeholder="Search"
         />
       </View>
 
@@ -256,7 +256,7 @@ export const StatusListBase: React.FC<Props> = ({
 };
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: Colors.surface },
+  safe: { flex: 1, backgroundColor: Colors.background },
   centered: { flex: 1, justifyContent: "center", alignItems: "center" },
 
   header: {
