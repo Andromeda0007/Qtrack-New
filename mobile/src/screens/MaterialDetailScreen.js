@@ -254,7 +254,7 @@ const MaterialDetailScreen = () => {
         </View>
 
         <View style={styles.infoRow}>
-          <Text style={styles.label}>GRN Number:</Text>
+          <Text style={styles.label}>Product Number:</Text>
           <Text style={styles.value}>{currentMaterial.grn_number}</Text>
         </View>
 

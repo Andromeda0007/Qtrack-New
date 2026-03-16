@@ -76,7 +76,7 @@ export const BatchListScreen: React.FC = () => {
           <MetaItem icon="calendar" label={formatDate(item.expiry_date)} />
           {item.retest_date && <MetaItem icon="refresh" label={formatDate(item.retest_date)} color={Colors.warning} />}
         </View>
-        {item.grn_number && <Text style={styles.grnText}>GRN: {item.grn_number}</Text>}
+        {item.grn_number && <Text style={styles.grnText}>Product: {item.grn_number}</Text>}
       </Card>
     </TouchableOpacity>
   );

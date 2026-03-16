@@ -4,7 +4,7 @@ from decimal import Decimal
 from datetime import datetime, date
 
 
-class GRNCreate(BaseModel):
+class ProductCreate(BaseModel):
     item_code: str
     item_name: str
     grn_number: str

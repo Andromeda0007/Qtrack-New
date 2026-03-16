@@ -147,7 +147,7 @@ export const BatchDetailScreen: React.FC = () => {
             <Divider />
             <Row label="Batch / Lot No." value={batch.batch_number ?? '—'} />
             <Divider />
-            <Row label="GRN Number" value={batch.grn_number ?? '—'} />
+            <Row label="Product Number" value={batch.grn_number ?? '—'} />
             <Divider />
             <Row label="Pack Type" value={String(batch.pack_type ?? '—')} />
             <Divider />

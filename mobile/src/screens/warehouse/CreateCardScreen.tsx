@@ -121,7 +121,7 @@ export const CreateCardScreen: React.FC = () => {
     const fields: [keyof typeof form, string][] = [
       ['item_code', 'Item Code'],
       ['item_name', 'Item Name'],
-      ['grn_number', 'GRN Number'],
+      ['grn_number', 'Product Number'],
       ['batch_number', 'Batch / Lot Number'],
       ['total_quantity', 'Received Total Quantity'],
       ['container_quantity', 'Container / Bag / Drum Quantity'],
@@ -152,7 +152,7 @@ export const CreateCardScreen: React.FC = () => {
     if (!validate()) return;
     setSubmitting(true);
     try {
-      const result = await inventoryApi.createGRN({
+      const result = await inventoryApi.createProduct({
         item_code: form.item_code.trim(),
         item_name: form.item_name.trim(),
         grn_number: form.grn_number.trim(),
@@ -199,10 +199,10 @@ export const CreateCardScreen: React.FC = () => {
             <Input label="Manufacturer Name *" placeholder="e.g. Rubik's Brand Ltd." value={form.manufacturer_name} onChangeText={(v) => set('manufacturer_name', v)} />
           </View>
 
-          <SectionTitle title="Batch & GRN Reference" />
+          <SectionTitle title="Batch & Product Reference" />
           <View style={styles.card}>
             <Input label="Batch / Lot Number *" placeholder="e.g. BTH-2026-001" value={form.batch_number} onChangeText={(v) => set('batch_number', v)} autoCapitalize="characters" />
-            <Input label="GRN Number *" placeholder="e.g. GRN-2026-0042" value={form.grn_number} onChangeText={(v) => set('grn_number', v)} autoCapitalize="characters" />
+            <Input label="Product Number *" placeholder="e.g. PRD-2026-0042" value={form.grn_number} onChangeText={(v) => set('grn_number', v)} autoCapitalize="characters" />
           </View>
 
           <SectionTitle title="Quantity & Packaging" />
@@ -273,7 +273,7 @@ export const CreateCardScreen: React.FC = () => {
               <View style={styles.divider} />
               <CardRow label="Batch / Lot No." value={card?.batch_number ?? ''} />
               <View style={styles.divider} />
-              <CardRow label="GRN Number" value={card?.grn_number ?? ''} />
+              <CardRow label="Product Number" value={card?.grn_number ?? ''} />
               <View style={styles.divider} />
               <CardRow label="Total Quantity" value={card?.total_quantity ?? ''} />
               <View style={styles.divider} />

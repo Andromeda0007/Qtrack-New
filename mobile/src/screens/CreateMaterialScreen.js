@@ -197,12 +197,12 @@ const CreateMaterialScreen = () => {
             returnKeyType="next"
           />
 
-          <Text style={styles.label}>GRN Number</Text>
+          <Text style={styles.label}>Product Number</Text>
           <TextInput
             style={styles.input}
             value={formData.grnNumber}
             onChangeText={(value) => handleInputChange("grnNumber", value)}
-            placeholder="Enter GRN number"
+            placeholder="Enter product number"
             placeholderTextColor={COLORS.gray}
             autoCapitalize="characters"
             returnKeyType="next"

@@ -206,7 +206,7 @@ const InventoryScreen = () => {
                     <Text style={styles.infoValue}>{material.batch_lot_number}</Text>
                   </View>
                   <View style={styles.infoRow}>
-                    <Text style={styles.infoLabel}>GRN:</Text>
+                    <Text style={styles.infoLabel}>Product:</Text>
                     <Text style={styles.infoValue}>{material.grn_number}</Text>
                   </View>
                   <View style={styles.infoRow}>

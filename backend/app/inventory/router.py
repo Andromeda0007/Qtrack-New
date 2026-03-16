@@ -8,19 +8,19 @@ from app.database import get_db
 from app.auth.dependencies import get_current_user, require_permission
 from app.models.user_models import User
 from app.inventory import service
-from app.inventory.schemas import GRNCreate, IssueStockRequest, StockAdjustmentRequest
+from app.inventory.schemas import ProductCreate, IssueStockRequest, StockAdjustmentRequest
 from app.utils.pdf_generator import generate_quarantine_label
 
 router = APIRouter()
 
 
-@router.post("/grn")
-async def create_grn(
-    payload: GRNCreate,
-    current_user: User = Depends(require_permission("CREATE_GRN")),
+@router.post("/product")
+async def create_product(
+    payload: ProductCreate,
+    current_user: User = Depends(require_permission("CREATE_PRODUCT")),
     db: AsyncSession = Depends(get_db),
 ):
-    result = await service.create_grn(db, payload.model_dump(), current_user)
+    result = await service.create_product(db, payload.model_dump(), current_user)
     batch = result["batch"]
     material = result["material"]
     supplier = result["supplier"]

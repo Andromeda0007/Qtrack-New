@@ -35,7 +35,7 @@ def generate_quarantine_label(batch_data: dict) -> str:
     fields = [
         ("Material", batch_data.get("material_name", "")),
         ("Batch No.", batch_data.get("batch_number", "")),
-        ("GRN No.", batch_data.get("grn_number", "")),
+        ("Product No.", batch_data.get("grn_number", "")),
         ("Pack Size", str(batch_data.get("pack_size", "")) + " " + batch_data.get("unit", "")),
         ("Total Qty", str(batch_data.get("total_quantity", "")) + " " + batch_data.get("unit", "")),
         ("Mfg Date", str(batch_data.get("manufacture_date", ""))),

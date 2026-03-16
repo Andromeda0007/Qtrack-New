@@ -43,7 +43,7 @@ async def _get_or_create_supplier(db: AsyncSession, supplier_name: str) -> Suppl
     return supplier
 
 
-async def create_grn(db: AsyncSession, data: dict, created_by: User) -> dict:
+async def create_product(db: AsyncSession, data: dict, created_by: User) -> dict:
     # Get or create material by item_code
     material = await _get_or_create_material(db, data["item_code"], data["item_name"])
 
@@ -55,10 +55,10 @@ async def create_grn(db: AsyncSession, data: dict, created_by: User) -> dict:
     if existing_batch.scalar_one_or_none():
         raise HTTPException(status_code=400, detail=f"Batch number '{data['batch_number']}' already exists")
 
-    # Validate GRN number uniqueness
+    # Validate product number uniqueness
     existing_grn = await db.execute(select(GRN).where(GRN.grn_number == data["grn_number"]))
     if existing_grn.scalar_one_or_none():
-        raise HTTPException(status_code=400, detail=f"GRN number '{data['grn_number']}' already exists")
+        raise HTTPException(status_code=400, detail=f"Product number '{data['grn_number']}' already exists")
 
     # Get quarantine location
     q_loc = await db.execute(select(Location).where(Location.location_type == "QUARANTINE"))
@@ -98,7 +98,7 @@ async def create_grn(db: AsyncSession, data: dict, created_by: User) -> dict:
         to_location_id=quarantine.id if quarantine else None,
         performed_by=created_by.id,
         reference_id=data["grn_number"],
-        remarks=f"GRN receipt - {data['grn_number']}",
+        remarks=f"Product receipt - {data['grn_number']}",
     )
     db.add(movement)
 
@@ -108,7 +108,7 @@ async def create_grn(db: AsyncSession, data: dict, created_by: User) -> dict:
         old_status=None,
         new_status=BatchStatus.QUARANTINE,
         changed_by=created_by.id,
-        remarks="Initial GRN receipt",
+        remarks="Initial product receipt",
     )
     db.add(history)
 
@@ -124,10 +124,10 @@ async def create_grn(db: AsyncSession, data: dict, created_by: User) -> dict:
         logger.warning("QR generation failed: %s", e)
 
     await log_action(
-        db, "CREATE_GRN",
+        db, "CREATE_PRODUCT",
         created_by.id, created_by.username,
         "batch", batch.id,
-        f"Card created — GRN {data['grn_number']}, Batch {batch.batch_number}",
+        f"Card created — Product {data['grn_number']}, Batch {batch.batch_number}",
     )
 
     await db.commit()

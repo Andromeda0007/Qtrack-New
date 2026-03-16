@@ -20,15 +20,15 @@ const AUDIT_CATEGORY_OPTIONS: { value: AuditCategory; label: string }[] = [
   { value: 'all', label: 'All' },
   { value: 'user', label: 'User' },
   { value: 'card_creation', label: 'Card creation' },
-  { value: 'approvals', label: 'Approvals' },
-  { value: 'rejections', label: 'Rejections' },
+  { value: 'approvals', label: 'Approved' },
+  { value: 'rejections', label: 'Rejected' },
 ];
 
 function getAuditStyle(actionType: string): { color: string; icon: string; bg: string } {
   const u = (actionType || '').toUpperCase();
   if (u.includes('REJECT')) return { color: Colors.danger, icon: 'close-circle', bg: Colors.dangerLight };
   if ((u.includes('CREATE') || u.includes('ADD')) && u.includes('USER')) return { color: Colors.primary, icon: 'person-add', bg: Colors.primary + '18' };
-  if (u === 'CREATE_GRN' || ((u.includes('CREATE') || u.includes('ADD')) && !u.includes('USER'))) return { color: '#856404', icon: 'document-text', bg: Colors.warningLight };
+  if (u === 'CREATE_PRODUCT' || ((u.includes('CREATE') || u.includes('ADD')) && !u.includes('USER'))) return { color: '#856404', icon: 'document-text', bg: Colors.warningLight };
   if (u.includes('APPROVE') || u.includes('RECEIVE') || u.includes('INITIATE') || u.includes('DISPATCH') || u.includes('INSPECT') || u.includes('ISSUE') || u.includes('ADJUST') || u.includes('REQUEST')) return { color: Colors.success, icon: 'checkmark-circle', bg: Colors.successLight };
   if (u.includes('DELETE') || u.includes('DEACTIVATE')) return { color: Colors.danger, icon: 'trash', bg: Colors.dangerLight };
   if (u.includes('UPDATE') || u.includes('EDIT')) return { color: Colors.info, icon: 'create', bg: Colors.infoLight };
@@ -53,7 +53,7 @@ function getActionDisplayLabel(actionType: string): string {
   if (u.includes('REJECT')) return 'Product Rejected';
   if (u.includes('APPROVE') || u.includes('RECEIVE') || u.includes('INITIATE')) return 'Product Approved';
   if ((u.includes('CREATE') || u.includes('ADD')) && u.includes('USER')) return 'User Created';
-  if (u === 'CREATE_GRN' || ((u.includes('CREATE') || u.includes('ADD')) && !u.includes('USER'))) return 'Product Created';
+  if (u === 'CREATE_PRODUCT' || ((u.includes('CREATE') || u.includes('ADD')) && !u.includes('USER'))) return 'Product Created';
   const label = (actionType || '').replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
   return label;
 }
@@ -263,16 +263,16 @@ export const AdminScreen: React.FC = () => {
           </View>
           <View style={styles.auditSortRow}>
             <TouchableOpacity
-              style={[styles.auditSortChip, auditSort === 'asc' && styles.auditSortChipActive]}
-              onPress={() => setAuditSort('asc')}
-            >
-              <Text style={[styles.auditSortChipText, auditSort === 'asc' && styles.auditSortChipTextActive]}>First created</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
               style={[styles.auditSortChip, auditSort === 'desc' && styles.auditSortChipActive]}
               onPress={() => setAuditSort('desc')}
             >
-              <Text style={[styles.auditSortChipText, auditSort === 'desc' && styles.auditSortChipTextActive]}>Last created</Text>
+              <Text style={[styles.auditSortChipText, auditSort === 'desc' && styles.auditSortChipTextActive]}>Newest first</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.auditSortChip, auditSort === 'asc' && styles.auditSortChipActive]}
+              onPress={() => setAuditSort('asc')}
+            >
+              <Text style={[styles.auditSortChipText, auditSort === 'asc' && styles.auditSortChipTextActive]}>Oldest first</Text>
             </TouchableOpacity>
           </View>
           <FlatList
