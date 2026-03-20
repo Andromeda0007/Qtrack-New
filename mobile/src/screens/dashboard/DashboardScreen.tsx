@@ -9,7 +9,7 @@ import {
   Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuthStore } from "../../store/authStore";
 import { inventoryApi } from "../../api/inventory";
@@ -30,6 +30,67 @@ interface QuickAction {
   color: string;
   screen: string;
   params?: Record<string, any>;
+}
+
+/** Same 6 tiles + routes for every role (2 columns × 3 rows). */
+const PRODUCT_STAT_TILES: Array<{
+  label: string;
+  color: string;
+  icon: string;
+  screen: string;
+  getValue: (s: ProductStats) => number;
+}> = [
+  {
+    label: "Total",
+    color: Colors.primary,
+    icon: "layers-outline",
+    screen: "TotalList",
+    getValue: (s) => s.total,
+  },
+  {
+    label: "Quarantine",
+    color: Colors.warning,
+    icon: "hourglass-outline",
+    screen: "QuarantineList",
+    getValue: (s) => s.quarantine,
+  },
+  {
+    label: "Under Test",
+    color: Colors.info,
+    icon: "flask",
+    screen: "UnderTestList",
+    getValue: (s) => s.underTest,
+  },
+  {
+    label: "Approved",
+    color: Colors.success,
+    icon: "checkmark-circle",
+    screen: "ApprovedList",
+    getValue: (s) => s.approved,
+  },
+  {
+    label: "Rejected",
+    color: Colors.danger,
+    icon: "close-circle",
+    screen: "RejectedList",
+    getValue: (s) => s.rejected,
+  },
+  {
+    label: "Retest",
+    color: Colors.statusQuarantine,
+    icon: "refresh-circle-outline",
+    screen: "RetestList",
+    getValue: (s) => s.retest,
+  },
+];
+
+interface ProductStats {
+  total: number;
+  quarantine: number;
+  underTest: number;
+  approved: number;
+  rejected: number;
+  retest: number;
 }
 
 const ROLE_QUICK_ACTIONS: Record<RoleName, QuickAction[]> = {
@@ -65,37 +126,14 @@ const ROLE_QUICK_ACTIONS: Record<RoleName, QuickAction[]> = {
       color: Colors.accent,
       screen: "Scanner",
     },
-    {
-      label: "Quarantine",
-      icon: "alert-circle",
-      color: Colors.warning,
-      screen: "QuarantineList",
-    },
-    {
-      label: "Under Test",
-      icon: "flask",
-      color: Colors.info,
-      screen: "UnderTestList",
-    },
   ],
   QC_HEAD: [
     {
-      label: "Scan Batch",
-      icon: "scan",
-      color: Colors.accent,
-      screen: "Scanner",
-    },
-    {
-      label: "Pending Tests",
-      icon: "flask",
-      color: Colors.info,
-      screen: "UnderTestList",
-    },
-    {
       label: "Approve / Reject",
-      icon: "checkmark-circle",
-      color: Colors.success,
-      screen: "ApprovedList",
+      /** Review + record outcome (approve or reject) — not a checkmark-only metaphor */
+      icon: "clipboard-outline",
+      color: Colors.primary,
+      screen: "Scanner",
     },
   ],
   QA_EXECUTIVE: [
@@ -155,11 +193,13 @@ const ROLE_QUICK_ACTIONS: Record<RoleName, QuickAction[]> = {
 export const DashboardScreen: React.FC = () => {
   const { user, clearAuth } = useAuthStore();
   const navigation = useNavigation<any>();
-  const [stats, setStats] = useState({
+  const [stats, setStats] = useState<ProductStats>({
+    total: 0,
     quarantine: 0,
     underTest: 0,
     approved: 0,
     rejected: 0,
+    retest: 0,
   });
   const [unreadCount, setUnreadCount] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
@@ -171,12 +211,12 @@ export const DashboardScreen: React.FC = () => {
         notificationsApi.getNotifications(true),
       ]);
       setStats({
-        quarantine: batches.filter(
-          (b) => b.status === "QUARANTINE" || b.status === "QUARANTINE_RETEST",
-        ).length,
+        total: batches.length,
+        quarantine: batches.filter((b) => b.status === "QUARANTINE").length,
         underTest: batches.filter((b) => b.status === "UNDER_TEST").length,
         approved: batches.filter((b) => b.status === "APPROVED").length,
         rejected: batches.filter((b) => b.status === "REJECTED").length,
+        retest: batches.filter((b) => b.status === "QUARANTINE_RETEST").length,
       });
       setUnreadCount(notifications.length);
     } catch {
@@ -187,6 +227,12 @@ export const DashboardScreen: React.FC = () => {
   useEffect(() => {
     loadData();
   }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadData();
+    }, [loadData]),
+  );
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -248,65 +294,33 @@ export const DashboardScreen: React.FC = () => {
         <View style={styles.body}>
           {/* Product Stats */}
           <Text style={styles.sectionTitle}>Product Stats</Text>
-          {role === "WAREHOUSE_USER" ? (
-            <View style={styles.statsGrid}>
+          <View style={styles.statsGrid}>
+            {PRODUCT_STAT_TILES.map((tile) => (
               <TouchableOpacity
-                style={styles.statCardFull}
-                onPress={() => navigation.navigate("QuarantineList")}
+                key={tile.label}
+                style={styles.statCard}
+                onPress={() => navigation.navigate(tile.screen)}
                 activeOpacity={0.8}
               >
                 <View
                   style={[
-                    styles.statIconWrapLg,
-                    { backgroundColor: Colors.warning + "18" },
+                    styles.statIconWrap,
+                    { backgroundColor: tile.color + "18" },
                   ]}
                 >
                   <Ionicons
-                    name="hourglass-outline"
-                    size={36}
-                    color={Colors.warning}
+                    name={tile.icon as any}
+                    size={20}
+                    color={tile.color}
                   />
                 </View>
-                <Text style={[styles.statValueLg, { color: Colors.warning, flex: 1 }]}>
-                  {stats.quarantine}
+                <Text style={[styles.statValue, { color: tile.color }]}>
+                  {tile.getValue(stats)}
                 </Text>
-                <Ionicons name="chevron-forward" size={22} color={Colors.warning} />
+                <Text style={styles.statLabel}>{tile.label}</Text>
               </TouchableOpacity>
-            </View>
-          ) : (
-            <View style={styles.statsGrid}>
-              {[
-                { label: "Quarantine", value: stats.quarantine, color: Colors.warning,  icon: "hourglass-outline",        screen: "QuarantineList" },
-                { label: "Under Test", value: stats.underTest,  color: Colors.info,     icon: "flask",                    screen: "UnderTestList"  },
-                { label: "Approved",   value: stats.approved,   color: Colors.success,  icon: "checkmark-circle",         screen: "ApprovedList"   },
-                { label: "Rejected",   value: stats.rejected,   color: Colors.danger,   icon: "close-circle",             screen: "RejectedList"   },
-              ].map((stat) => (
-                <TouchableOpacity
-                  key={stat.label}
-                  style={styles.statCard}
-                  onPress={() => navigation.navigate(stat.screen)}
-                  activeOpacity={0.8}
-                >
-                  <View
-                    style={[
-                      styles.statIconWrap,
-                      { backgroundColor: stat.color + "18" },
-                    ]}
-                  >
-                    <Ionicons
-                      name={stat.icon as any}
-                      size={22}
-                      color={stat.color}
-                    />
-                  </View>
-                  <Text style={[styles.statValue, { color: stat.color }]}>
-                    {stat.value}
-                  </Text>
-                  <Text style={styles.statLabel}>{stat.label}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          )}
+            ))}
+          </View>
 
           {/* Quick Actions */}
           {quickActions.length > 0 && (
@@ -409,61 +423,30 @@ const styles = StyleSheet.create({
   statsGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
-    justifyContent: "space-between",
     marginBottom: Spacing.lg,
+    justifyContent: "space-between",    
     marginTop: 0,
     rowGap: Spacing.sm,
   },
   statCard: {
     width: "48.5%",
     alignItems: "center",
-    gap: 6,
+    gap: 5,
     backgroundColor: Colors.surface,
     borderRadius: 16,
-    paddingVertical: Spacing.md,
+    paddingTop: 12,
+    paddingBottom: 10, // space below stat label (Total, Quarantine, etc.)
     paddingHorizontal: Spacing.sm,
     ...Shadow.sm,
   },
-  statCardFull: {
-    width: "100%",
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 25,
-    backgroundColor: Colors.surface,
-    borderRadius: 16,
-    paddingVertical: Spacing.lg,
-    paddingHorizontal: Spacing.lg,
-    ...Shadow.sm,
-  },
-  statIconWrapLg: {
-    width: 64,
-    height: 64,
-    borderRadius: 18,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  statCardFullText: {
-    flexDirection: "column",
-    gap: 4,
-  },
-  statValueLg: {
-    fontSize: 36,
-    fontWeight: "600",
-    lineHeight: 40,
-  },
-  statLabelLg: {
-    fontSize: FontSize.sm,
-    color: Colors.textSecondary,
-    fontWeight: "600",
-  },
   statIconWrap: {
-    width: 38,
-    height: 38,
-    borderRadius: 10,
+    width: 34,
+    height: 34,
+    borderRadius: 9,
     justifyContent: "center",
     alignItems: "center",
   },
-  statValue: { fontSize: FontSize.xl, fontWeight: "800" },
+  statValue: { fontSize: 18, fontWeight: "800" },
   statLabel: {
     fontSize: 9,
     color: Colors.textSecondary,

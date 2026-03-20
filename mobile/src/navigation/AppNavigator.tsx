@@ -20,6 +20,11 @@ import { UnderTestListScreen } from '../screens/inventory/UnderTestListScreen';
 import { ApprovedListScreen } from '../screens/inventory/ApprovedListScreen';
 import { RejectedListScreen } from '../screens/inventory/RejectedListScreen';
 import { RetestListScreen } from '../screens/inventory/RetestListScreen';
+import { TotalListScreen } from '../screens/inventory/TotalListScreen';
+import { AddARNumberScreen } from '../screens/qc/AddARNumberScreen';
+import { ApproveBatchScreen } from '../screens/qc/ApproveBatchScreen';
+import { RejectBatchScreen } from '../screens/qc/RejectBatchScreen';
+import { InitiateRetestScreen } from '../screens/qc/InitiateRetestScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -62,11 +67,16 @@ export const AppNavigator: React.FC = () => {
               component={QCScanScreen}
               options={{ headerShown: false }}
             />
+            <Stack.Screen name="TotalList"        component={TotalListScreen}      options={{ headerShown: false }} />
             <Stack.Screen name="QuarantineList" component={QuarantineListScreen} options={{ headerShown: false }} />
             <Stack.Screen name="UnderTestList"  component={UnderTestListScreen}  options={{ headerShown: false }} />
             <Stack.Screen name="ApprovedList"   component={ApprovedListScreen}   options={{ headerShown: false }} />
             <Stack.Screen name="RejectedList"   component={RejectedListScreen}   options={{ headerShown: false }} />
             <Stack.Screen name="RetestList"     component={RetestListScreen}     options={{ headerShown: false }} />
+            <Stack.Screen name="AddARNumber"      component={AddARNumberScreen}      options={{ headerShown: false }} />
+            <Stack.Screen name="ApproveBatch"     component={ApproveBatchScreen}    options={{ headerShown: false }} />
+            <Stack.Screen name="RejectBatch"      component={RejectBatchScreen}     options={{ headerShown: false }} />
+            <Stack.Screen name="InitiateRetest"   component={InitiateRetestScreen}  options={{ headerShown: false }} />
             <Stack.Screen name="ChatRoom"  component={ChatRoomScreen}  options={{ headerShown: false }} />
             <Stack.Screen name="ChatContactDetail" component={ChatContactDetailScreen} options={{ headerShown: false }} />
             <Stack.Screen name="ChatGroupInfo" component={ChatGroupInfoScreen} options={{ headerShown: false }} />

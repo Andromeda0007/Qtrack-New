@@ -47,11 +47,14 @@ function applySort(data: any[], mode: SortMode): any[] {
 }
 
 interface Props {
-  status: string;
+  /** When omitted, loads all batches (e.g. Total list). */
+  status?: string;
   title: string;
   bgColor: string;
   textColor: string;
   icon: string;
+  /** Overrides default empty list copy. */
+  emptyMessage?: string;
 }
 
 export const StatusListBase: React.FC<Props> = ({
@@ -60,6 +63,7 @@ export const StatusListBase: React.FC<Props> = ({
   bgColor,
   textColor,
   icon,
+  emptyMessage,
 }) => {
   const navigation = useNavigation<any>();
   const [batches, setBatches] = useState<any[]>([]);
@@ -245,7 +249,7 @@ export const StatusListBase: React.FC<Props> = ({
                 color={Colors.textMuted}
               />
               <Text style={styles.emptyText}>
-                No {title.toLowerCase()} cards
+                {emptyMessage ?? `No ${title.toLowerCase()} cards`}
               </Text>
             </View>
           }

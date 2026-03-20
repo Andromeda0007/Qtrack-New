@@ -7,7 +7,6 @@ import { Colors } from '../utils/theme';
 import { RoleName } from '../types';
 
 import { DashboardScreen } from '../screens/dashboard/DashboardScreen';
-import { QCScanScreen } from '../screens/scanner/QRScannerScreen';
 import { NotificationsScreen } from '../screens/notifications/NotificationsScreen';
 import { ChatRoomsScreen } from '../screens/chat/ChatRoomsScreen';
 import { AdminScreen } from '../screens/admin/AdminScreen';
@@ -27,31 +26,26 @@ const ROLE_TABS: Record<RoleName, Array<{ name: string; component: any; icon: st
   ],
   QC_EXECUTIVE: [
     { name: 'Dashboard',     component: DashboardScreen,     icon: 'home',          label: 'Home' },
-    { name: 'Scanner',       component: QCScanScreen,        icon: 'scan',          label: 'Scan' },
     { name: 'Notifications', component: NotificationsScreen, icon: 'notifications', label: 'Notifications' },
     { name: 'Chat',          component: ChatRoomsScreen,     icon: 'chatbubbles',   label: 'Chat' },
   ],
   QC_HEAD: [
     { name: 'Dashboard',     component: DashboardScreen,     icon: 'home',          label: 'Home' },
-    { name: 'Scanner',       component: QCScanScreen,        icon: 'scan',          label: 'Scan' },
     { name: 'Notifications', component: NotificationsScreen, icon: 'notifications', label: 'Notifications' },
     { name: 'Chat',          component: ChatRoomsScreen,     icon: 'chatbubbles',   label: 'Chat' },
   ],
   QA_EXECUTIVE: [
     { name: 'Dashboard',     component: DashboardScreen,     icon: 'home',          label: 'Home' },
-    { name: 'Scanner',       component: QCScanScreen,        icon: 'scan',          label: 'Scan' },
     { name: 'Notifications', component: NotificationsScreen, icon: 'notifications', label: 'Notifications' },
     { name: 'Chat',          component: ChatRoomsScreen,     icon: 'chatbubbles',   label: 'Chat' },
   ],
   QA_HEAD: [
     { name: 'Dashboard',     component: DashboardScreen,     icon: 'home',          label: 'Home' },
-    { name: 'Scanner',       component: QCScanScreen,        icon: 'scan',          label: 'Scan' },
     { name: 'Notifications', component: NotificationsScreen, icon: 'notifications', label: 'Notifications' },
     { name: 'Chat',          component: ChatRoomsScreen,     icon: 'chatbubbles',   label: 'Chat' },
   ],
   PRODUCTION_USER: [
     { name: 'Dashboard',     component: DashboardScreen,     icon: 'home',          label: 'Home' },
-    { name: 'Scanner',       component: QCScanScreen,        icon: 'scan',          label: 'Scan' },
     { name: 'Notifications', component: NotificationsScreen, icon: 'notifications', label: 'Notifications' },
     { name: 'Chat',          component: ChatRoomsScreen,     icon: 'chatbubbles',   label: 'Chat' },
   ],

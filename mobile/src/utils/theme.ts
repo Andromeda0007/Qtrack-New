@@ -33,7 +33,7 @@ export const Colors = {
   statusUnderTest: '#007bff',
   statusApproved: '#28a745',
   statusRejected: '#dc3545',
-  statusRetest: '#0d6efd',
+  statusRetest: '#fd7e14', // orange — aligned with quarantine/retest UI
   statusIssued: '#20c997',
 };
 
