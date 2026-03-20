@@ -14,7 +14,7 @@ from app.models.inventory_models import (
 )
 from app.models.user_models import User
 from app.utils.qr_generator import generate_batch_qr, get_qr_base64
-from app.audit.service import log_action
+from app.audit.service import log_action, audit_status_value
 
 
 async def _get_or_create_material(db: AsyncSession, item_code: str, item_name: str) -> Material:
@@ -128,6 +128,8 @@ async def create_product(db: AsyncSession, data: dict, created_by: User) -> dict
         created_by.id, created_by.username,
         "batch", batch.id,
         f"Card created — Product {data['grn_number']}, Batch {batch.batch_number}",
+        from_status=None,
+        to_status=audit_status_value(batch.status),
     )
 
     await db.commit()
@@ -174,6 +176,53 @@ async def get_batch_by_qr(db: AsyncSession, qr_data: str) -> Batch:
         raise HTTPException(status_code=400, detail="QR code is not a batch QR")
 
     return await get_batch_by_id(db, parsed["entity_id"])
+
+
+def _batch_status_str(batch: Batch) -> str:
+    s = batch.status
+    return s.value if hasattr(s, "value") else str(s)
+
+
+async def resolve_scan_payload(db: AsyncSession, qr_data: str) -> dict:
+    """Parse QTRACK QR (BATCH or FG) and return a JSON-safe payload for the mobile scanner."""
+    from app.utils.qr_generator import parse_qr_data
+    from app.production.service import get_fg_batch_by_id
+
+    try:
+        parsed = parse_qr_data(qr_data)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    if parsed["entity_type"] == "BATCH":
+        b = await get_batch_by_id(db, parsed["entity_id"])
+        return {
+            "qr_kind": "batch",
+            "id": b.id,
+            "batch_number": b.batch_number,
+            "material_name": b.material.material_name if b.material else None,
+            "status": _batch_status_str(b),
+            "remaining_quantity": str(b.remaining_quantity),
+            "retest_date": str(b.retest_date) if b.retest_date else None,
+            "ar_number": b.qc_results[-1].ar_number if b.qc_results else None,
+        }
+
+    if parsed["entity_type"] == "FG":
+        fg = await get_fg_batch_by_id(db, parsed["entity_id"])
+        st = fg.status.value if hasattr(fg.status, "value") else str(fg.status)
+        return {
+            "qr_kind": "fg",
+            "id": fg.id,
+            "batch_number": fg.batch_number,
+            "product_name": fg.product_name,
+            "status": st,
+            "quantity": str(fg.quantity),
+            "expiry_date": str(fg.expiry_date) if fg.expiry_date else None,
+            "manufacture_date": str(fg.manufacture_date) if fg.manufacture_date else None,
+            "net_weight": str(fg.net_weight) if fg.net_weight is not None else None,
+            "remarks": fg.remarks,
+        }
+
+    raise HTTPException(status_code=400, detail="Unsupported QR type")
 
 
 async def issue_stock(db: AsyncSession, batch_id: int, quantity: Decimal, remarks: str | None, issued_by: User) -> dict:

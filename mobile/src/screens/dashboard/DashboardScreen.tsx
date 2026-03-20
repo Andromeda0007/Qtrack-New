@@ -137,26 +137,18 @@ const ROLE_QUICK_ACTIONS: Record<RoleName, QuickAction[]> = {
     },
   ],
   QA_EXECUTIVE: [
-    { label: "Scan FG", icon: "scan", color: Colors.accent, screen: "Scanner" },
     {
-      label: "Inspect FG",
-      icon: "eye",
-      color: Colors.primary,
+      label: "Scan FG",
+      icon: "scan",
+      color: Colors.accent,
       screen: "Scanner",
     },
   ],
   QA_HEAD: [
-    { label: "Scan FG", icon: "scan", color: Colors.accent, screen: "Scanner" },
     {
-      label: "Inspect FG",
-      icon: "eye",
+      label: "Approve / Reject FG",
+      icon: "clipboard-outline",
       color: Colors.primary,
-      screen: "Scanner",
-    },
-    {
-      label: "Approve FG",
-      icon: "checkmark-done",
-      color: Colors.success,
       screen: "Scanner",
     },
   ],

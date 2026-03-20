@@ -39,7 +39,7 @@ export const usersApi = {
   },
 
   getAuditLogs: async (params?: {
-    category?: string; // 'all' | 'user' | 'product_creation' | 'approvals' | 'rejections'
+    category?: string; // 'all' | 'user' | 'product' | 'status'
     search?: string;
     sort?: 'asc' | 'desc';
     limit?: number;

@@ -6,7 +6,7 @@ from sqlalchemy import select
 
 from app.models.finished_goods_models import FinishedGoodsBatch, QAInspection, FGStatus, QAInspectionStatus
 from app.models.user_models import User
-from app.audit.service import log_action
+from app.audit.service import log_action, audit_status_value
 
 
 async def inspect_fg(db: AsyncSession, fg_batch_id: int, quantity_verified, remarks: str | None, inspected_by: User) -> QAInspection:
@@ -62,6 +62,8 @@ async def approve_fg(db: AsyncSession, fg_batch_id: int, remarks: str | None, ap
         db, "APPROVE_FG", approved_by.id, approved_by.username,
         "fg_batch", fg.id,
         f"FG batch {fg.batch_number} approved by QA",
+        from_status=audit_status_value(old_status),
+        to_status=audit_status_value(fg.status),
     )
     await db.commit()
     await db.refresh(fg)
@@ -76,6 +78,7 @@ async def reject_fg(db: AsyncSession, fg_batch_id: int, remarks: str, rejected_b
     if fg.status != FGStatus.QA_PENDING:
         raise HTTPException(status_code=400, detail=f"FG batch must be QA_PENDING to reject. Current: {fg.status}")
 
+    old_status = fg.status
     fg.status = FGStatus.QA_REJECTED
 
     inspection_result = await db.execute(
@@ -92,6 +95,8 @@ async def reject_fg(db: AsyncSession, fg_batch_id: int, remarks: str, rejected_b
         db, "REJECT_FG", rejected_by.id, rejected_by.username,
         "fg_batch", fg.id,
         f"FG batch {fg.batch_number} rejected by QA. Reason: {remarks}",
+        from_status=audit_status_value(old_status),
+        to_status=audit_status_value(fg.status),
     )
     await db.commit()
     await db.refresh(fg)

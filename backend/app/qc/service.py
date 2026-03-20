@@ -10,7 +10,7 @@ from app.models.inventory_models import (
 )
 from app.models.qc_models import QCResult, RetestCycle, GradeTransfer, TestStatus, RetestStatus, GradeTransferStatus
 from app.models.user_models import User
-from app.audit.service import log_action
+from app.audit.service import log_action, audit_status_value
 
 
 async def _get_batch_locked(db: AsyncSession, batch_id: int) -> Batch:
@@ -85,12 +85,16 @@ async def add_ar_number(db: AsyncSession, data: dict, done_by: User) -> QCResult
         )
         db.add(movement)
 
+    old_status = batch.status
     await _update_batch_status(db, batch, BatchStatus.UNDER_TEST, done_by.id, "QC sampling initiated", "TESTING")
 
+    # Audit: only the status move (quarantine → under test); AR/sample details stay in QC tables.
     await log_action(
         db, "ADD_AR_NUMBER", done_by.id, done_by.username,
         "batch", batch.id,
-        f"AR number {data['ar_number']} assigned to batch {batch.batch_number}",
+        "Quarantine → under test",
+        from_status=audit_status_value(old_status),
+        to_status=audit_status_value(batch.status),
     )
     await db.commit()
     await db.refresh(qc_result)
@@ -121,12 +125,15 @@ async def approve_material(db: AsyncSession, batch_id: int, retest_date: date | 
     batch.retest_date = retest_date
     batch.retest_cycle = (batch.retest_cycle or 0)  # Preserve cycle count
 
+    old_status = batch.status
     await _update_batch_status(db, batch, BatchStatus.APPROVED, approved_by.id, remarks or "QC Approved", "APPROVED")
 
     await log_action(
         db, "APPROVE_MATERIAL", approved_by.id, approved_by.username,
         "batch", batch.id,
         f"Batch {batch.batch_number} approved. Retest date: {retest_date}",
+        from_status=audit_status_value(old_status),
+        to_status=audit_status_value(batch.status),
     )
     await db.commit()
     await db.refresh(batch)
@@ -149,12 +156,15 @@ async def reject_material(db: AsyncSession, batch_id: int, remarks: str, rejecte
         qc.approved_rejected_at = datetime.utcnow()
         qc.test_remarks = remarks
 
+    old_status = batch.status
     await _update_batch_status(db, batch, BatchStatus.REJECTED, rejected_by.id, remarks, "REJECTED")
 
     await log_action(
         db, "REJECT_MATERIAL", rejected_by.id, rejected_by.username,
         "batch", batch.id,
         f"Batch {batch.batch_number} rejected. Reason: {remarks}",
+        from_status=audit_status_value(old_status),
+        to_status=audit_status_value(batch.status),
     )
     await db.commit()
     await db.refresh(batch)
@@ -179,12 +189,15 @@ async def initiate_retest(db: AsyncSession, batch_id: int, remarks: str | None, 
     )
     db.add(retest)
 
+    old_status = batch.status
     await _update_batch_status(db, batch, BatchStatus.QUARANTINE_RETEST, initiated_by.id, remarks, "QUARANTINE")
 
     await log_action(
         db, "INITIATE_RETEST", initiated_by.id, initiated_by.username,
         "batch", batch.id,
         f"Retesting cycle {batch.retest_cycle} initiated for batch {batch.batch_number}",
+        from_status=audit_status_value(old_status),
+        to_status=audit_status_value(batch.status),
     )
     await db.commit()
     await db.refresh(retest)
@@ -221,10 +234,16 @@ async def complete_retest(db: AsyncSession, batch_id: int, approved: bool, retes
         retest.completed_at = datetime.utcnow()
         retest.remarks = remarks
 
+    old_status = batch.status
     await _update_batch_status(db, batch, new_status, done_by.id, remarks, "APPROVED" if approved else "REJECTED")
 
     action = "RETEST_APPROVED" if approved else "RETEST_REJECTED"
-    await log_action(db, action, done_by.id, done_by.username, "batch", batch.id, f"Retest cycle {batch.retest_cycle} {'approved' if approved else 'rejected'}")
+    await log_action(
+        db, action, done_by.id, done_by.username, "batch", batch.id,
+        f"Retest cycle {batch.retest_cycle} {'approved' if approved else 'rejected'}",
+        from_status=audit_status_value(old_status),
+        to_status=audit_status_value(batch.status),
+    )
     await db.commit()
     await db.refresh(batch)
     return batch

@@ -6,7 +6,7 @@ from app.models.finished_goods_models import FinishedGoodsBatch, FGStatus
 from app.models.user_models import User
 from app.utils.qr_generator import generate_fg_qr
 from app.utils.pdf_generator import generate_shipper_label
-from app.audit.service import log_action
+from app.audit.service import log_action, audit_status_value
 
 
 async def create_fg_batch(db: AsyncSession, data: dict, created_by: User) -> FinishedGoodsBatch:
@@ -57,6 +57,8 @@ async def create_fg_batch(db: AsyncSession, data: dict, created_by: User) -> Fin
         db, "CREATE_FG_BATCH", created_by.id, created_by.username,
         "fg_batch", fg_batch.id,
         f"FG batch {fg_batch.batch_number} created ({fg_batch.quantity} units)",
+        from_status=None,
+        to_status=audit_status_value(fg_batch.status),
     )
     await db.commit()
     await db.refresh(fg_batch)

@@ -2,6 +2,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.audit_models import AuditLog
 
 
+def audit_status_value(status) -> str | None:
+    """Serialize enum or status-like values for audit from_status / to_status columns."""
+    if status is None:
+        return None
+    return status.value if hasattr(status, "value") else str(status)
+
+
 async def log_action(
     db: AsyncSession,
     action_type: str,

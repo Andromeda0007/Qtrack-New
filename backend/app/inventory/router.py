@@ -109,16 +109,8 @@ async def scan_qr(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    batch = await service.get_batch_by_qr(db, qr_data)
-    return {
-        "id": batch.id,
-        "batch_number": batch.batch_number,
-        "material_name": batch.material.material_name if batch.material else None,
-        "status": batch.status,
-        "remaining_quantity": batch.remaining_quantity,
-        "retest_date": batch.retest_date,
-        "ar_number": batch.qc_results[-1].ar_number if batch.qc_results else None,
-    }
+    """Resolve material batch QR or finished-goods FG QR (`QTRACK|BATCH|…` / `QTRACK|FG|…`)."""
+    return await service.resolve_scan_payload(db, qr_data)
 
 
 @router.post("/issue-stock")

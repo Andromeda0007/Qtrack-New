@@ -24,13 +24,22 @@ AUDIT_CATEGORIES = {
     "user": [
         "CREATE_USER", "UPDATE_USER", "UPDATE_USER_ROLE", "DEACTIVATE_USER", "REACTIVATE_USER",
     ],
-    "product_creation": ["CREATE_PRODUCT"],
-    "approvals": [
-        "APPROVE_MATERIAL", "INITIATE_RETEST", "RETEST_APPROVED", "APPROVE_GRADE_TRANSFER",
-        "RECEIVE_FG", "APPROVE_FG", "CREATE_FG_BATCH", "ADD_AR_NUMBER", "REQUEST_GRADE_TRANSFER",
-        "DISPATCH_FG", "INSPECT_FG", "ISSUE_STOCK", "ADJUST_STOCK",
+    # New RM product card + new FG batch record (creation events)
+    "product": ["CREATE_PRODUCT", "CREATE_FG_BATCH"],
+    # Batch / FG *lifecycle status* changes (UNDER_TEST → APPROVED, QA_PENDING → QA_APPROVED, etc.)
+    # ADD_AR_NUMBER = QC moves batch QUARANTINE / QUARANTINE_RETEST → UNDER_TEST when AR is assigned.
+    "status": [
+        "ADD_AR_NUMBER",
+        "APPROVE_MATERIAL",
+        "REJECT_MATERIAL",
+        "INITIATE_RETEST",
+        "RETEST_APPROVED",
+        "RETEST_REJECTED",
+        "APPROVE_FG",
+        "REJECT_FG",
+        "RECEIVE_FG",
+        "DISPATCH_FG",
     ],
-    "rejections": ["REJECT_MATERIAL", "REJECT_FG", "RETEST_REJECTED"],
 }
 
 
@@ -50,7 +59,7 @@ def _search_conditions(term: str):
 
 @router.get("/")
 async def get_audit_logs(
-    category: Optional[str] = Query(None, description="all | user | product_creation | approvals | rejections"),
+    category: Optional[str] = Query(None, description="all | user | product | status"),
     search: Optional[str] = Query(None, description="Match in any field; button-triggered; each log shown once"),
     sort: str = Query("desc", description="asc = oldest first, desc = newest first"),
     limit: int = Query(50, le=200),

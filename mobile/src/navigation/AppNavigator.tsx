@@ -25,6 +25,9 @@ import { AddARNumberScreen } from '../screens/qc/AddARNumberScreen';
 import { ApproveBatchScreen } from '../screens/qc/ApproveBatchScreen';
 import { RejectBatchScreen } from '../screens/qc/RejectBatchScreen';
 import { InitiateRetestScreen } from '../screens/qc/InitiateRetestScreen';
+import { InspectFGScreen } from '../screens/qa/InspectFGScreen';
+import { ApproveFGScreen } from '../screens/qa/ApproveFGScreen';
+import { RejectFGScreen } from '../screens/qa/RejectFGScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -77,6 +80,9 @@ export const AppNavigator: React.FC = () => {
             <Stack.Screen name="ApproveBatch"     component={ApproveBatchScreen}    options={{ headerShown: false }} />
             <Stack.Screen name="RejectBatch"      component={RejectBatchScreen}     options={{ headerShown: false }} />
             <Stack.Screen name="InitiateRetest"   component={InitiateRetestScreen}  options={{ headerShown: false }} />
+            <Stack.Screen name="InspectFG" component={InspectFGScreen} options={{ headerShown: false }} />
+            <Stack.Screen name="ApproveFG" component={ApproveFGScreen} options={{ headerShown: false }} />
+            <Stack.Screen name="RejectFG"  component={RejectFGScreen}  options={{ headerShown: false }} />
             <Stack.Screen name="ChatRoom"  component={ChatRoomScreen}  options={{ headerShown: false }} />
             <Stack.Screen name="ChatContactDetail" component={ChatContactDetailScreen} options={{ headerShown: false }} />
             <Stack.Screen name="ChatGroupInfo" component={ChatGroupInfoScreen} options={{ headerShown: false }} />

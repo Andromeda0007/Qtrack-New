@@ -221,23 +221,40 @@ export const QCScanScreen: React.FC = () => {
             <View style={styles.successIconWrap}>
               <Ionicons name="checkmark-circle" size={36} color={Colors.success} />
             </View>
-            <Text style={styles.resultTitle}>Batch found</Text>
+            <Text style={styles.resultTitle}>
+              {batchData.qr_kind === "fg" ? "FG batch found" : "Batch found"}
+            </Text>
             <Text style={styles.resultSub}>Review details and choose an action</Text>
           </View>
 
           <Card>
             <Text style={styles.batchNumber}>{batchData.batch_number}</Text>
-            <StatusBadge status={batchData.status} type="batch" />
+            <StatusBadge
+              status={batchData.status}
+              type={batchData.qr_kind === "fg" ? "fg" : "batch"}
+            />
 
-            <View style={styles.infoGrid}>
-              <InfoRow label="Material" value={batchData.material_name || "—"} />
-              <InfoRow
-                label="Remaining Qty"
-                value={formatQuantity(batchData.remaining_quantity)}
-              />
-              <InfoRow label="Retest Date" value={formatDate(batchData.retest_date)} />
-              <InfoRow label="AR Number" value={batchData.ar_number || "—"} />
-            </View>
+            {batchData.qr_kind === "fg" ? (
+              <View style={styles.infoGrid}>
+                <InfoRow label="Product" value={batchData.product_name || "—"} />
+                <InfoRow
+                  label="Quantity"
+                  value={formatQuantity(batchData.quantity)}
+                />
+                <InfoRow label="Expiry" value={formatDate(batchData.expiry_date)} />
+                <InfoRow label="Mfg date" value={formatDate(batchData.manufacture_date)} />
+              </View>
+            ) : (
+              <View style={styles.infoGrid}>
+                <InfoRow label="Material" value={batchData.material_name || "—"} />
+                <InfoRow
+                  label="Remaining Qty"
+                  value={formatQuantity(batchData.remaining_quantity)}
+                />
+                <InfoRow label="Retest Date" value={formatDate(batchData.retest_date)} />
+                <InfoRow label="AR Number" value={batchData.ar_number || "—"} />
+              </View>
+            )}
           </Card>
 
           <RoleActions batchData={batchData} role={user?.role || ""} />
@@ -315,12 +332,13 @@ const InfoRow: React.FC<{ label: string; value: string }> = ({ label, value }) =
 const RoleActions: React.FC<{
   batchData: any;
   role: string;
-  onAction: () => void;
+  onAction?: () => void;
 }> = ({ batchData, role }) => {
   const navigation = useNavigation<any>();
   const status = batchData?.status;
+  const isFg = batchData?.qr_kind === "fg";
 
-  const goTo = (screen: string, params?: any) => {
+  const goToBatch = (screen: string, params?: Record<string, unknown>) => {
     navigation.navigate(screen, {
       batchId: batchData.id,
       batchNumber: batchData.batch_number,
@@ -328,12 +346,22 @@ const RoleActions: React.FC<{
     });
   };
 
+  const goToFg = (screen: string) => {
+    navigation.navigate(screen, {
+      fgBatchId: batchData.id,
+      fgBatchNumber: batchData.batch_number,
+    });
+  };
+
   if (role === "QC_EXECUTIVE" || role === "QC_HEAD") {
+    if (isFg) {
+      return null;
+    }
     if (status === "QUARANTINE" || status === "QUARANTINE_RETEST") {
       return (
         <Button
           title="Add AR Number & Start Testing"
-          onPress={() => goTo("AddARNumber")}
+          onPress={() => goToBatch("AddARNumber")}
           fullWidth
           style={{ marginTop: Spacing.sm }}
         />
@@ -344,13 +372,13 @@ const RoleActions: React.FC<{
         <View style={{ gap: Spacing.sm, marginTop: Spacing.sm }}>
           <Button
             title="Approve Material"
-            onPress={() => goTo("ApproveBatch")}
+            onPress={() => goToBatch("ApproveBatch")}
             variant="success"
             fullWidth
           />
           <Button
             title="Reject Material"
-            onPress={() => goTo("RejectBatch")}
+            onPress={() => goToBatch("RejectBatch")}
             variant="danger"
             fullWidth
           />
@@ -361,7 +389,7 @@ const RoleActions: React.FC<{
       return (
         <Button
           title="Initiate Retest"
-          onPress={() => goTo("InitiateRetest")}
+          onPress={() => goToBatch("InitiateRetest")}
           variant="outline"
           fullWidth
           style={{ marginTop: Spacing.sm }}
@@ -371,30 +399,47 @@ const RoleActions: React.FC<{
   }
 
   if (
+    !isFg &&
     (role === "WAREHOUSE_USER" || role === "WAREHOUSE_HEAD") &&
     status === "APPROVED"
   ) {
     return (
       <Button
         title="Issue to Production"
-        onPress={() => goTo("IssueStock")}
+        onPress={() => goToBatch("IssueStock")}
         fullWidth
         style={{ marginTop: Spacing.sm }}
       />
     );
   }
 
-  if ((role === "QA_EXECUTIVE" || role === "QA_HEAD") && status === "QA_PENDING") {
+  if (
+    (role === "QA_EXECUTIVE" || role === "QA_HEAD") &&
+    isFg &&
+    status === "QA_PENDING"
+  ) {
     return (
       <View style={{ gap: Spacing.sm, marginTop: Spacing.sm }}>
-        <Button title="Submit Inspection" onPress={() => goTo("InspectFG")} fullWidth />
+        <Button
+          title="Submit Inspection"
+          onPress={() => goToFg("InspectFG")}
+          fullWidth
+        />
         {role === "QA_HEAD" && (
-          <Button
-            title="Approve FG"
-            onPress={() => goTo("ApproveFG")}
-            variant="success"
-            fullWidth
-          />
+          <>
+            <Button
+              title="Approve FG"
+              onPress={() => goToFg("ApproveFG")}
+              variant="success"
+              fullWidth
+            />
+            <Button
+              title="Reject FG"
+              onPress={() => goToFg("RejectFG")}
+              variant="danger"
+              fullWidth
+            />
+          </>
         )}
       </View>
     );

@@ -9,7 +9,7 @@ from app.models.finished_goods_models import (
 )
 from app.models.inventory_models import Location
 from app.models.user_models import User
-from app.audit.service import log_action
+from app.audit.service import log_action, audit_status_value
 
 
 async def receive_fg(db: AsyncSession, fg_batch_id: int, location_id: int | None, received_by: User) -> FGInventory:
@@ -19,6 +19,8 @@ async def receive_fg(db: AsyncSession, fg_batch_id: int, location_id: int | None
 
     if fg.status != FGStatus.QA_APPROVED:
         raise HTTPException(status_code=400, detail=f"FG batch must be QA_APPROVED before warehouse receipt. Current: {fg.status}")
+
+    old_status = fg.status
 
     # Get FG storage location if not specified
     if not location_id:
@@ -54,6 +56,8 @@ async def dispatch_fg(db: AsyncSession, data: dict, dispatched_by: User) -> Disp
     if fg.status != FGStatus.WAREHOUSE_RECEIVED:
         raise HTTPException(status_code=400, detail=f"FG batch must be in WAREHOUSE_RECEIVED state. Current: {fg.status}")
 
+    old_status = fg.status
+
     # Check inventory
     inv_result = await db.execute(
         select(FGInventory).where(FGInventory.fg_batch_id == data["fg_batch_id"]).with_for_update()
@@ -88,6 +92,8 @@ async def dispatch_fg(db: AsyncSession, data: dict, dispatched_by: User) -> Disp
         db, "DISPATCH_FG", dispatched_by.id, dispatched_by.username,
         "fg_batch", fg.id,
         f"Dispatched {data['quantity']} units of FG batch {fg.batch_number} to {data['customer_name']}",
+        from_status=audit_status_value(old_status),
+        to_status=audit_status_value(fg.status),
     )
     await db.commit()
     await db.refresh(dispatch)

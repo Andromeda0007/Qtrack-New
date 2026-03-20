@@ -11,27 +11,31 @@ import { Colors, FontSize, Spacing, BorderRadius, Shadow } from '../../utils/the
 import { formatDateTime, formatRole } from '../../utils/formatters';
 import { User, Role } from '../../types';
 import { extractError } from '../../api/client';
+import { resolveAuditFromToLabels, isAuditStatusAction } from '../../utils/auditStatusLabels';
 
 type Tab = 'users' | 'audit';
-type AuditCategory = 'all' | 'user' | 'product_creation' | 'approvals' | 'rejections';
+type AuditCategory = 'all' | 'user' | 'product' | 'status';
 type AuditSort = 'asc' | 'desc';
 
 const AUDIT_CATEGORY_OPTIONS: { value: AuditCategory; label: string }[] = [
   { value: 'all', label: 'All' },
   { value: 'user', label: 'User' },
-  { value: 'product_creation', label: 'Product creation' },
-  { value: 'approvals', label: 'Approved' },
-  { value: 'rejections', label: 'Rejected' },
+  { value: 'product', label: 'Product' },
+  { value: 'status', label: 'Status' },
 ];
 
 function getAuditStyle(actionType: string): { color: string; icon: string; bg: string } {
   const u = (actionType || '').toUpperCase();
   if (u.includes('REJECT')) return { color: Colors.danger, icon: 'close-circle', bg: Colors.dangerLight };
   if ((u.includes('CREATE') || u.includes('ADD')) && u.includes('USER')) return { color: Colors.primary, icon: 'person-add', bg: Colors.primary + '18' };
-  if (u === 'CREATE_PRODUCT' || ((u.includes('CREATE') || u.includes('ADD')) && !u.includes('USER'))) return { color: '#856404', icon: 'document-text', bg: Colors.warningLight };
-  if (u.includes('APPROVE') || u.includes('RECEIVE') || u.includes('INITIATE') || u.includes('DISPATCH') || u.includes('INSPECT') || u.includes('ISSUE') || u.includes('ADJUST') || u.includes('REQUEST')) return { color: Colors.success, icon: 'checkmark-circle', bg: Colors.successLight };
+  if (u === 'CREATE_PRODUCT' || u === 'CREATE_FG_BATCH') return { color: '#856404', icon: 'cube-outline', bg: Colors.warningLight };
+  if (
+    u.includes('APPROVE_MATERIAL') || u.includes('APPROVE_FG') || u.includes('RETEST_APPROVED') ||
+    u.includes('RECEIVE_FG') || u.includes('INITIATE_RETEST')
+  ) return { color: Colors.success, icon: 'git-compare-outline', bg: Colors.successLight };
+  if (u.includes('DISPATCH_FG')) return { color: Colors.info, icon: 'git-compare-outline', bg: Colors.infoLight };
   if (u.includes('DELETE') || u.includes('DEACTIVATE')) return { color: Colors.danger, icon: 'trash', bg: Colors.dangerLight };
-  if (u.includes('UPDATE') || u.includes('EDIT')) return { color: Colors.info, icon: 'create', bg: Colors.infoLight };
+  if (u.includes('UPDATE') || u.includes('EDIT') || u.includes('INSPECT') || u.includes('ISSUE') || u.includes('ADJUST') || u.includes('REQUEST') || u.includes('ADD_AR')) return { color: Colors.info, icon: 'create', bg: Colors.infoLight };
   if (u.includes('LOGIN') || u.includes('LOGOUT')) return { color: Colors.primary, icon: u.includes('OUT') ? 'log-out' : 'log-in', bg: Colors.primary + '18' };
   return { color: Colors.primary, icon: 'document-text', bg: Colors.primary + '18' };
 }
@@ -50,12 +54,74 @@ function getEntityDisplayKey(entityType: string | null): string {
 
 function getActionDisplayLabel(actionType: string): string {
   const u = (actionType || '').toUpperCase();
-  if (u.includes('REJECT')) return 'Product Rejected';
-  if (u.includes('APPROVE') || u.includes('RECEIVE') || u.includes('INITIATE')) return 'Product Approved';
-  if ((u.includes('CREATE') || u.includes('ADD')) && u.includes('USER')) return 'User Created';
-  if (u === 'CREATE_PRODUCT' || ((u.includes('CREATE') || u.includes('ADD')) && !u.includes('USER'))) return 'Product Created';
+  const map: Record<string, string> = {
+    CREATE_USER: 'User created',
+    UPDATE_USER: 'User updated',
+    UPDATE_USER_ROLE: 'User role updated',
+    DEACTIVATE_USER: 'User deactivated',
+    REACTIVATE_USER: 'User reactivated',
+    CREATE_PRODUCT: 'Product card created',
+    CREATE_FG_BATCH: 'FG batch created',
+    ADD_AR_NUMBER: 'Quarantine → Under test',
+    APPROVE_MATERIAL: 'Material approved (QC)',
+    REJECT_MATERIAL: 'Material rejected',
+    INITIATE_RETEST: 'Retest initiated',
+    RETEST_APPROVED: 'Retest approved',
+    RETEST_REJECTED: 'Retest rejected',
+    REQUEST_GRADE_TRANSFER: 'Grade transfer requested',
+    APPROVE_GRADE_TRANSFER: 'Grade transfer approved',
+    INSPECT_FG: 'FG inspection',
+    APPROVE_FG: 'FG approved (QA)',
+    REJECT_FG: 'FG rejected (QA)',
+    RECEIVE_FG: 'FG received (warehouse)',
+    DISPATCH_FG: 'FG dispatched',
+    ISSUE_STOCK: 'Stock issued',
+    ADJUST_STOCK: 'Stock adjusted',
+    CREATE_MATERIAL: 'Material created',
+    UPDATE_MATERIAL: 'Material updated',
+    CREATE_SUPPLIER: 'Supplier created',
+    UPDATE_SUPPLIER: 'Supplier updated',
+  };
+  if (map[u]) return map[u];
+  if ((u.includes('CREATE') || u.includes('ADD')) && u.includes('USER')) return 'User created';
   const label = (actionType || '').replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
   return label;
+}
+
+/**
+ * Entity → updatedBy → updatedAt.
+ * From / To (product status labels) when filter is **Status**, or **All** for status-type actions only (same as Status tab).
+ */
+function buildAuditDetailRows(item: any, auditCategory: AuditCategory): { key: string; value: string }[] {
+  const rows: { key: string; value: string }[] = [];
+
+  const entityDisplayKey = getEntityDisplayKey(item.entity_type);
+  const entityValue =
+    item.entity_id == null
+      ? null
+      : item.entity_type?.toLowerCase() === 'user'
+        ? (item.entity_username ?? String(item.entity_id))
+        : String(item.entity_id);
+
+  if (entityDisplayKey && entityValue != null && entityValue !== '') {
+    rows.push({ key: entityDisplayKey, value: entityValue });
+  }
+
+  const showStatusFromTo =
+    auditCategory === 'status' || (auditCategory === 'all' && isAuditStatusAction(item.action_type));
+
+  if (showStatusFromTo) {
+    const { from: fromLabel, to: toLabel } = resolveAuditFromToLabels(item);
+    rows.push({ key: 'From', value: fromLabel });
+    rows.push({ key: 'To', value: toLabel });
+  }
+
+  const when = formatDateTime(item.created_at);
+  const performer = item.performed_by || '—';
+  rows.push({ key: 'updatedBy', value: performer });
+  rows.push({ key: 'updatedAt', value: when });
+
+  return rows;
 }
 
 export const AdminScreen: React.FC = () => {
@@ -289,64 +355,19 @@ export const AdminScreen: React.FC = () => {
             renderItem={({ item }) => {
               const style = getAuditStyle(item.action_type);
               const actionLabel = getActionDisplayLabel(item.action_type);
-              const entityDisplayKey = getEntityDisplayKey(item.entity_type);
-              const entityValue = item.entity_type === 'user' && item.entity_id != null
-                ? (item.entity_username ?? String(item.entity_id))
-                : item.entity_id;
-              const isApproval = (item.action_type || '').toUpperCase().includes('APPROVE') || (item.action_type || '').toUpperCase().includes('RECEIVE') || (item.action_type || '').toUpperCase().includes('INITIATE');
-              const isRejection = (item.action_type || '').toUpperCase().includes('REJECT');
+              const detailRows = buildAuditDetailRows(item, auditCategory);
               return (
                 <View style={[styles.auditCard, { borderLeftColor: style.color }]}>
                   <View style={styles.auditCardInner}>
                     <View style={[styles.auditPill, { backgroundColor: style.bg }]}>
                       <Text style={[styles.auditPillText, { color: style.color }]}>{actionLabel}</Text>
                     </View>
-                    <View style={styles.auditKvRow}>
-                      <Text style={styles.auditKey}>createdBy</Text>
-                      <Text style={styles.auditVal}>{item.performed_by || '—'}</Text>
-                    </View>
-                    <View style={styles.auditKvRow}>
-                      <Text style={styles.auditKey}>createdAt</Text>
-                      <Text style={styles.auditVal}>{formatDateTime(item.created_at)}</Text>
-                    </View>
-                    {entityDisplayKey && item.entity_id != null && (
-                      <View style={styles.auditKvRow}>
-                        <Text style={styles.auditKey}>{entityDisplayKey}</Text>
-                        <Text style={styles.auditVal}>{entityValue}</Text>
+                    {detailRows.map((row, idx) => (
+                      <View key={`${item.id}-${idx}-${row.key}`} style={styles.auditKvRow}>
+                        <Text style={styles.auditKey}>{row.key}</Text>
+                        <Text style={styles.auditVal}>{row.value}</Text>
                       </View>
-                    )}
-                    {isApproval && (item.from_status || item.to_status) && (
-                      <>
-                        {item.from_status && (
-                          <View style={styles.auditKvRow}>
-                            <Text style={styles.auditKey}>Approved from</Text>
-                            <Text style={styles.auditVal}>{item.from_status}</Text>
-                          </View>
-                        )}
-                        {item.to_status && (
-                          <View style={styles.auditKvRow}>
-                            <Text style={styles.auditKey}>Approved to</Text>
-                            <Text style={styles.auditVal}>{item.to_status}</Text>
-                          </View>
-                        )}
-                      </>
-                    )}
-                    {isRejection && (item.from_status || item.to_status) && (
-                      <>
-                        {item.from_status && (
-                          <View style={styles.auditKvRow}>
-                            <Text style={styles.auditKey}>Rejected from</Text>
-                            <Text style={styles.auditVal}>{item.from_status}</Text>
-                          </View>
-                        )}
-                        {item.to_status && (
-                          <View style={styles.auditKvRow}>
-                            <Text style={styles.auditKey}>Rejected to</Text>
-                            <Text style={styles.auditVal}>{item.to_status}</Text>
-                          </View>
-                        )}
-                      </>
-                    )}
+                    ))}
                   </View>
                 </View>
               );
@@ -530,7 +551,7 @@ const styles = StyleSheet.create({
   },
   auditPillText: { fontSize: FontSize.xs, fontWeight: '700' },
   auditKvRow: { flexDirection: 'row', alignItems: 'center', marginTop: 4, gap: 8, paddingLeft: '2%' },
-  auditKey: { fontSize: 11, color: Colors.textMuted, minWidth: 72, fontWeight: '600' },
+  auditKey: { fontSize: 11, color: Colors.textMuted, minWidth: 96, fontWeight: '600' },
   auditVal: { fontSize: FontSize.xs, color: Colors.textPrimary, flex: 1, flexWrap: 'wrap' },
   categoryPickerOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: Spacing.lg },
   categoryPickerBox: { backgroundColor: Colors.surface, borderRadius: BorderRadius.lg, maxHeight: 320 },
