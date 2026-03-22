@@ -16,6 +16,7 @@ import { NewGroupScreen } from '../screens/chat/NewGroupScreen';
 import { BatchDetailScreen } from '../screens/warehouse/BatchDetailScreen';
 import { IssueStockScreen } from '../screens/warehouse/IssueStockScreen';
 import { QCScanScreen } from '../screens/scanner/QRScannerScreen';
+import { CheckStatusScreen } from '../screens/scanner/CheckStatusScreen';
 import { QuarantineListScreen } from '../screens/inventory/QuarantineListScreen';
 import { UnderTestListScreen } from '../screens/inventory/UnderTestListScreen';
 import { ApprovedListScreen } from '../screens/inventory/ApprovedListScreen';
@@ -74,6 +75,11 @@ export const AppNavigator: React.FC = () => {
             <Stack.Screen
               name="Scanner"
               component={QCScanScreen}
+              options={{ headerShown: false }}
+            />
+            <Stack.Screen
+              name="CheckStatus"
+              component={CheckStatusScreen}
               options={{ headerShown: false }}
             />
             <Stack.Screen name="ProductionList" component={ProductionListScreen} options={{ headerShown: false }} />

@@ -22,7 +22,15 @@ import { inventoryApi } from "../../api/inventory";
 import { Card } from "../../components/common/Card";
 import { Button } from "../../components/common/Button";
 import { StatusBadge } from "../../components/common/StatusBadge";
-import { Colors, FontSize, Spacing, Shadow, BorderRadius } from "../../utils/theme";
+import {
+  Colors,
+  FontSize,
+  Spacing,
+  Shadow,
+  BorderRadius,
+  BatchStatusColors,
+  FGStatusColors,
+} from "../../utils/theme";
 import { formatDate, formatQuantity } from "../../utils/formatters";
 import { useAuthStore } from "../../store/authStore";
 import { extractError } from "../../api/client";
@@ -36,6 +44,216 @@ const HINT_BOTTOM_OFFSET_PX = 56;
 /** Top / bottom dim bands (ratio 5:8 ≈ previous 0.76:1.2) */
 const OVERLAY_TOP_FLEX = 5;
 const OVERLAY_BOTTOM_FLEX = 8;
+
+const FALLBACK_ACCENT = { bg: "#e2e3e5", text: "#383d41", label: "" };
+
+function statusAccent(
+  status: string,
+  kind: "batch" | "fg",
+): { bg: string; text: string } {
+  const map = kind === "fg" ? FGStatusColors : BatchStatusColors;
+  const cfg = map[status] ?? FALLBACK_ACCENT;
+  return { bg: cfg.bg, text: cfg.text };
+}
+
+/** Matches inventory status-list cards: ID pill, batch row + badge, code/name, icon meta. */
+const ScanSummaryCard: React.FC<{ batchData: any }> = ({ batchData }) => {
+  const isFg = batchData.qr_kind === "fg";
+  const accent = statusAccent(batchData.status, isFg ? "fg" : "batch");
+
+  const balanceLine =
+    batchData.total_quantity != null && batchData.total_quantity !== ""
+      ? `${formatQuantity(batchData.remaining_quantity)} / ${formatQuantity(batchData.total_quantity)}`
+      : formatQuantity(batchData.remaining_quantity);
+
+  return (
+    <View style={scanCardStyles.summaryCard}>
+      <View
+        style={[scanCardStyles.idBadge, { backgroundColor: accent.bg }]}
+      >
+        <Text style={[scanCardStyles.idText, { color: accent.text }]}>
+          #{batchData.id}
+        </Text>
+      </View>
+
+      <View style={scanCardStyles.titleRow}>
+        <Text style={scanCardStyles.batchNumber} numberOfLines={2}>
+          {batchData.batch_number || "—"}
+        </Text>
+        <StatusBadge
+          status={batchData.status}
+          type={isFg ? "fg" : "batch"}
+        />
+      </View>
+
+      {isFg ? (
+        <>
+          <Text style={scanCardStyles.materialCode}>Finished goods</Text>
+          <Text style={scanCardStyles.materialName}>
+            {batchData.product_name || "—"}
+          </Text>
+          <View style={scanCardStyles.metaRow}>
+            <ScanMetaItem
+              icon="layers-outline"
+              label={formatQuantity(batchData.quantity)}
+            />
+            <ScanMetaItem
+              icon="calendar-outline"
+              label={formatDate(batchData.expiry_date)}
+            />
+          </View>
+        </>
+      ) : (
+        <>
+          <Text style={scanCardStyles.materialCode}>
+            {batchData.material_code || "—"}
+          </Text>
+          <Text style={scanCardStyles.materialName}>
+            {batchData.material_name || "—"}
+          </Text>
+          <View style={scanCardStyles.metaRow}>
+            <ScanMetaItem icon="layers-outline" label={balanceLine} />
+            <ScanMetaItem
+              icon="calendar-outline"
+              label={formatDate(batchData.expiry_date)}
+            />
+            {batchData.retest_date ? (
+              <ScanMetaItem
+                icon="refresh-outline"
+                label={formatDate(batchData.retest_date)}
+                color={Colors.warning}
+              />
+            ) : null}
+          </View>
+          {batchData.grn_number ? (
+            <Text style={scanCardStyles.grnLine}>
+              Product: {batchData.grn_number}
+            </Text>
+          ) : null}
+        </>
+      )}
+    </View>
+  );
+};
+
+const ScanMetaItem: React.FC<{
+  icon: string;
+  label: string;
+  color?: string;
+}> = ({ icon, label, color = Colors.textMuted }) => (
+  <View style={scanCardStyles.metaItem}>
+    <Ionicons name={icon as any} size={13} color={color} />
+    <Text style={[scanCardStyles.metaText, { color }]} numberOfLines={1}>
+      {label}
+    </Text>
+  </View>
+);
+
+const DetailRow: React.FC<{ label: string; value: string }> = ({
+  label,
+  value,
+}) => (
+  <View style={scanCardStyles.detailRow}>
+    <Text style={scanCardStyles.detailLabel}>{label}</Text>
+    <Text style={scanCardStyles.detailValue}>{value}</Text>
+  </View>
+);
+
+const scanCardStyles = StyleSheet.create({
+  summaryCard: {
+    backgroundColor: Colors.surface,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.md,
+    marginBottom: Spacing.sm,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
+    elevation: 4,
+  },
+  idBadge: {
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    alignSelf: "flex-start",
+    marginBottom: Spacing.sm,
+  },
+  idText: { fontSize: FontSize.xs, fontWeight: "700" },
+  titleRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    gap: Spacing.sm,
+    marginBottom: 4,
+  },
+  batchNumber: {
+    flex: 1,
+    fontSize: FontSize.md,
+    fontWeight: "700",
+    color: Colors.primary,
+  },
+  materialCode: {
+    fontSize: FontSize.md,
+    fontWeight: "700",
+    color: Colors.textPrimary,
+  },
+  materialName: {
+    fontSize: FontSize.sm,
+    color: Colors.textSecondary,
+    marginTop: 2,
+    marginBottom: Spacing.sm,
+  },
+  metaRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: Spacing.md,
+  },
+  metaItem: { flexDirection: "row", alignItems: "center", gap: 4, maxWidth: "100%" },
+  metaText: { fontSize: FontSize.xs, fontWeight: "600", flexShrink: 1 },
+  grnLine: {
+    fontSize: FontSize.xs,
+    color: Colors.textMuted,
+    marginTop: Spacing.xs,
+  },
+  detailsCard: {
+    backgroundColor: Colors.surface,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.md,
+    marginBottom: Spacing.sm,
+    ...Shadow.md,
+  },
+  detailsSectionTitle: {
+    fontSize: FontSize.sm,
+    fontWeight: "800",
+    color: Colors.textPrimary,
+    marginBottom: Spacing.sm,
+    letterSpacing: 0.2,
+  },
+  detailRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    gap: Spacing.md,
+    paddingVertical: 10,
+  },
+  detailLabel: {
+    fontSize: FontSize.sm,
+    color: Colors.textSecondary,
+    flexShrink: 0,
+    maxWidth: "42%",
+  },
+  detailValue: {
+    fontSize: FontSize.sm,
+    fontWeight: "600",
+    color: Colors.textPrimary,
+    flex: 1,
+    textAlign: "right",
+  },
+  detailDivider: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: Colors.borderLight,
+  },
+});
 
 export const QCScanScreen: React.FC = () => {
   const [permission, requestPermission] = useCameraPermissions();
@@ -239,93 +457,126 @@ export const QCScanScreen: React.FC = () => {
             </Card>
           ) : null}
 
-          <Card>
-            <Text style={styles.batchNumber}>{batchData.batch_number}</Text>
-            <StatusBadge
-              status={batchData.status}
-              type={batchData.qr_kind === "fg" ? "fg" : "batch"}
-            />
+          <ScanSummaryCard batchData={batchData} />
 
+          <View style={scanCardStyles.detailsCard}>
+            <Text style={scanCardStyles.detailsSectionTitle}>Full details</Text>
             {batchData.qr_kind === "fg" ? (
-              <View style={styles.infoGrid}>
-                <InfoRow label="Product" value={batchData.product_name || "—"} />
-                <InfoRow
+              <>
+                <DetailRow label="Product" value={batchData.product_name || "—"} />
+                <View style={scanCardStyles.detailDivider} />
+                <DetailRow
                   label="Quantity"
                   value={formatQuantity(batchData.quantity)}
                 />
-                <InfoRow label="Expiry" value={formatDate(batchData.expiry_date)} />
-                <InfoRow label="Mfg date" value={formatDate(batchData.manufacture_date)} />
-              </View>
-            ) : (
-              <View style={styles.infoGrid}>
-                <InfoRow
-                  label="Track ID"
-                  value={batchData.track_id || (batchData.public_code ? `#${batchData.public_code}` : "—")}
-                />
-                <InfoRow
-                  label="Material code"
-                  value={batchData.material_code || "—"}
-                />
-                <InfoRow label="Material" value={batchData.material_name || "—"} />
-                <InfoRow label="GRN / Product no." value={batchData.grn_number || "—"} />
-                <InfoRow label="Supplier" value={batchData.supplier_name || "—"} />
-                <InfoRow
-                  label="Date of receipt"
-                  value={formatDate(batchData.date_of_receipt)}
-                />
-                <InfoRow label="Pack type" value={batchData.pack_type || "—"} />
-                <InfoRow
-                  label="Qty / container"
-                  value={formatQuantity(batchData.pack_size)}
-                />
-                <InfoRow
-                  label="Pack size (std)"
-                  value={batchData.pack_size_description || "—"}
-                />
-                <InfoRow
+                <View style={scanCardStyles.detailDivider} />
+                <DetailRow label="Expiry" value={formatDate(batchData.expiry_date)} />
+                <View style={scanCardStyles.detailDivider} />
+                <DetailRow
                   label="Mfg date"
                   value={formatDate(batchData.manufacture_date)}
                 />
-                <InfoRow label="Expiry" value={formatDate(batchData.expiry_date)} />
-                <InfoRow
+              </>
+            ) : (
+              <>
+                <DetailRow
+                  label="Track ID"
+                  value={
+                    batchData.track_id ||
+                    (batchData.public_code ? `#${batchData.public_code}` : "—")
+                  }
+                />
+                <View style={scanCardStyles.detailDivider} />
+                <DetailRow
+                  label="Material code"
+                  value={batchData.material_code || "—"}
+                />
+                <View style={scanCardStyles.detailDivider} />
+                <DetailRow label="Material" value={batchData.material_name || "—"} />
+                <View style={scanCardStyles.detailDivider} />
+                <DetailRow
+                  label="GRN / Product no."
+                  value={batchData.grn_number || "—"}
+                />
+                <View style={scanCardStyles.detailDivider} />
+                <DetailRow label="Supplier" value={batchData.supplier_name || "—"} />
+                <View style={scanCardStyles.detailDivider} />
+                <DetailRow
+                  label="Date of receipt"
+                  value={formatDate(batchData.date_of_receipt)}
+                />
+                <View style={scanCardStyles.detailDivider} />
+                <DetailRow label="Pack type" value={batchData.pack_type || "—"} />
+                <View style={scanCardStyles.detailDivider} />
+                <DetailRow
+                  label="Qty / container"
+                  value={formatQuantity(batchData.pack_size)}
+                />
+                <View style={scanCardStyles.detailDivider} />
+                <DetailRow
+                  label="Pack size (std)"
+                  value={batchData.pack_size_description || "—"}
+                />
+                <View style={scanCardStyles.detailDivider} />
+                <DetailRow
+                  label="Mfg date"
+                  value={formatDate(batchData.manufacture_date)}
+                />
+                <View style={scanCardStyles.detailDivider} />
+                <DetailRow label="Expiry" value={formatDate(batchData.expiry_date)} />
+                <View style={scanCardStyles.detailDivider} />
+                <DetailRow
                   label="Total received"
                   value={
-                    batchData.total_quantity != null && batchData.total_quantity !== ""
+                    batchData.total_quantity != null &&
+                    batchData.total_quantity !== ""
                       ? formatQuantity(batchData.total_quantity)
                       : "—"
                   }
                 />
-                <InfoRow
+                <View style={scanCardStyles.detailDivider} />
+                <DetailRow
                   label="Dispensed"
                   value={
-                    batchData.quantity_issued != null && batchData.quantity_issued !== ""
+                    batchData.quantity_issued != null &&
+                    batchData.quantity_issued !== ""
                       ? formatQuantity(batchData.quantity_issued)
                       : "—"
                   }
                 />
-                <InfoRow
+                <View style={scanCardStyles.detailDivider} />
+                <DetailRow
                   label="Balance"
                   value={formatQuantity(batchData.remaining_quantity)}
                 />
                 {batchData.remaining_quantity_hidden ? (
                   <Text style={styles.balanceHint}>
-                    Balance is shown after QC approves (approved / issued to production).
+                    Balance is shown after QC approves (approved / issued to
+                    production).
                   </Text>
                 ) : null}
-                <InfoRow label="Rack no." value={batchData.rack_number || "—"} />
-                <InfoRow label="Retest Date" value={formatDate(batchData.retest_date)} />
-                <InfoRow
+                <View style={scanCardStyles.detailDivider} />
+                <DetailRow label="Rack no." value={batchData.rack_number || "—"} />
+                <View style={scanCardStyles.detailDivider} />
+                <DetailRow
+                  label="Retest date"
+                  value={formatDate(batchData.retest_date)}
+                />
+                <View style={scanCardStyles.detailDivider} />
+                <DetailRow
                   label="Retest cycle"
                   value={
-                    batchData.retest_cycle != null && batchData.retest_cycle !== ""
+                    batchData.retest_cycle != null &&
+                    batchData.retest_cycle !== ""
                       ? String(batchData.retest_cycle)
                       : "—"
                   }
                 />
-                <InfoRow label="AR Number" value={batchData.ar_number || "—"} />
-              </View>
+                <View style={scanCardStyles.detailDivider} />
+                <DetailRow label="AR number" value={batchData.ar_number || "—"} />
+              </>
             )}
-          </Card>
+          </View>
 
           <RoleActions
             batchData={batchData}
@@ -398,13 +649,6 @@ const ScanFrameCorners: React.FC = () => (
       ]}
     />
   </>
-);
-
-const InfoRow: React.FC<{ label: string; value: string }> = ({ label, value }) => (
-  <View style={styles.infoRow}>
-    <Text style={styles.infoLabel}>{label}</Text>
-    <Text style={styles.infoValue}>{value}</Text>
-  </View>
 );
 
 const RoleActions: React.FC<{
@@ -752,22 +996,6 @@ const styles = StyleSheet.create({
   qaWarnRow: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 6 },
   qaWarnTitle: { fontSize: FontSize.sm, fontWeight: "800", color: Colors.textPrimary },
   qaWarnMsg: { fontSize: FontSize.sm, color: Colors.textSecondary, lineHeight: 20 },
-  batchNumber: {
-    fontSize: FontSize.lg,
-    fontWeight: "800",
-    color: Colors.primary,
-    marginBottom: Spacing.sm,
-  },
-  infoGrid: { marginTop: Spacing.md, gap: Spacing.sm },
-  infoRow: { flexDirection: "row", justifyContent: "space-between", gap: 12 },
-  infoLabel: { fontSize: FontSize.sm, color: Colors.textSecondary },
-  infoValue: {
-    fontSize: FontSize.sm,
-    fontWeight: "600",
-    color: Colors.textPrimary,
-    flex: 1,
-    textAlign: "right",
-  },
   balanceHint: {
     fontSize: FontSize.xs,
     color: Colors.textSecondary,

@@ -31,6 +31,14 @@ interface QuickAction {
   params?: Record<string, any>;
 }
 
+/** Read-only scan: status hero + glance chips (all roles). Same scan icon as workflow scanner; teal differentiates tile. */
+const CHECK_STATUS_ACTION: QuickAction = {
+  label: "Check Status",
+  icon: "scan",
+  color: "#0d9488",
+  screen: "CheckStatus",
+};
+
 /** Six tiles + routes for every role (2 columns × 3 rows): Quarantine → … → Production last. */
 const PRODUCT_STAT_TILES: Array<{
   label: string;
@@ -92,16 +100,30 @@ interface ProductStats {
   production: number;
 }
 
+/**
+ * Quick actions render in a 2-column grid (row-major). **Check Status is at index 1** when there
+ * are 2+ actions so it sits in **row 1, column 2**.
+ *
+ * Scanner tile **labels** differ by role (same `Scanner` screen / `RoleActions` unless you add params).
+ */
 const ROLE_QUICK_ACTIONS: Record<RoleName, QuickAction[]> = {
+  /** R1: Create | Check Status — R2: Move to Production (scanner) */
   WAREHOUSE_USER: [
     {
-      label: "Create Card",
+      label: "Create",
       icon: "add-circle",
       color: Colors.primary,
       screen: "CreateCard",
     },
-    { label: "Scan QR", icon: "scan", color: Colors.info, screen: "Scanner" },
+    CHECK_STATUS_ACTION,
+    {
+      label: "Move to Production",
+      icon: "arrow-forward-circle-outline",
+      color: Colors.info,
+      screen: "Scanner",
+    },
   ],
+  /** Exactly 3 cards: Users → Check Status → Audit. R1: Manage Users | Check Status — R2: Audit Logs */
   WAREHOUSE_HEAD: [
     {
       label: "Manage Users",
@@ -110,6 +132,7 @@ const ROLE_QUICK_ACTIONS: Record<RoleName, QuickAction[]> = {
       screen: "Admin",
       params: { tab: "users" },
     },
+    CHECK_STATUS_ACTION,
     {
       label: "Audit Logs",
       icon: "document-text",
@@ -118,14 +141,17 @@ const ROLE_QUICK_ACTIONS: Record<RoleName, QuickAction[]> = {
       params: { tab: "audit" },
     },
   ],
+  /** R1: Test | Check Status */
   QC_EXECUTIVE: [
     {
-      label: "Scan Batch",
-      icon: "scan",
+      label: "Test",
+      icon: "clipboard-outline",
       color: Colors.accent,
       screen: "Scanner",
     },
+    CHECK_STATUS_ACTION,
   ],
+  /** R1: Approve / Reject | Check Status */
   QC_HEAD: [
     {
       label: "Approve / Reject",
@@ -134,7 +160,9 @@ const ROLE_QUICK_ACTIONS: Record<RoleName, QuickAction[]> = {
       color: Colors.primary,
       screen: "Scanner",
     },
+    CHECK_STATUS_ACTION,
   ],
+  /** R1: Scan FG | Check Status */
   QA_EXECUTIVE: [
     {
       label: "Scan FG",
@@ -142,7 +170,9 @@ const ROLE_QUICK_ACTIONS: Record<RoleName, QuickAction[]> = {
       color: Colors.accent,
       screen: "Scanner",
     },
+    CHECK_STATUS_ACTION,
   ],
+  /** R1: Approve / Reject FG | Check Status */
   QA_HEAD: [
     {
       label: "Approve / Reject FG",
@@ -150,7 +180,9 @@ const ROLE_QUICK_ACTIONS: Record<RoleName, QuickAction[]> = {
       color: Colors.primary,
       screen: "Scanner",
     },
+    CHECK_STATUS_ACTION,
   ],
+  /** R1: Create FG | Check Status — R2: Scan Material */
   PRODUCTION_USER: [
     {
       label: "Create FG Batch",
@@ -158,6 +190,7 @@ const ROLE_QUICK_ACTIONS: Record<RoleName, QuickAction[]> = {
       color: Colors.primary,
       screen: "Scanner",
     },
+    CHECK_STATUS_ACTION,
     {
       label: "Scan Material",
       icon: "scan",
@@ -165,6 +198,7 @@ const ROLE_QUICK_ACTIONS: Record<RoleName, QuickAction[]> = {
       screen: "Scanner",
     },
   ],
+  /** R1: Approved | Check Status — R2: All Products */
   PURCHASE_USER: [
     {
       label: "Approved",
@@ -172,6 +206,7 @@ const ROLE_QUICK_ACTIONS: Record<RoleName, QuickAction[]> = {
       color: Colors.success,
       screen: "ApprovedList",
     },
+    CHECK_STATUS_ACTION,
     {
       label: "All Products",
       icon: "cube",
@@ -272,8 +307,8 @@ export const DashboardScreen: React.FC = () => {
         </View>
 
         <View style={styles.body}>
-          {/* Product Stats */}
-          <Text style={styles.sectionTitle}>Product Stats</Text>
+          {/* Product Stats — compact vertical footprint so Quick Actions fit above the fold */}
+          <Text style={[styles.sectionTitle, styles.statsSectionTitle]}>Product Stats</Text>
           <View style={styles.statsGrid}>
             {PRODUCT_STAT_TILES.map((tile) => (
               <TouchableOpacity
@@ -290,7 +325,7 @@ export const DashboardScreen: React.FC = () => {
                 >
                   <Ionicons
                     name={tile.icon as any}
-                    size={20}
+                    size={18}
                     color={tile.color}
                   />
                 </View>
@@ -305,7 +340,9 @@ export const DashboardScreen: React.FC = () => {
           {/* Quick Actions */}
           {quickActions.length > 0 && (
             <>
-              <Text style={styles.sectionTitle}>Quick Actions</Text>
+              <Text style={[styles.sectionTitle, styles.quickActionsSectionTitle]}>
+                Quick Actions
+              </Text>
               <View style={styles.actionsGrid}>
                 {quickActions.map((action) => (
                   <TouchableOpacity
@@ -324,11 +361,13 @@ export const DashboardScreen: React.FC = () => {
                     >
                       <Ionicons
                         name={action.icon as any}
-                        size={26}
+                        size={25}
                         color={action.color}
                       />
                     </View>
-                    <Text style={styles.actionLabel}>{action.label}</Text>
+                    <Text style={styles.actionLabel} numberOfLines={2}>
+                      {action.label}
+                    </Text>
                   </TouchableOpacity>
                 ))}
               </View>
@@ -389,32 +428,33 @@ const styles = StyleSheet.create({
   statsGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
-    marginBottom: Spacing.lg,
+    marginBottom: Spacing.md,
     justifyContent: "space-between",
     marginTop: 0,
-    rowGap: Spacing.sm,
+    rowGap: 6,
   },
+  /** ~12% shorter tiles than previous (padding, icon, type) */
   statCard: {
     width: "48.5%",
     alignItems: "center",
-    gap: 5,
+    gap: 4,
     backgroundColor: Colors.surface,
-    borderRadius: 16,
-    paddingTop: 12,
-    paddingBottom: 10, // space below stat label (Total, Quarantine, etc.)
+    borderRadius: 14,
+    paddingTop: 9,
+    paddingBottom: 8,
     paddingHorizontal: Spacing.sm,
     ...Shadow.sm,
   },
   statIconWrap: {
-    width: 34,
-    height: 34,
-    borderRadius: 9,
+    width: 30,
+    height: 30,
+    borderRadius: 8,
     justifyContent: "center",
     alignItems: "center",
   },
-  statValue: { fontSize: 18, fontWeight: "800" },
+  statValue: { fontSize: 16, fontWeight: "800" },
   statLabel: {
-    fontSize: 9,
+    fontSize: 8,
     color: Colors.textSecondary,
     textAlign: "center",
     fontWeight: "600",
@@ -425,24 +465,36 @@ const styles = StyleSheet.create({
     color: Colors.textPrimary,
     marginBottom: Spacing.md,
   },
+  statsSectionTitle: {
+    marginBottom: 10,
+  },
+  /** Tighter gap (1px less than default section title) before first quick-action row */
+  quickActionsSectionTitle: {
+    marginBottom: Spacing.sm,
+  },
   actionsGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
     justifyContent: "space-between",
+    alignContent: "flex-start",
     rowGap: Spacing.sm,
   },
+  /** Fixed height so every tile matches across all rows (label uses up to 2 lines). */
   actionCard: {
     width: "48.5%",
+    height: 112,
     backgroundColor: Colors.surface,
     borderRadius: 16,
-    padding: Spacing.md,
+    paddingVertical: 12,
+    paddingHorizontal: Spacing.md,
     alignItems: "center",
+    justifyContent: "center",
     gap: Spacing.sm,
     ...Shadow.sm,
   },
   actionIcon: {
-    width: 54,
-    height: 54,
+    width: 53,
+    height: 53,
     borderRadius: 16,
     justifyContent: "center",
     alignItems: "center",
@@ -452,5 +504,7 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: Colors.textPrimary,
     textAlign: "center",
+    lineHeight: 18,
+    maxWidth: "100%",
   },
 });
