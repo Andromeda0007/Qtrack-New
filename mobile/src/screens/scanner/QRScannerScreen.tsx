@@ -9,6 +9,8 @@ import {
   ActivityIndicator,
   TouchableOpacity,
   Platform,
+  Modal,
+  TextInput,
 } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { CameraView, useCameraPermissions } from "expo-camera";
@@ -20,7 +22,7 @@ import { inventoryApi } from "../../api/inventory";
 import { Card } from "../../components/common/Card";
 import { Button } from "../../components/common/Button";
 import { StatusBadge } from "../../components/common/StatusBadge";
-import { Colors, FontSize, Spacing, Shadow } from "../../utils/theme";
+import { Colors, FontSize, Spacing, Shadow, BorderRadius } from "../../utils/theme";
 import { formatDate, formatQuantity } from "../../utils/formatters";
 import { useAuthStore } from "../../store/authStore";
 import { extractError } from "../../api/client";
@@ -227,6 +229,16 @@ export const QCScanScreen: React.FC = () => {
             <Text style={styles.resultSub}>Review details and choose an action</Text>
           </View>
 
+          {batchData.qa_scan_blocked ? (
+            <Card style={styles.qaWarnCard}>
+              <View style={styles.qaWarnRow}>
+                <Ionicons name="warning-outline" size={22} color={Colors.warning} />
+                <Text style={styles.qaWarnTitle}>Not available for QA</Text>
+              </View>
+              <Text style={styles.qaWarnMsg}>{batchData.qa_scan_message}</Text>
+            </Card>
+          ) : null}
+
           <Card>
             <Text style={styles.batchNumber}>{batchData.batch_number}</Text>
             <StatusBadge
@@ -246,18 +258,84 @@ export const QCScanScreen: React.FC = () => {
               </View>
             ) : (
               <View style={styles.infoGrid}>
-                <InfoRow label="Material" value={batchData.material_name || "—"} />
                 <InfoRow
-                  label="Remaining Qty"
+                  label="Track ID"
+                  value={batchData.track_id || (batchData.public_code ? `#${batchData.public_code}` : "—")}
+                />
+                <InfoRow
+                  label="Material code"
+                  value={batchData.material_code || "—"}
+                />
+                <InfoRow label="Material" value={batchData.material_name || "—"} />
+                <InfoRow label="GRN / Product no." value={batchData.grn_number || "—"} />
+                <InfoRow label="Supplier" value={batchData.supplier_name || "—"} />
+                <InfoRow
+                  label="Date of receipt"
+                  value={formatDate(batchData.date_of_receipt)}
+                />
+                <InfoRow label="Pack type" value={batchData.pack_type || "—"} />
+                <InfoRow
+                  label="Qty / container"
+                  value={formatQuantity(batchData.pack_size)}
+                />
+                <InfoRow
+                  label="Pack size (std)"
+                  value={batchData.pack_size_description || "—"}
+                />
+                <InfoRow
+                  label="Mfg date"
+                  value={formatDate(batchData.manufacture_date)}
+                />
+                <InfoRow label="Expiry" value={formatDate(batchData.expiry_date)} />
+                <InfoRow
+                  label="Total received"
+                  value={
+                    batchData.total_quantity != null && batchData.total_quantity !== ""
+                      ? formatQuantity(batchData.total_quantity)
+                      : "—"
+                  }
+                />
+                <InfoRow
+                  label="Dispensed"
+                  value={
+                    batchData.quantity_issued != null && batchData.quantity_issued !== ""
+                      ? formatQuantity(batchData.quantity_issued)
+                      : "—"
+                  }
+                />
+                <InfoRow
+                  label="Balance"
                   value={formatQuantity(batchData.remaining_quantity)}
                 />
+                {batchData.remaining_quantity_hidden ? (
+                  <Text style={styles.balanceHint}>
+                    Balance is shown after QC approves (approved / issued to production).
+                  </Text>
+                ) : null}
+                <InfoRow label="Rack no." value={batchData.rack_number || "—"} />
                 <InfoRow label="Retest Date" value={formatDate(batchData.retest_date)} />
+                <InfoRow
+                  label="Retest cycle"
+                  value={
+                    batchData.retest_cycle != null && batchData.retest_cycle !== ""
+                      ? String(batchData.retest_cycle)
+                      : "—"
+                  }
+                />
                 <InfoRow label="AR Number" value={batchData.ar_number || "—"} />
               </View>
             )}
           </Card>
 
-          <RoleActions batchData={batchData} role={user?.role || ""} />
+          <RoleActions
+            batchData={batchData}
+            role={user?.role || ""}
+            onRackSaved={(rack: string) =>
+              setBatchData((prev: any) =>
+                prev ? { ...prev, rack_number: rack } : prev,
+              )
+            }
+          />
 
           <Button
             title="Scan another"
@@ -332,11 +410,21 @@ const InfoRow: React.FC<{ label: string; value: string }> = ({ label, value }) =
 const RoleActions: React.FC<{
   batchData: any;
   role: string;
-  onAction?: () => void;
-}> = ({ batchData, role }) => {
+  onRackSaved?: (rack: string) => void;
+}> = ({ batchData, role, onRackSaved }) => {
   const navigation = useNavigation<any>();
   const status = batchData?.status;
   const isFg = batchData?.qr_kind === "fg";
+  const [rackGateOpen, setRackGateOpen] = useState(false);
+  const [rackDraft, setRackDraft] = useState("");
+  const [rackSaving, setRackSaving] = useState(false);
+
+  if (
+    (role === "QA_EXECUTIVE" || role === "QA_HEAD") &&
+    batchData?.qa_scan_blocked
+  ) {
+    return null;
+  }
 
   const goToBatch = (screen: string, params?: Record<string, unknown>) => {
     navigation.navigate(screen, {
@@ -401,15 +489,92 @@ const RoleActions: React.FC<{
   if (
     !isFg &&
     (role === "WAREHOUSE_USER" || role === "WAREHOUSE_HEAD") &&
-    status === "APPROVED"
+    (status === "APPROVED" || status === "ISSUED_TO_PRODUCTION")
   ) {
+    const hasRack = String(batchData.rack_number || "").trim().length > 0;
+
+    const goIssue = () =>
+      goToBatch("IssueStock", {
+        initialRack: String(batchData.rack_number || "").trim(),
+      });
+
+    const onIssuePress = () => {
+      if (hasRack) {
+        goIssue();
+        return;
+      }
+      setRackDraft("");
+      setRackGateOpen(true);
+    };
+
+    const saveRackAndContinue = async () => {
+      const r = rackDraft.trim();
+      if (!r) {
+        Alert.alert("Rack required", "Enter the rack / bin location before issuing to production.");
+        return;
+      }
+      setRackSaving(true);
+      try {
+        await inventoryApi.updateBatchRack(batchData.id, r);
+        onRackSaved?.(r);
+        setRackGateOpen(false);
+        navigation.navigate("IssueStock", {
+          batchId: batchData.id,
+          batchNumber: batchData.batch_number,
+          initialRack: r,
+        });
+      } catch (e) {
+        Alert.alert("Could not save rack", extractError(e));
+      } finally {
+        setRackSaving(false);
+      }
+    };
+
     return (
-      <Button
-        title="Issue to Production"
-        onPress={() => goToBatch("IssueStock")}
-        fullWidth
-        style={{ marginTop: Spacing.sm }}
-      />
+      <View style={{ marginTop: Spacing.sm }}>
+        {!hasRack ? (
+          <Text style={styles.rackHint}>
+            Rack number is required before you can issue this batch to production.
+          </Text>
+        ) : null}
+        <Button title="Issue to Production" onPress={onIssuePress} fullWidth />
+        <Modal visible={rackGateOpen} transparent animationType="fade">
+          <View style={styles.rackModalOverlay}>
+            <View style={styles.rackModalCard}>
+              <Text style={styles.rackModalTitle}>Rack / storage location</Text>
+              <Text style={styles.rackModalSub}>
+                Record where approved material is stored before issuing to production.
+              </Text>
+              <TextInput
+                style={styles.rackModalInput}
+                placeholder="Enter rack / bin location"
+                placeholderTextColor={Colors.textMuted}
+                value={rackDraft}
+                onChangeText={setRackDraft}
+                autoCapitalize="characters"
+              />
+              <View style={styles.rackModalActions}>
+                <TouchableOpacity
+                  style={styles.rackModalCancel}
+                  onPress={() => setRackGateOpen(false)}
+                  disabled={rackSaving}
+                >
+                  <Text style={styles.rackModalCancelText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.rackModalSave}
+                  onPress={saveRackAndContinue}
+                  disabled={rackSaving}
+                >
+                  <Text style={styles.rackModalSaveText}>
+                    {rackSaving ? "Saving…" : "Save & continue"}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
+      </View>
     );
   }
 
@@ -578,6 +743,15 @@ const styles = StyleSheet.create({
     marginTop: 4,
     textAlign: "center",
   },
+  qaWarnCard: {
+    marginBottom: Spacing.md,
+    borderLeftWidth: 4,
+    borderLeftColor: Colors.warning,
+    backgroundColor: Colors.warningLight,
+  },
+  qaWarnRow: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 6 },
+  qaWarnTitle: { fontSize: FontSize.sm, fontWeight: "800", color: Colors.textPrimary },
+  qaWarnMsg: { fontSize: FontSize.sm, color: Colors.textSecondary, lineHeight: 20 },
   batchNumber: {
     fontSize: FontSize.lg,
     fontWeight: "800",
@@ -594,4 +768,66 @@ const styles = StyleSheet.create({
     flex: 1,
     textAlign: "right",
   },
+  balanceHint: {
+    fontSize: FontSize.xs,
+    color: Colors.textSecondary,
+    fontStyle: "italic",
+    marginTop: -4,
+    marginBottom: Spacing.xs,
+  },
+  rackHint: {
+    fontSize: FontSize.xs,
+    color: "#856404",
+    fontWeight: "600",
+    marginBottom: Spacing.sm,
+    textAlign: "center",
+    lineHeight: 18,
+  },
+  rackModalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "center",
+    padding: Spacing.lg,
+  },
+  rackModalCard: {
+    backgroundColor: Colors.surface,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.lg,
+  },
+  rackModalTitle: {
+    fontSize: FontSize.lg,
+    fontWeight: "800",
+    color: Colors.textPrimary,
+  },
+  rackModalSub: {
+    fontSize: FontSize.sm,
+    color: Colors.textSecondary,
+    marginTop: 6,
+    marginBottom: Spacing.md,
+    lineHeight: 20,
+  },
+  rackModalInput: {
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: BorderRadius.md,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 12,
+    fontSize: FontSize.md,
+    color: Colors.textPrimary,
+  },
+  rackModalActions: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    gap: Spacing.sm,
+    marginTop: Spacing.lg,
+  },
+  rackModalCancel: { paddingVertical: 10, paddingHorizontal: 14 },
+  rackModalCancelText: { fontSize: FontSize.sm, fontWeight: "600", color: Colors.textSecondary },
+  rackModalSave: {
+    backgroundColor: Colors.primary,
+    paddingVertical: 10,
+    paddingHorizontal: 18,
+    borderRadius: BorderRadius.md,
+  },
+  rackModalSaveText: { fontSize: FontSize.sm, fontWeight: "800", color: "#fff" },
 });

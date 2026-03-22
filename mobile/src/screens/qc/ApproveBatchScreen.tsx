@@ -18,15 +18,9 @@ import { Button } from '../../components/common/Button';
 import { qcApi } from '../../api/qc';
 import { extractError } from '../../api/client';
 import { Colors, FontSize, Spacing, BorderRadius, Shadow } from '../../utils/theme';
-
-/** Expect YYYY-MM-DD for API */
-function toIsoDate(s: string): string | null {
-  const t = s.trim();
-  if (!t) return null;
-  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(t);
-  if (!m) return null;
-  return t;
-}
+import { resetToDashboardHome } from '../../navigation/goHome';
+import { OperationResultModal } from '../../components/common/OperationResultModal';
+import { parseDMYToISO } from '../../utils/formatters';
 
 export const ApproveBatchScreen: React.FC = () => {
   const navigation = useNavigation<any>();
@@ -36,17 +30,21 @@ export const ApproveBatchScreen: React.FC = () => {
   const [retestDate, setRetestDate] = useState('');
   const [remarks, setRemarks] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [flowDone, setFlowDone] = useState<{ title: string; message: string } | null>(null);
 
   const submit = async () => {
-    const iso = toIsoDate(retestDate);
+    const iso = parseDMYToISO(retestDate);
     if (!iso) {
-      Alert.alert('Required', 'Enter next retest date as YYYY-MM-DD (required for approval).');
+      Alert.alert('Required', 'Enter next retest date as DD-MM-YYYY (required for approval).');
       return;
     }
     setSubmitting(true);
     try {
       await qcApi.approveMaterial(batchId, iso, remarks.trim() || undefined);
-      Alert.alert('Success', 'Material approved.', [{ text: 'OK', onPress: () => navigation.goBack() }]);
+      setFlowDone({
+        title: 'Material approved',
+        message: 'The batch has been approved. You can continue from Home.',
+      });
     } catch (e) {
       Alert.alert('Error', extractError(e));
     } finally {
@@ -67,14 +65,14 @@ export const ApproveBatchScreen: React.FC = () => {
         <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
           <Text style={styles.batchHint}>Batch {batchNumber ?? `#${batchId}`}</Text>
           <Text style={styles.help}>
-            Next retest date is mandatory. Use format <Text style={{ fontWeight: '700' }}>YYYY-MM-DD</Text>.
+            Next retest date is mandatory. Use format <Text style={{ fontWeight: '700' }}>DD-MM-YYYY</Text>.
           </Text>
           <View style={styles.card}>
             <Input
               label="Next retest date *"
               value={retestDate}
               onChangeText={setRetestDate}
-              placeholder="2026-12-31"
+              placeholder="31-12-2026"
             />
             <Input
               label="Remarks (optional)"
@@ -93,6 +91,15 @@ export const ApproveBatchScreen: React.FC = () => {
           {submitting && <ActivityIndicator color={Colors.success} style={{ marginTop: 12 }} />}
         </ScrollView>
       </KeyboardAvoidingView>
+      <OperationResultModal
+        visible={!!flowDone}
+        title={flowDone?.title ?? ''}
+        message={flowDone?.message ?? ''}
+        onDismiss={() => {
+          setFlowDone(null);
+          resetToDashboardHome(navigation);
+        }}
+      />
     </SafeAreaView>
   );
 };

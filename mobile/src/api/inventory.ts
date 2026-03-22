@@ -16,6 +16,8 @@ export const inventoryApi = {
     date_of_receipt: string;
     manufacture_date: string;
     expiry_date: string;
+    rack_number: string;
+    pack_size_description?: string;
   }) => {
     const res = await apiClient.post('/inventory/product', data);
     return res.data;
@@ -41,8 +43,24 @@ export const inventoryApi = {
   },
 
   // Stock operations
-  issueStock: async (batch_id: number, quantity: number, remarks?: string) => {
-    const res = await apiClient.post('/inventory/issue-stock', { batch_id, quantity, remarks });
+  issueStock: async (
+    batch_id: number,
+    quantity: number,
+    remarks?: string,
+    opts?: { issued_to_product_name?: string; issued_to_batch_ref?: string },
+  ) => {
+    const res = await apiClient.post('/inventory/issue-stock', {
+      batch_id,
+      quantity,
+      remarks,
+      issued_to_product_name: opts?.issued_to_product_name,
+      issued_to_batch_ref: opts?.issued_to_batch_ref,
+    });
+    return res.data;
+  },
+
+  updateBatchRack: async (batch_id: number, rack_number: string) => {
+    const res = await apiClient.patch(`/inventory/batches/${batch_id}/rack`, { rack_number });
     return res.data;
   },
 

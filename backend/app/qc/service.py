@@ -73,13 +73,19 @@ async def add_ar_number(db: AsyncSession, data: dict, done_by: User) -> QCResult
     )
     db.add(qc_result)
 
-    # Deduct sample quantity from stock
-    if data.get("sample_quantity"):
-        batch.remaining_quantity -= data["sample_quantity"]
+    # Deduct sample only when registering quantity here (optional if sample was withdrawn earlier via WITHDRAW_SAMPLE)
+    sq = data.get("sample_quantity")
+    if sq is not None and sq > 0:
+        if batch.remaining_quantity < sq:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Insufficient quantity for sample. Available: {batch.remaining_quantity}",
+            )
+        batch.remaining_quantity -= sq
         movement = StockMovement(
             batch_id=batch.id,
             movement_type=MovementType.QC_SAMPLE,
-            quantity=data["sample_quantity"],
+            quantity=sq,
             performed_by=done_by.id,
             remarks=f"QC sample withdrawal for AR {data['ar_number']}",
         )
@@ -99,6 +105,57 @@ async def add_ar_number(db: AsyncSession, data: dict, done_by: User) -> QCResult
     await db.commit()
     await db.refresh(qc_result)
     return qc_result
+
+
+async def withdraw_sample(
+    db: AsyncSession,
+    batch_id: int,
+    sample_quantity,
+    remarks: str | None,
+    done_by: User,
+) -> dict:
+    """Physical sample withdrawal while batch stays in quarantine / retest quarantine (before AR / under test)."""
+    batch = await _get_batch_locked(db, batch_id)
+
+    if batch.status not in [BatchStatus.QUARANTINE, BatchStatus.QUARANTINE_RETEST]:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Sample withdrawal allowed only in quarantine. Current status: {batch.status}",
+        )
+
+    if sample_quantity <= 0:
+        raise HTTPException(status_code=400, detail="Sample quantity must be positive")
+
+    if batch.remaining_quantity < sample_quantity:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Insufficient quantity. Available: {batch.remaining_quantity}",
+        )
+
+    batch.remaining_quantity -= sample_quantity
+    movement = StockMovement(
+        batch_id=batch.id,
+        movement_type=MovementType.QC_SAMPLE,
+        quantity=sample_quantity,
+        performed_by=done_by.id,
+        remarks=remarks or "QC sample withdrawn (pre-AR)",
+    )
+    db.add(movement)
+
+    await log_action(
+        db,
+        "WITHDRAW_SAMPLE",
+        done_by.id,
+        done_by.username,
+        "batch",
+        batch.id,
+        f"Withdrew sample qty {sample_quantity} from batch {batch.batch_number}. Remaining: {batch.remaining_quantity}",
+        from_status=audit_status_value(batch.status),
+        to_status=audit_status_value(batch.status),
+    )
+    await db.commit()
+    await db.refresh(batch)
+    return {"batch_id": batch.id, "remaining_quantity": batch.remaining_quantity}
 
 
 async def approve_material(db: AsyncSession, batch_id: int, retest_date: date | None, remarks: str | None, approved_by: User) -> Batch:

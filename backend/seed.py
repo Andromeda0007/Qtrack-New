@@ -1,6 +1,11 @@
 """
 Seed script: creates tables, default roles, permissions, locations, and Warehouse Head admin.
 Run: python seed.py
+
+Idempotent: safe to re-run. Adds any missing permissions and role_permission rows
+(e.g. WAREHOUSE_USER must have CREATE_PRODUCT for POST /api/v1/inventory/product).
+
+If you only need to fix role mappings: python sync_role_permissions.py
 """
 import asyncio
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -47,6 +52,7 @@ ROLE_PERMISSION_MAP = {
     "WAREHOUSE_USER": [
         "CREATE_PRODUCT", "UPDATE_LOCATION", "ISSUE_STOCK", "RECEIVE_FG",
         "DISPATCH_FG", "VIEW_STOCK", "SEND_MESSAGE",
+        "REQUEST_GRADE_TRANSFER",
     ],
     "QC_EXECUTIVE": [
         "GENERATE_AR_NUMBER", "WITHDRAW_SAMPLE", "SET_UNDER_TEST",

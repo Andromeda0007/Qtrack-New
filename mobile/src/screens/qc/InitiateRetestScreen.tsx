@@ -18,6 +18,8 @@ import { Button } from '../../components/common/Button';
 import { qcApi } from '../../api/qc';
 import { extractError } from '../../api/client';
 import { Colors, FontSize, Spacing, BorderRadius, Shadow } from '../../utils/theme';
+import { resetToDashboardHome } from '../../navigation/goHome';
+import { OperationResultModal } from '../../components/common/OperationResultModal';
 
 export const InitiateRetestScreen: React.FC = () => {
   const navigation = useNavigation<any>();
@@ -26,14 +28,16 @@ export const InitiateRetestScreen: React.FC = () => {
 
   const [remarks, setRemarks] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [flowDone, setFlowDone] = useState<{ title: string; message: string } | null>(null);
 
   const submit = async () => {
     setSubmitting(true);
     try {
       await qcApi.initiateRetest(batchId, remarks.trim() || undefined);
-      Alert.alert('Success', 'Retest initiated. Batch moved to quarantine (retest).', [
-        { text: 'OK', onPress: () => navigation.goBack() },
-      ]);
+      setFlowDone({
+        title: 'Retest initiated',
+        message: 'Batch moved to quarantine (retest). You can continue from Home.',
+      });
     } catch (e) {
       Alert.alert('Error', extractError(e));
     } finally {
@@ -75,6 +79,16 @@ export const InitiateRetestScreen: React.FC = () => {
           {submitting && <ActivityIndicator color={Colors.primary} style={{ marginTop: 12 }} />}
         </ScrollView>
       </KeyboardAvoidingView>
+      <OperationResultModal
+        visible={!!flowDone}
+        variant="info"
+        title={flowDone?.title ?? ''}
+        message={flowDone?.message ?? ''}
+        onDismiss={() => {
+          setFlowDone(null);
+          resetToDashboardHome(navigation);
+        }}
+      />
     </SafeAreaView>
   );
 };

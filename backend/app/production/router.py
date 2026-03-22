@@ -1,10 +1,13 @@
-from fastapi import APIRouter, Depends
+from typing import Optional
+
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import FileResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
 from app.auth.dependencies import require_permission, get_current_user
 from app.models.user_models import User
+from app.models.finished_goods_models import FGStatus
 from app.production import service
 from app.production.schemas import FGBatchCreate
 
@@ -30,10 +33,14 @@ async def create_fg_batch(
 
 @router.get("/fg-batch")
 async def list_fg_batches(
-    status: str = None,
+    status: Optional[str] = None,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    # QA roles only work on FG awaiting inspection (not warehouse / production wide lists)
+    rname = current_user.role.role_name if current_user.role else ""
+    if rname in ("QA_EXECUTIVE", "QA_HEAD"):
+        status = "QA_PENDING"
     batches = await service.list_fg_batches(db, status)
     return [
         {
@@ -57,6 +64,14 @@ async def get_fg_batch(
     db: AsyncSession = Depends(get_db),
 ):
     fg = await service.get_fg_batch_by_id(db, fg_batch_id)
+    rname = current_user.role.role_name if current_user.role else ""
+    if rname in ("QA_EXECUTIVE", "QA_HEAD"):
+        st = fg.status.value if hasattr(fg.status, "value") else str(fg.status)
+        if st != FGStatus.QA_PENDING.value:
+            raise HTTPException(
+                status_code=403,
+                detail="QA can only open finished goods that are pending QA inspection.",
+            )
     return {
         "id": fg.id,
         "product_name": fg.product_name,

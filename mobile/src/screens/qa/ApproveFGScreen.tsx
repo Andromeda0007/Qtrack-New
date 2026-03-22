@@ -18,6 +18,8 @@ import { Button } from "../../components/common/Button";
 import { qaApi } from "../../api/qa";
 import { extractError } from "../../api/client";
 import { Colors, FontSize, Spacing, BorderRadius, Shadow } from "../../utils/theme";
+import { resetToDashboardHome } from "../../navigation/goHome";
+import { OperationResultModal } from "../../components/common/OperationResultModal";
 
 export const ApproveFGScreen: React.FC = () => {
   const navigation = useNavigation<any>();
@@ -29,14 +31,16 @@ export const ApproveFGScreen: React.FC = () => {
 
   const [remarks, setRemarks] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [flowDone, setFlowDone] = useState<{ title: string; message: string } | null>(null);
 
   const submit = async () => {
     setSubmitting(true);
     try {
       await qaApi.approveFG(fgBatchId, remarks.trim() || undefined);
-      Alert.alert("Success", "Finished goods batch approved.", [
-        { text: "OK", onPress: () => navigation.goBack() },
-      ]);
+      setFlowDone({
+        title: "FG approved",
+        message: "Finished goods batch approved. You can continue from Home.",
+      });
     } catch (e) {
       Alert.alert("Error", extractError(e));
     } finally {
@@ -81,6 +85,15 @@ export const ApproveFGScreen: React.FC = () => {
           )}
         </ScrollView>
       </KeyboardAvoidingView>
+      <OperationResultModal
+        visible={!!flowDone}
+        title={flowDone?.title ?? ""}
+        message={flowDone?.message ?? ""}
+        onDismiss={() => {
+          setFlowDone(null);
+          resetToDashboardHome(navigation);
+        }}
+      />
     </SafeAreaView>
   );
 };

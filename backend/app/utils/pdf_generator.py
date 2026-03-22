@@ -6,11 +6,15 @@ from reportlab.lib import colors
 from app.config import settings
 
 
-def generate_quarantine_label(batch_data: dict) -> str:
-    """Generate a quarantine label PDF for a raw material batch."""
+def generate_quarantine_label(batch_data: dict, *, variant: str = "quarantine") -> str:
+    """Generate a quarantine label PDF for a raw material batch.
+
+    variant: "quarantine" | "retest" — retest shows QUARANTINE – RETESTING and extra lines.
+    """
     os.makedirs(settings.LABEL_DIR, exist_ok=True)
 
-    filename = f"quarantine_label_{batch_data['batch_id']}.pdf"
+    suffix = "_retest" if variant == "retest" else ""
+    filename = f"quarantine_label_{batch_data['batch_id']}{suffix}.pdf"
     filepath = os.path.join(settings.LABEL_DIR, filename)
 
     width, height = 4 * inch, 6 * inch
@@ -21,27 +25,53 @@ def generate_quarantine_label(batch_data: dict) -> str:
     c.rect(0.1 * inch, 0.1 * inch, width - 0.2 * inch, height - 0.2 * inch)
 
     c.setFillColor(colors.black)
-    c.setFont("Helvetica-Bold", 16)
-    c.drawCentredString(width / 2, height - 0.5 * inch, "QUARANTINE")
+    c.setFont("Helvetica-Bold", 14)
+    title = (
+        "QUARANTINE – RETESTING"
+        if variant == "retest"
+        else "QUARANTINE"
+    )
+    c.drawCentredString(width / 2, height - 0.48 * inch, title)
 
     c.setLineWidth(1)
     c.line(0.2 * inch, height - 0.65 * inch, width - 0.2 * inch, height - 0.65 * inch)
 
     c.setFont("Helvetica-Bold", 9)
     c.setFillColor(colors.black)
-    y = height - 0.9 * inch
-    line_height = 0.25 * inch
+    y = height - 0.88 * inch
+    line_height = 0.22 * inch
+
+    track = batch_data.get("track_id") or batch_data.get("public_code")
+    if track and not str(track).startswith("#"):
+        track = f"#{track}"
+
+    per_container = batch_data.get("per_container_qty")
+    if per_container is None:
+        per_container = batch_data.get("pack_size", "")
+    pack_def = batch_data.get("pack_size_description") or ""
 
     fields = [
         ("Material", batch_data.get("material_name", "")),
+        ("Track ID", str(track or "")),
         ("Batch No.", batch_data.get("batch_number", "")),
-        ("Product No.", batch_data.get("grn_number", "")),
-        ("Pack Size", str(batch_data.get("pack_size", "")) + " " + batch_data.get("unit", "")),
+        ("Product No. (GRN)", batch_data.get("grn_number", "")),
+        ("Pack type", str(batch_data.get("pack_type", ""))),
+        (
+            "Qty / drum-bag-box",
+            f"{per_container} {batch_data.get('unit', '')}".strip(),
+        ),
+        ("Pack size (std)", pack_def),
         ("Total Qty", str(batch_data.get("total_quantity", "")) + " " + batch_data.get("unit", "")),
         ("Mfg Date", str(batch_data.get("manufacture_date", ""))),
         ("Exp Date", str(batch_data.get("expiry_date", ""))),
         ("Supplier", batch_data.get("supplier_name", "")),
     ]
+    if variant == "retest":
+        fields.insert(
+            6,
+            ("Retest ref", str(batch_data.get("retest_ref", ""))),
+        )
+        fields.insert(7, ("A.R. No.", str(batch_data.get("ar_number", ""))))
 
     for label, value in fields:
         c.setFont("Helvetica-Bold", 8)

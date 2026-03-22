@@ -10,7 +10,7 @@ import { inventoryApi } from '../../api/inventory';
 import { Input } from '../../components/common/Input';
 import { Button } from '../../components/common/Button';
 import { Colors, FontSize, Spacing, BorderRadius, Shadow } from '../../utils/theme';
-import { formatDateTime } from '../../utils/formatters';
+import { formatDate, formatDateTime, parseDMYToISO } from '../../utils/formatters';
 import { extractError } from '../../api/client';
 
 const PACK_TYPES = [
@@ -22,27 +22,8 @@ const PACK_TYPES = [
   { value: 'OTHER', label: 'Other' },
 ];
 
-const todayISO = new Date().toISOString().split('T')[0]; // YYYY-MM-DD for backend
-const todayDisplay = todayISO.split('-').reverse().join('-'); // DD-MM-YYYY for display
-
-/** Convert YYYY-MM-DD → DD-MM-YYYY for display on the card */
-const toDisplay = (val: string): string => {
-  if (!val) return '—';
-  const parts = val.split('-');
-  if (parts.length === 3 && parts[0].length === 4) {
-    return `${parts[2]}-${parts[1]}-${parts[0]}`;
-  }
-  return val;
-};
-
-/** Convert DD-MM-YYYY → YYYY-MM-DD for the backend */
-const toISO = (val: string): string => {
-  const parts = val.trim().split(/[-/]/);
-  if (parts.length === 3 && parts[2].length === 4) {
-    return `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
-  }
-  return val;
-};
+const todayISO = new Date().toISOString().split('T')[0];
+const todayDisplay = formatDate(todayISO);
 
 type CardResult = {
   batch_id: number;
@@ -61,6 +42,10 @@ type CardResult = {
   status: string;
   created_at: string;
   qr_base64: string;
+  track_id?: string;
+  public_code?: string;
+  pack_size_description?: string | null;
+  rack_number?: string | null;
 };
 
 const SectionTitle: React.FC<{ title: string }> = ({ title }) => (
@@ -113,6 +98,8 @@ export const CreateCardScreen: React.FC = () => {
     date_of_receipt: todayDisplay,
     manufacture_date: '',
     expiry_date: '',
+    pack_size_description: '',
+    quarantine_rack: '',
   });
 
   const set = (key: string, value: string) => setForm((f) => ({ ...f, [key]: value }));
@@ -130,6 +117,7 @@ export const CreateCardScreen: React.FC = () => {
       ['date_of_receipt', 'Date of Receipt'],
       ['manufacture_date', 'Manufacture Date'],
       ['expiry_date', 'Expiry Date'],
+      ['quarantine_rack', 'Quarantine rack / storage location'],
     ];
     for (const [key, label] of fields) {
       if (!form[key]?.trim()) {
@@ -144,6 +132,17 @@ export const CreateCardScreen: React.FC = () => {
     if (isNaN(parseFloat(form.container_quantity)) || parseFloat(form.container_quantity) <= 0) {
       Alert.alert('Invalid', 'Container quantity must be a positive number.');
       return false;
+    }
+    const dateChecks: [keyof typeof form, string][] = [
+      ['date_of_receipt', 'Date of Receipt'],
+      ['manufacture_date', 'Manufacture Date'],
+      ['expiry_date', 'Expiry Date'],
+    ];
+    for (const [key, label] of dateChecks) {
+      if (!parseDMYToISO(String(form[key] ?? ''))) {
+        Alert.alert('Invalid date', `${label} must be DD-MM-YYYY (e.g. 31-12-2026).`);
+        return false;
+      }
     }
     return true;
   };
@@ -162,9 +161,13 @@ export const CreateCardScreen: React.FC = () => {
         pack_type: form.pack_type,
         supplier_name: form.supplier_name.trim(),
         manufacturer_name: form.manufacturer_name.trim(),
-        date_of_receipt: toISO(form.date_of_receipt),
-        manufacture_date: toISO(form.manufacture_date),
-        expiry_date: toISO(form.expiry_date),
+        date_of_receipt: parseDMYToISO(form.date_of_receipt)!,
+        manufacture_date: parseDMYToISO(form.manufacture_date)!,
+        expiry_date: parseDMYToISO(form.expiry_date)!,
+        rack_number: form.quarantine_rack.trim(),
+        ...(form.pack_size_description.trim()
+          ? { pack_size_description: form.pack_size_description.trim() }
+          : {}),
       });
       setCard(result);
     } catch (error) {
@@ -209,6 +212,12 @@ export const CreateCardScreen: React.FC = () => {
           <View style={styles.card}>
             <Input label="Received Total Quantity *" placeholder="e.g. 100" value={form.total_quantity} onChangeText={(v) => set('total_quantity', v)} keyboardType="decimal-pad" />
             <Input label="Container / Bag / Drum Quantity *" placeholder="e.g. 10 (qty per container)" value={form.container_quantity} onChangeText={(v) => set('container_quantity', v)} keyboardType="decimal-pad" />
+            <Input
+              label="Pack size (standard) optional"
+              placeholder='e.g. 160 x 25.00 kg'
+              value={form.pack_size_description}
+              onChangeText={(v) => set('pack_size_description', v)}
+            />
             <Text style={styles.fieldLabel}>Pack Type *</Text>
             <ChipRow options={PACK_TYPES} selected={form.pack_type} onSelect={(v) => set('pack_type', v)} />
           </View>
@@ -220,10 +229,21 @@ export const CreateCardScreen: React.FC = () => {
             <Input label="Expiry Date *" placeholder="DD-MM-YYYY" value={form.expiry_date} onChangeText={(v) => set('expiry_date', v)} keyboardType="numbers-and-punctuation" />
           </View>
 
+          <SectionTitle title="Quarantine storage" />
+          <View style={styles.card}>
+            <Input
+              label="Rack / storage location in quarantine *"
+              placeholder="Required — enter the physical location (no default)"
+              value={form.quarantine_rack}
+              onChangeText={(v) => set('quarantine_rack', v)}
+              autoCapitalize="characters"
+            />
+          </View>
+
           <View style={styles.infoNote}>
             <Ionicons name="information-circle-outline" size={16} color={Colors.info} />
             <Text style={styles.infoNoteText}>
-              Product will be placed in <Text style={{ fontWeight: '700' }}>Quarantine</Text>. A QR code will be generated for tracking.
+              Product will be placed in <Text style={{ fontWeight: '700' }}>Quarantine</Text> at the location you enter above. A QR code will be generated for tracking.
             </Text>
           </View>
 
@@ -267,6 +287,11 @@ export const CreateCardScreen: React.FC = () => {
             <View style={styles.detailCard}>
               <Text style={styles.detailCardTitle}>Product Details</Text>
 
+              <CardRow
+                label="Track ID"
+                value={card?.track_id ?? (card?.public_code ? `#${card.public_code}` : '')}
+              />
+              <View style={styles.divider} />
               <CardRow label="Item Code" value={card?.item_code ?? ''} />
               <View style={styles.divider} />
               <CardRow label="Item Name" value={card?.item_name ?? ''} />
@@ -275,19 +300,26 @@ export const CreateCardScreen: React.FC = () => {
               <View style={styles.divider} />
               <CardRow label="Product Number" value={card?.grn_number ?? ''} />
               <View style={styles.divider} />
+              <CardRow
+                label="Quarantine rack"
+                value={card?.rack_number ? String(card.rack_number) : '—'}
+              />
+              <View style={styles.divider} />
               <CardRow label="Total Quantity" value={card?.total_quantity ?? ''} />
               <View style={styles.divider} />
               <CardRow label="Container Qty" value={`${card?.container_quantity ?? ''} / ${card?.pack_type ?? ''}`} />
+              <View style={styles.divider} />
+              <CardRow label="Pack size (std)" value={card?.pack_size_description || '—'} />
               <View style={styles.divider} />
               <CardRow label="Supplier Name" value={card?.supplier_name ?? ''} />
               <View style={styles.divider} />
               <CardRow label="Manufacturer" value={card?.manufacturer_name ?? ''} />
               <View style={styles.divider} />
-              <CardRow label="Date of Receipt" value={toDisplay(card?.date_of_receipt ?? '')} />
+              <CardRow label="Date of Receipt" value={formatDate(card?.date_of_receipt)} />
               <View style={styles.divider} />
-              <CardRow label="Mfg. Date" value={toDisplay(card?.manufacture_date ?? '')} />
+              <CardRow label="Mfg. Date" value={formatDate(card?.manufacture_date)} />
               <View style={styles.divider} />
-              <CardRow label="Exp. Date" value={toDisplay(card?.expiry_date ?? '')} />
+              <CardRow label="Exp. Date" value={formatDate(card?.expiry_date)} />
               <View style={styles.divider} />
               <View style={styles.cardRow}>
                 <Text style={styles.cardRowLabel}>Status</Text>

@@ -13,7 +13,6 @@ import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuthStore } from "../../store/authStore";
 import { inventoryApi } from "../../api/inventory";
-import { notificationsApi } from "../../api/notifications";
 import { Card } from "../../components/common/Card";
 import {
   Colors,
@@ -32,7 +31,7 @@ interface QuickAction {
   params?: Record<string, any>;
 }
 
-/** Same 6 tiles + routes for every role (2 columns × 3 rows). */
+/** Six tiles + routes for every role (2 columns × 3 rows): Quarantine → … → Production last. */
 const PRODUCT_STAT_TILES: Array<{
   label: string;
   color: string;
@@ -40,13 +39,6 @@ const PRODUCT_STAT_TILES: Array<{
   screen: string;
   getValue: (s: ProductStats) => number;
 }> = [
-  {
-    label: "Total",
-    color: Colors.primary,
-    icon: "layers-outline",
-    screen: "TotalList",
-    getValue: (s) => s.total,
-  },
   {
     label: "Quarantine",
     color: Colors.warning,
@@ -82,15 +74,22 @@ const PRODUCT_STAT_TILES: Array<{
     screen: "RetestList",
     getValue: (s) => s.retest,
   },
+  {
+    label: "Production",
+    color: Colors.primary,
+    icon: "layers-outline",
+    screen: "ProductionList",
+    getValue: (s) => s.production,
+  },
 ];
 
 interface ProductStats {
-  total: number;
   quarantine: number;
   underTest: number;
   approved: number;
   rejected: number;
   retest: number;
+  production: number;
 }
 
 const ROLE_QUICK_ACTIONS: Record<RoleName, QuickAction[]> = {
@@ -186,31 +185,27 @@ export const DashboardScreen: React.FC = () => {
   const { user, clearAuth } = useAuthStore();
   const navigation = useNavigation<any>();
   const [stats, setStats] = useState<ProductStats>({
-    total: 0,
     quarantine: 0,
     underTest: 0,
     approved: 0,
     rejected: 0,
     retest: 0,
+    production: 0,
   });
-  const [unreadCount, setUnreadCount] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
 
   const loadData = useCallback(async () => {
     try {
-      const [batches, notifications] = await Promise.all([
-        inventoryApi.getBatches(),
-        notificationsApi.getNotifications(true),
-      ]);
+      const batches = await inventoryApi.getBatches();
       setStats({
-        total: batches.length,
         quarantine: batches.filter((b) => b.status === "QUARANTINE").length,
         underTest: batches.filter((b) => b.status === "UNDER_TEST").length,
         approved: batches.filter((b) => b.status === "APPROVED").length,
         rejected: batches.filter((b) => b.status === "REJECTED").length,
         retest: batches.filter((b) => b.status === "QUARANTINE_RETEST").length,
+        production: batches.filter((b) => b.status === "ISSUED_TO_PRODUCTION")
+          .length,
       });
-      setUnreadCount(notifications.length);
     } catch {
       // Silent fail on dashboard stats
     }
@@ -273,13 +268,6 @@ export const DashboardScreen: React.FC = () => {
                 {(user?.name || user?.username || "U")[0].toUpperCase()}
               </Text>
             </View>
-            {unreadCount > 0 && (
-              <View style={styles.notifBadge}>
-                <Text style={styles.notifBadgeText}>
-                  {unreadCount > 9 ? "9+" : unreadCount}
-                </Text>
-              </View>
-            )}
           </TouchableOpacity>
         </View>
 
@@ -397,26 +385,12 @@ const styles = StyleSheet.create({
     borderColor: "rgba(255,255,255,0.45)",
   },
   avatarInitial: { fontSize: 26, fontWeight: "800", color: "#fff" },
-  notifBadge: {
-    position: "absolute",
-    top: -2,
-    right: -2,
-    backgroundColor: Colors.danger,
-    borderRadius: 8,
-    minWidth: 16,
-    height: 16,
-    justifyContent: "center",
-    alignItems: "center",
-    borderWidth: 1.5,
-    borderColor: "#fff",
-  },
-  notifBadgeText: { fontSize: 9, fontWeight: "800", color: "#fff" },
   body: { paddingHorizontal: Spacing.md, paddingTop: Spacing.md, marginTop: 0 },
   statsGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
     marginBottom: Spacing.lg,
-    justifyContent: "space-between",    
+    justifyContent: "space-between",
     marginTop: 0,
     rowGap: Spacing.sm,
   },

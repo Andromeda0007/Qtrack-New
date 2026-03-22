@@ -10,6 +10,19 @@ class AddARNumberRequest(BaseModel):
     sample_quantity: Optional[Decimal] = None
 
 
+class WithdrawSampleRequest(BaseModel):
+    batch_id: int
+    sample_quantity: Decimal
+    remarks: Optional[str] = None
+
+    @field_validator("sample_quantity")
+    @classmethod
+    def qty_positive(cls, v):
+        if v <= 0:
+            raise ValueError("Sample quantity must be positive")
+        return v
+
+
 class ApproveRejectRequest(BaseModel):
     batch_id: int
     retest_date: Optional[date] = None

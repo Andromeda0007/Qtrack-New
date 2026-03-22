@@ -48,7 +48,7 @@ export interface Batch {
   supplier_name: string | null;
   grn_number: string | null;
   total_quantity: string;
-  remaining_quantity: string;
+  remaining_quantity: string | null;
   status: BatchStatus;
   expiry_date: string | null;
   retest_date: string | null;
@@ -56,8 +56,12 @@ export interface Batch {
   manufacture_date?: string | null;
   pack_size?: string | null;
   pack_type?: string;
+  pack_size_description?: string | null;
   qr_code_path?: string | null;
   ar_number?: string | null;
+  rack_number?: string | null;
+  public_code?: string;
+  track_id?: string;
 }
 
 export interface StockMovement {

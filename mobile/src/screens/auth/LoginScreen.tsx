@@ -1,28 +1,46 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from "react";
 import {
-  View, Text, StyleSheet, ScrollView,
-  KeyboardAvoidingView, Platform, Alert, Image,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { authApi } from '../../api/auth';
-import { useAuthStore } from '../../store/authStore';
-import { Button } from '../../components/common/Button';
-import { Input } from '../../components/common/Input';
-import { Colors, FontSize, Spacing } from '../../utils/theme';
-import { extractError } from '../../api/client';
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  KeyboardAvoidingView,
+  Platform,
+  Alert,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { setStatusBarStyle } from "expo-status-bar";
+import { useFocusEffect } from "@react-navigation/native";
+import { authApi } from "../../api/auth";
+import { useAuthStore } from "../../store/authStore";
+import { Button } from "../../components/common/Button";
+import { Input } from "../../components/common/Input";
+import { Colors, FontSize, Spacing } from "../../utils/theme";
+import { extractError } from "../../api/client";
+
+/** Hint of brand amber over the page bg — not solid `Colors.accent` */
+const LOGO_TINT_BG = "rgba(255, 172, 8, 0.55)";
 
 export const LoginScreen: React.FC = () => {
-  const [loginId, setLoginId] = useState('');
-  const [password, setPassword] = useState('');
+  const [loginId, setLoginId] = useState("");
+  const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const [errors, setErrors] = useState<{ loginId?: string; password?: string }>({});
+  const [errors, setErrors] = useState<{ loginId?: string; password?: string }>(
+    {},
+  );
   const { setAuth } = useAuthStore();
+
+  useFocusEffect(
+    useCallback(() => {
+      setStatusBarStyle("dark");
+      return () => setStatusBarStyle("light");
+    }, []),
+  );
 
   const validate = () => {
     const errs: typeof errors = {};
-    if (!loginId.trim()) errs.loginId = 'Email or username is required';
-    if (!password) errs.password = 'Password is required';
+    if (!loginId.trim()) errs.loginId = "Email or username is required";
+    if (!password) errs.password = "Password is required";
     setErrors(errs);
     return Object.keys(errs).length === 0;
   };
@@ -36,7 +54,7 @@ export const LoginScreen: React.FC = () => {
       const userProfile = await authApi.getMe(response.access_token);
       await setAuth(response.access_token, userProfile);
     } catch (error) {
-      Alert.alert('Login Failed', extractError(error));
+      Alert.alert("Login Failed", extractError(error));
     } finally {
       setLoading(false);
     }
@@ -45,10 +63,13 @@ export const LoginScreen: React.FC = () => {
   return (
     <SafeAreaView style={styles.safe}>
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={styles.flex}
       >
-        <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
+        <ScrollView
+          contentContainerStyle={styles.container}
+          keyboardShouldPersistTaps="handled"
+        >
           {/* Header */}
           <View style={styles.header}>
             <View style={styles.logoContainer}>
@@ -94,7 +115,7 @@ export const LoginScreen: React.FC = () => {
           </View>
 
           <Text style={styles.footer}>
-            Access is restricted to authorized personnel only.{'\n'}
+            Access is restricted to authorized personnel only.{"\n"}
             Contact your administrator to get an account.
           </Text>
         </ScrollView>
@@ -104,37 +125,61 @@ export const LoginScreen: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: Colors.primary },
-  flex: { flex: 1 },
+  /* Same light blue-gray as dashboard body (Colors.background) */
+  safe: { flex: 1, backgroundColor: Colors.background },
+  flex: { flex: 1, backgroundColor: Colors.background },
   container: { flexGrow: 1, paddingHorizontal: Spacing.lg },
-  header: { alignItems: 'center', paddingTop: Spacing.xxl, paddingBottom: Spacing.xl },
+  header: {
+    alignItems: "center",
+    paddingTop: Spacing.xxl,
+    paddingBottom: Spacing.xl,
+  },
   logoContainer: {
-    width: 80, height: 80,
+    width: 80,
+    height: 80,
     borderRadius: 20,
-    backgroundColor: Colors.accent,
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: LOGO_TINT_BG,
+    borderWidth: 1,
+    borderColor: Colors.borderLight,
+    justifyContent: "center",
+    alignItems: "center",
     marginBottom: Spacing.md,
   },
-  logoText: { fontSize: 40, fontWeight: '900', color: Colors.primary },
-  appName: { fontSize: 32, fontWeight: '800', color: '#fff', letterSpacing: 1 },
-  subtitle: { fontSize: FontSize.sm, color: 'rgba(255,255,255,0.75)', marginTop: 4 },
+  logoText: { fontSize: 40, fontWeight: "900", color: Colors.primary },
+  appName: {
+    fontSize: 32,
+    fontWeight: "800",
+    color: Colors.primary,
+    letterSpacing: 1,
+  },
+  subtitle: {
+    fontSize: FontSize.sm,
+    color: Colors.textSecondary,
+    marginTop: 4,
+  },
   form: {
-    backgroundColor: '#fff',
+    backgroundColor: Colors.surface,
     borderRadius: 20,
     padding: Spacing.lg,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.15,
-    shadowRadius: 16,
-    elevation: 8,
+    borderWidth: 1,
+    borderColor: Colors.borderLight,
+    shadowColor: Colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 4,
   },
-  formTitle: { fontSize: FontSize.xl, fontWeight: '700', color: Colors.textPrimary, marginBottom: Spacing.lg },
+  formTitle: {
+    fontSize: FontSize.xl,
+    fontWeight: "700",
+    color: Colors.textPrimary,
+    marginBottom: Spacing.lg,
+  },
   loginButton: { marginTop: Spacing.sm },
   footer: {
-    textAlign: 'center',
+    textAlign: "center",
     fontSize: FontSize.xs,
-    color: 'rgba(255,255,255,0.6)',
+    color: Colors.textMuted,
     marginTop: Spacing.xl,
     lineHeight: 18,
   },

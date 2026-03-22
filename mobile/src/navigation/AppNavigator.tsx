@@ -14,13 +14,14 @@ import { ChatGroupInfoScreen } from '../screens/chat/ChatGroupInfoScreen';
 import { NewChatScreen } from '../screens/chat/NewChatScreen';
 import { NewGroupScreen } from '../screens/chat/NewGroupScreen';
 import { BatchDetailScreen } from '../screens/warehouse/BatchDetailScreen';
+import { IssueStockScreen } from '../screens/warehouse/IssueStockScreen';
 import { QCScanScreen } from '../screens/scanner/QRScannerScreen';
 import { QuarantineListScreen } from '../screens/inventory/QuarantineListScreen';
 import { UnderTestListScreen } from '../screens/inventory/UnderTestListScreen';
 import { ApprovedListScreen } from '../screens/inventory/ApprovedListScreen';
 import { RejectedListScreen } from '../screens/inventory/RejectedListScreen';
 import { RetestListScreen } from '../screens/inventory/RetestListScreen';
-import { TotalListScreen } from '../screens/inventory/TotalListScreen';
+import { ProductionListScreen } from '../screens/inventory/ProductionListScreen';
 import { AddARNumberScreen } from '../screens/qc/AddARNumberScreen';
 import { ApproveBatchScreen } from '../screens/qc/ApproveBatchScreen';
 import { RejectBatchScreen } from '../screens/qc/RejectBatchScreen';
@@ -66,11 +67,16 @@ export const AppNavigator: React.FC = () => {
               options={{ headerShown: false }}
             />
             <Stack.Screen
+              name="IssueStock"
+              component={IssueStockScreen}
+              options={{ headerShown: false }}
+            />
+            <Stack.Screen
               name="Scanner"
               component={QCScanScreen}
               options={{ headerShown: false }}
             />
-            <Stack.Screen name="TotalList"        component={TotalListScreen}      options={{ headerShown: false }} />
+            <Stack.Screen name="ProductionList" component={ProductionListScreen} options={{ headerShown: false }} />
             <Stack.Screen name="QuarantineList" component={QuarantineListScreen} options={{ headerShown: false }} />
             <Stack.Screen name="UnderTestList"  component={UnderTestListScreen}  options={{ headerShown: false }} />
             <Stack.Screen name="ApprovedList"   component={ApprovedListScreen}   options={{ headerShown: false }} />

@@ -18,6 +18,8 @@ import { Button } from "../../components/common/Button";
 import { qaApi } from "../../api/qa";
 import { extractError } from "../../api/client";
 import { Colors, FontSize, Spacing, BorderRadius, Shadow } from "../../utils/theme";
+import { resetToDashboardHome } from "../../navigation/goHome";
+import { OperationResultModal } from "../../components/common/OperationResultModal";
 
 export const InspectFGScreen: React.FC = () => {
   const navigation = useNavigation<any>();
@@ -30,6 +32,7 @@ export const InspectFGScreen: React.FC = () => {
   const [quantityVerified, setQuantityVerified] = useState("");
   const [remarks, setRemarks] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [flowDone, setFlowDone] = useState<{ title: string; message: string } | null>(null);
 
   const submit = async () => {
     let qty: number | undefined;
@@ -44,9 +47,10 @@ export const InspectFGScreen: React.FC = () => {
     setSubmitting(true);
     try {
       await qaApi.inspectFG(fgBatchId, qty, remarks.trim() || undefined);
-      Alert.alert("Success", "Inspection recorded.", [
-        { text: "OK", onPress: () => navigation.goBack() },
-      ]);
+      setFlowDone({
+        title: "Inspection recorded",
+        message: "QA inspection has been saved. You can continue from Home.",
+      });
     } catch (e) {
       Alert.alert("Error", extractError(e));
     } finally {
@@ -100,6 +104,16 @@ export const InspectFGScreen: React.FC = () => {
           )}
         </ScrollView>
       </KeyboardAvoidingView>
+      <OperationResultModal
+        visible={!!flowDone}
+        variant="info"
+        title={flowDone?.title ?? ""}
+        message={flowDone?.message ?? ""}
+        onDismiss={() => {
+          setFlowDone(null);
+          resetToDashboardHome(navigation);
+        }}
+      />
     </SafeAreaView>
   );
 };

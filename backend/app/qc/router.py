@@ -6,9 +6,14 @@ from app.auth.dependencies import require_permission, get_current_user
 from app.models.user_models import User
 from app.qc import service
 from app.qc.schemas import (
-    AddARNumberRequest, ApproveRejectRequest, RejectRequest,
-    InitiateRetestRequest, GradeTransferRequest,
-    ApproveGradeTransferRequest, RetestApproveRejectRequest,
+    AddARNumberRequest,
+    WithdrawSampleRequest,
+    ApproveRejectRequest,
+    RejectRequest,
+    InitiateRetestRequest,
+    GradeTransferRequest,
+    ApproveGradeTransferRequest,
+    RetestApproveRejectRequest,
 )
 
 router = APIRouter()
@@ -26,6 +31,21 @@ async def add_ar_number(
         "qc_result_id": qc.id,
         "ar_number": qc.ar_number,
     }
+
+
+@router.post("/withdraw-sample")
+async def withdraw_sample(
+    payload: WithdrawSampleRequest,
+    current_user: User = Depends(require_permission("WITHDRAW_SAMPLE")),
+    db: AsyncSession = Depends(get_db),
+):
+    return await service.withdraw_sample(
+        db,
+        payload.batch_id,
+        payload.sample_quantity,
+        payload.remarks,
+        current_user,
+    )
 
 
 @router.post("/approve")

@@ -6,6 +6,11 @@ export const qcApi = {
     return res.data;
   },
 
+  withdrawSample: async (batch_id: number, sample_quantity: number, remarks?: string) => {
+    const res = await apiClient.post('/qc/withdraw-sample', { batch_id, sample_quantity, remarks });
+    return res.data;
+  },
+
   approveMaterial: async (batch_id: number, retest_date: string, remarks?: string) => {
     const res = await apiClient.post('/qc/approve', { batch_id, retest_date, remarks });
     return res.data;

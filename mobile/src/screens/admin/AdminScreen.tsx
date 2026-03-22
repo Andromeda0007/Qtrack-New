@@ -42,13 +42,25 @@ function getAuditStyle(actionType: string): { color: string; icon: string; bg: s
 
 function getEntityLabel(entityType: string | null): string {
   if (!entityType) return '';
-  const m: Record<string, string> = { user: 'User #', batch: 'Batch #', material: 'Material #', supplier: 'Supplier #', fg_batch: 'FG Batch #' };
+  const m: Record<string, string> = {
+    user: 'User #',
+    batch: 'Track Id #',
+    material: 'Material #',
+    supplier: 'Supplier #',
+    fg_batch: 'FG Batch #',
+  };
   return m[entityType.toLowerCase()] || `${entityType} #`;
 }
 
 function getEntityDisplayKey(entityType: string | null): string {
   if (!entityType) return '';
-  const m: Record<string, string> = { user: 'newUser', batch: 'Batch', material: 'Material', supplier: 'Supplier', fg_batch: 'FG Batch' };
+  const m: Record<string, string> = {
+    user: 'newUser',
+    batch: 'Track Id',
+    material: 'Material',
+    supplier: 'Supplier',
+    fg_batch: 'FG Batch',
+  };
   return m[entityType.toLowerCase()] || entityType;
 }
 
@@ -101,7 +113,9 @@ function buildAuditDetailRows(item: any, auditCategory: AuditCategory): { key: s
       ? null
       : item.entity_type?.toLowerCase() === 'user'
         ? (item.entity_username ?? String(item.entity_id))
-        : String(item.entity_id);
+        : item.entity_type?.toLowerCase() === 'batch' && item.entity_track_id
+          ? item.entity_track_id
+          : String(item.entity_id);
 
   if (entityDisplayKey && entityValue != null && entityValue !== '') {
     rows.push({ key: entityDisplayKey, value: entityValue });

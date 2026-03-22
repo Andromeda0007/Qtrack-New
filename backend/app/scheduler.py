@@ -55,7 +55,12 @@ async def _check_retest_alerts():
 
             await notify_roles(
                 db,
-                ["QC_HEAD", "QC_EXECUTIVE"],
+                [
+                    "QC_HEAD",
+                    "QC_EXECUTIVE",
+                    "WAREHOUSE_HEAD",
+                    "WAREHOUSE_USER",
+                ],
                 title,
                 message,
                 entity_type="batch",
@@ -111,7 +116,7 @@ async def _check_expiry_alerts():
 
             await notify_roles(
                 db,
-                ["WAREHOUSE_HEAD", "QC_HEAD"],
+                ["WAREHOUSE_HEAD", "WAREHOUSE_USER", "QC_HEAD", "QC_EXECUTIVE"],
                 title,
                 message,
                 entity_type="batch",

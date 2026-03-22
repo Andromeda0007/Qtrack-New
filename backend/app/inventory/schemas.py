@@ -17,6 +17,17 @@ class ProductCreate(BaseModel):
     date_of_receipt: date
     manufacture_date: date
     expiry_date: date
+    # Optional e.g. "160 x 25.00 kg" for quarantine label / reports.
+    pack_size_description: Optional[str] = None
+    # Physical location in quarantine area (required — no default rack).
+    rack_number: str
+
+    @field_validator("rack_number")
+    @classmethod
+    def rack_required(cls, v: str) -> str:
+        if not (v or "").strip():
+            raise ValueError("Quarantine rack / storage location is required")
+        return v.strip()
 
     @field_validator("total_quantity", "container_quantity")
     @classmethod
@@ -35,6 +46,8 @@ class IssueStockRequest(BaseModel):
     batch_id: int
     quantity: Decimal
     remarks: Optional[str] = None
+    issued_to_product_name: Optional[str] = None
+    issued_to_batch_ref: Optional[str] = None
 
     @field_validator("quantity")
     @classmethod
@@ -42,6 +55,10 @@ class IssueStockRequest(BaseModel):
         if v <= 0:
             raise ValueError("Quantity must be positive")
         return v
+
+
+class UpdateRackRequest(BaseModel):
+    rack_number: str
 
 
 class StockAdjustmentRequest(BaseModel):

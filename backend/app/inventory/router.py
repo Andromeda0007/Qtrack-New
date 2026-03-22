@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, HTTPException
 from fastapi.responses import FileResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Optional
@@ -7,8 +7,9 @@ from decimal import Decimal
 from app.database import get_db
 from app.auth.dependencies import get_current_user, require_permission
 from app.models.user_models import User
+from app.models.inventory_models import BatchStatus
 from app.inventory import service
-from app.inventory.schemas import ProductCreate, IssueStockRequest, StockAdjustmentRequest
+from app.inventory.schemas import ProductCreate, IssueStockRequest, StockAdjustmentRequest, UpdateRackRequest
 from app.utils.pdf_generator import generate_quarantine_label
 
 router = APIRouter()
@@ -33,7 +34,7 @@ async def create_product(
         "grn_number": result["grn_number"],
         "total_quantity": str(batch.total_quantity),
         "container_quantity": str(batch.pack_size or ""),
-        "pack_type": batch.pack_type,
+        "pack_type": service.pack_type_display(batch),
         "supplier_name": supplier.supplier_name,
         "manufacturer_name": result["manufacturer_name"],
         "date_of_receipt": result["date_of_receipt"],
@@ -43,6 +44,10 @@ async def create_product(
         "created_at": str(batch.created_at),
         "qr_data": result["qr_data"],
         "qr_base64": result["qr_base64"],
+        "public_code": result["public_code"],
+        "track_id": result["track_id"],
+        "pack_size_description": batch.pack_size_description,
+        "rack_number": batch.rack_number,
     }
 
 
@@ -63,11 +68,16 @@ async def list_batches(
             "supplier_name": b.supplier.supplier_name if b.supplier else None,
             "grn_number": b.grn.grn_number if b.grn else None,
             "total_quantity": b.total_quantity,
-            "remaining_quantity": b.remaining_quantity,
+            "remaining_quantity": service.remaining_quantity_for_api(b),
             "status": b.status,
             "expiry_date": b.expiry_date,
             "retest_date": b.retest_date,
             "retest_cycle": b.retest_cycle,
+            "rack_number": b.rack_number,
+            "public_code": b.public_code,
+            "track_id": f"#{b.public_code}",
+            "pack_size_description": b.pack_size_description,
+            "pack_type": service.pack_type_display(b),
             "created_at": b.created_at,
         }
         for b in batches
@@ -92,14 +102,18 @@ async def get_batch(
         "manufacture_date": batch.manufacture_date,
         "expiry_date": batch.expiry_date,
         "pack_size": batch.pack_size,
-        "pack_type": batch.pack_type,
+        "pack_type": service.pack_type_display(batch),
+        "pack_size_description": batch.pack_size_description,
         "total_quantity": batch.total_quantity,
-        "remaining_quantity": batch.remaining_quantity,
+        "remaining_quantity": service.remaining_quantity_for_api(batch),
         "status": batch.status,
         "retest_date": batch.retest_date,
         "retest_cycle": batch.retest_cycle,
         "qr_code_path": batch.qr_code_path,
         "ar_number": batch.qc_results[-1].ar_number if batch.qc_results else None,
+        "rack_number": batch.rack_number,
+        "public_code": batch.public_code,
+        "track_id": f"#{batch.public_code}",
     }
 
 
@@ -110,7 +124,7 @@ async def scan_qr(
     db: AsyncSession = Depends(get_db),
 ):
     """Resolve material batch QR or finished-goods FG QR (`QTRACK|BATCH|…` / `QTRACK|FG|…`)."""
-    return await service.resolve_scan_payload(db, qr_data)
+    return await service.resolve_scan_payload(db, qr_data, current_user)
 
 
 @router.post("/issue-stock")
@@ -119,7 +133,26 @@ async def issue_stock(
     current_user: User = Depends(require_permission("ISSUE_STOCK")),
     db: AsyncSession = Depends(get_db),
 ):
-    return await service.issue_stock(db, payload.batch_id, payload.quantity, payload.remarks, current_user)
+    return await service.issue_stock(
+        db,
+        payload.batch_id,
+        payload.quantity,
+        payload.remarks,
+        current_user,
+        issued_to_product_name=payload.issued_to_product_name,
+        issued_to_batch_ref=payload.issued_to_batch_ref,
+    )
+
+
+@router.patch("/batches/{batch_id}/rack")
+async def update_batch_rack(
+    batch_id: int,
+    payload: UpdateRackRequest,
+    current_user: User = Depends(require_permission("UPDATE_LOCATION")),
+    db: AsyncSession = Depends(get_db),
+):
+    batch = await service.update_batch_rack(db, batch_id, payload.rack_number, current_user)
+    return {"batch_id": batch.id, "rack_number": batch.rack_number}
 
 
 @router.post("/adjust-stock")
@@ -172,12 +205,62 @@ async def download_quarantine_label(
         "batch_number": batch.batch_number,
         "grn_number": batch.grn.grn_number if batch.grn else "",
         "pack_size": str(batch.pack_size or ""),
+        "per_container_qty": str(batch.pack_size or ""),
+        "pack_type": service.pack_type_display(batch),
+        "pack_size_description": batch.pack_size_description or "",
         "total_quantity": str(batch.total_quantity),
         "unit": batch.material.unit_of_measure if batch.material else "kg",
         "manufacture_date": str(batch.manufacture_date or ""),
         "expiry_date": str(batch.expiry_date or ""),
         "supplier_name": batch.supplier.supplier_name if batch.supplier else "",
         "qr_path": batch.qr_code_path or "",
+        "track_id": f"#{batch.public_code}",
+        "public_code": batch.public_code,
     }
     pdf_path = generate_quarantine_label(label_data)
     return FileResponse(pdf_path, media_type="application/pdf", filename=f"quarantine_label_{batch.batch_number}.pdf")
+
+
+@router.get("/batches/{batch_id}/label-retest")
+async def download_retest_quarantine_label(
+    batch_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """New quarantine label for material in QUARANTINE_RETEST (per client retest SOP)."""
+    batch = await service.get_batch_by_id(db, batch_id)
+    st = batch.status.value if hasattr(batch.status, "value") else str(batch.status)
+    if st != BatchStatus.QUARANTINE_RETEST.value:
+        raise HTTPException(
+            status_code=400,
+            detail="Retest label is only for batches in QUARANTINE (RETESTING).",
+        )
+    ar_number = ""
+    if batch.qc_results:
+        ar_number = batch.qc_results[-1].ar_number or ""
+    label_data = {
+        "batch_id": batch.id,
+        "material_name": batch.material.material_name if batch.material else "",
+        "batch_number": batch.batch_number,
+        "grn_number": batch.grn.grn_number if batch.grn else "",
+        "pack_size": str(batch.pack_size or ""),
+        "per_container_qty": str(batch.pack_size or ""),
+        "pack_type": service.pack_type_display(batch),
+        "pack_size_description": batch.pack_size_description or "",
+        "total_quantity": str(batch.total_quantity),
+        "unit": batch.material.unit_of_measure if batch.material else "kg",
+        "manufacture_date": str(batch.manufacture_date or ""),
+        "expiry_date": str(batch.expiry_date or ""),
+        "supplier_name": batch.supplier.supplier_name if batch.supplier else "",
+        "qr_path": batch.qr_code_path or "",
+        "track_id": f"#{batch.public_code}",
+        "public_code": batch.public_code,
+        "ar_number": ar_number,
+        "retest_ref": f"Cycle {batch.retest_cycle}",
+    }
+    pdf_path = generate_quarantine_label(label_data, variant="retest")
+    return FileResponse(
+        pdf_path,
+        media_type="application/pdf",
+        filename=f"quarantine_retest_{batch.batch_number}.pdf",
+    )

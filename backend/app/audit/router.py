@@ -1,12 +1,13 @@
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, desc, asc, or_, cast, String
+from sqlalchemy import select, desc, asc, or_, cast, String, and_
 from typing import Optional
 
 from app.database import get_db
 from app.auth.dependencies import require_permission
 from app.models.audit_models import AuditLog
 from app.models.user_models import User
+from app.models.inventory_models import Batch
 
 router = APIRouter()
 
@@ -18,6 +19,26 @@ async def _get_entity_usernames(db: AsyncSession, user_ids: list[int]) -> dict[i
     result = await db.execute(select(User.id, User.username).where(User.id.in_(user_ids)))
     rows = result.all()
     return {r.id: r.username for r in rows}
+
+
+async def _get_batch_track_ids(db: AsyncSession, batch_ids: list[int]) -> dict[int, str]:
+    """Map batch.id -> public_code (8-char track id) for audit display."""
+    if not batch_ids:
+        return {}
+    result = await db.execute(
+        select(Batch.id, Batch.public_code).where(Batch.id.in_(batch_ids))
+    )
+    return {row[0]: row[1] for row in result.all()}
+
+
+async def _batch_ids_matching_search_term(db: AsyncSession, term: str) -> list[int]:
+    """Resolve batch PKs whose public_code matches (so audit search finds by #track id)."""
+    raw = term.strip().lstrip("#").strip()
+    if not raw:
+        return []
+    pattern = f"%{raw}%"
+    result = await db.execute(select(Batch.id).where(Batch.public_code.ilike(pattern)))
+    return [row[0] for row in result.all()]
 
 # Category -> action_types for filtered fetch (no client-side filter)
 AUDIT_CATEGORIES = {
@@ -77,7 +98,19 @@ async def get_audit_logs(
         if words:
             # All words must appear somewhere in the log (AND per word)
             for word in words:
-                query = query.where(_search_conditions(word))
+                batch_ids_match = await _batch_ids_matching_search_term(db, word)
+                if batch_ids_match:
+                    query = query.where(
+                        or_(
+                            _search_conditions(word),
+                            and_(
+                                AuditLog.entity_type.ilike("batch"),
+                                AuditLog.entity_id.in_(batch_ids_match),
+                            ),
+                        )
+                    )
+                else:
+                    query = query.where(_search_conditions(word))
 
     order_fn = asc(AuditLog.created_at) if sort == "asc" else desc(AuditLog.created_at)
     query = query.order_by(order_fn).limit(limit).offset(offset)
@@ -88,6 +121,20 @@ async def get_audit_logs(
     user_ids = list(dict.fromkeys(user_ids))
     entity_usernames = await _get_entity_usernames(db, user_ids)
 
+    batch_ids = [
+        log.entity_id
+        for log in logs
+        if (log.entity_type or "").lower() == "batch" and log.entity_id is not None
+    ]
+    batch_ids = list(dict.fromkeys(batch_ids))
+    batch_track_by_id = await _get_batch_track_ids(db, batch_ids)
+
+    def _track_id_for_log(log: AuditLog) -> str | None:
+        if (log.entity_type or "").lower() != "batch" or log.entity_id is None:
+            return None
+        code = batch_track_by_id.get(log.entity_id)
+        return f"#{code}" if code else None
+
     return [
         {
             "id": log.id,
@@ -96,6 +143,7 @@ async def get_audit_logs(
             "action_type": log.action_type,
             "entity_type": log.entity_type,
             "entity_id": log.entity_id,
+            "entity_track_id": _track_id_for_log(log),
             "entity_username": entity_usernames.get(log.entity_id) if log.entity_type == "user" and log.entity_id else None,
             "description": log.description,
             "ip_address": log.ip_address,

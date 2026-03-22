@@ -18,6 +18,8 @@ import { Button } from '../../components/common/Button';
 import { qcApi } from '../../api/qc';
 import { extractError } from '../../api/client';
 import { Colors, FontSize, Spacing, BorderRadius, Shadow } from '../../utils/theme';
+import { resetToDashboardHome } from '../../navigation/goHome';
+import { OperationResultModal } from '../../components/common/OperationResultModal';
 
 export const AddARNumberScreen: React.FC = () => {
   const navigation = useNavigation<any>();
@@ -27,6 +29,7 @@ export const AddARNumberScreen: React.FC = () => {
   const [arNumber, setArNumber] = useState('');
   const [sampleQty, setSampleQty] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [flowDone, setFlowDone] = useState<{ title: string; message: string } | null>(null);
 
   const submit = async () => {
     const ar = arNumber.trim();
@@ -46,9 +49,10 @@ export const AddARNumberScreen: React.FC = () => {
     setSubmitting(true);
     try {
       await qcApi.addARNumber(batchId, ar, sample);
-      Alert.alert('Success', 'AR number added. Batch is now Under Test.', [
-        { text: 'OK', onPress: () => navigation.goBack() },
-      ]);
+      setFlowDone({
+        title: 'Under test',
+        message: 'AR number added. The batch is now Under Test. You can continue from Home.',
+      });
     } catch (e) {
       Alert.alert('Error', extractError(e));
     } finally {
@@ -101,6 +105,16 @@ export const AddARNumberScreen: React.FC = () => {
           {submitting && <ActivityIndicator color={Colors.primary} style={{ marginTop: 12 }} />}
         </ScrollView>
       </KeyboardAvoidingView>
+      <OperationResultModal
+        visible={!!flowDone}
+        variant="info"
+        title={flowDone?.title ?? ''}
+        message={flowDone?.message ?? ''}
+        onDismiss={() => {
+          setFlowDone(null);
+          resetToDashboardHome(navigation);
+        }}
+      />
     </SafeAreaView>
   );
 };

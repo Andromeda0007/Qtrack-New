@@ -47,7 +47,7 @@ function applySort(data: any[], mode: SortMode): any[] {
 }
 
 interface Props {
-  /** When omitted, loads all batches (e.g. Total list). */
+  /** When omitted, loads all batches (any status). */
   status?: string;
   title: string;
   bgColor: string;
