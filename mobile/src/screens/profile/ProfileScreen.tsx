@@ -7,7 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '../../store/authStore';
 import {
-  Colors, RoleColors, RoleLabels,
+  Colors, RoleLabels,
   FontSize, Spacing, BorderRadius, Shadow,
 } from '../../utils/theme';
 
@@ -28,7 +28,7 @@ const Divider = () => <View style={styles.divider} />;
 export const ProfileScreen: React.FC = () => {
   const { user, clearAuth } = useAuthStore();
 
-  const roleColor = RoleColors[user?.role || ''] || Colors.primary;
+  /** Same navy as rest of app — no per-role accent on Profile. */
   const roleLabel = RoleLabels[user?.role || ''] || (user?.role || 'User');
   const initials = (user?.name || user?.username || 'U')
     .split(' ')
@@ -51,10 +51,10 @@ export const ProfileScreen: React.FC = () => {
         {/* Header */}
         <View style={styles.header}>
           <View style={styles.avatarWrap}>
-            <View style={[styles.avatar, { backgroundColor: roleColor }]}>
+            <View style={[styles.avatar, { backgroundColor: Colors.primary }]}>
               <Text style={styles.avatarText}>{initials}</Text>
             </View>
-            <View style={[styles.roleBadge, { backgroundColor: roleColor }]}>
+            <View style={[styles.roleBadge, { backgroundColor: Colors.primary }]}>
               <Text style={styles.roleBadgeText}>{roleLabel}</Text>
             </View>
           </View>

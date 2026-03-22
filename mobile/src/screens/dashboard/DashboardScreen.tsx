@@ -121,6 +121,7 @@ const ROLE_QUICK_ACTIONS: Record<RoleName, QuickAction[]> = {
       icon: "arrow-forward-circle-outline",
       color: Colors.info,
       screen: "Scanner",
+      params: { scanFlow: "warehouse_issue" },
     },
   ],
   /** Exactly 3 cards: Users → Check Status → Audit. R1: Manage Users | Check Status — R2: Audit Logs */
@@ -148,6 +149,7 @@ const ROLE_QUICK_ACTIONS: Record<RoleName, QuickAction[]> = {
       icon: "clipboard-outline",
       color: Colors.accent,
       screen: "Scanner",
+      params: { scanFlow: "qc_test" },
     },
     CHECK_STATUS_ACTION,
   ],
@@ -159,6 +161,7 @@ const ROLE_QUICK_ACTIONS: Record<RoleName, QuickAction[]> = {
       icon: "clipboard-outline",
       color: Colors.primary,
       screen: "Scanner",
+      params: { scanFlow: "qc_decision" },
     },
     CHECK_STATUS_ACTION,
   ],

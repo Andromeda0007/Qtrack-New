@@ -16,7 +16,7 @@ import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context"
 import { CameraView, useCameraPermissions } from "expo-camera";
 import { StatusBar } from "expo-status-bar";
 import { Ionicons } from "@expo/vector-icons";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useRoute } from "@react-navigation/native";
 import * as Haptics from "expo-haptics";
 import { inventoryApi } from "../../api/inventory";
 import { Card } from "../../components/common/Card";
@@ -34,6 +34,13 @@ import {
 import { formatDate, formatQuantity } from "../../utils/formatters";
 import { useAuthStore } from "../../store/authStore";
 import { extractError } from "../../api/client";
+import {
+  type ScanFlow,
+  normalizeScanFlow,
+  getFlowGate,
+  requiredPhaseSentence,
+  flowActionTitle,
+} from "./scanFlowGate";
 
 const OVERLAY = "rgba(0,0,0,0.62)";
 const CORNER_LEN = 32;
@@ -255,6 +262,171 @@ const scanCardStyles = StyleSheet.create({
   },
 });
 
+const gateStyles = StyleSheet.create({
+  sheet: {
+    paddingTop: Spacing.xs,
+    paddingBottom: Spacing.md,
+  },
+  /** One tight elevated card: header + facts + notice */
+  gateCard: {
+    backgroundColor: "#f7f9fc",
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderWidth: 1,
+    borderColor: "#e8edf4",
+    ...Shadow.md,
+  },
+  cardTop: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    gap: Spacing.sm,
+    marginBottom: 8,
+  },
+  cardTopLeft: { flex: 1, minWidth: 0 },
+  cardTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  cardTitle: {
+    fontSize: FontSize.md,
+    fontWeight: "800",
+    color: Colors.textPrimary,
+  },
+  cardHint: {
+    fontSize: 10,
+    color: Colors.textMuted,
+    marginTop: 3,
+    fontWeight: "600",
+  },
+  hairline: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: "#dce3ee",
+    marginBottom: 6,
+  },
+  compactRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    paddingVertical: 5,
+    gap: 10,
+  },
+  compactLabel: {
+    width: 76,
+    fontSize: 10,
+    fontWeight: "700",
+    color: Colors.textMuted,
+    textTransform: "uppercase",
+    letterSpacing: 0.2,
+    paddingTop: 2,
+  },
+  compactValue: {
+    flex: 1,
+    fontSize: FontSize.sm,
+    fontWeight: "600",
+    color: Colors.textPrimary,
+    lineHeight: 18,
+  },
+  noticeBar: {
+    marginTop: 8,
+    paddingTop: 8,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: "#dce3ee",
+  },
+  noticeText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: Colors.primary,
+    lineHeight: 17,
+  },
+});
+
+const GateCompactRow: React.FC<{ label: string; value: string }> = ({
+  label,
+  value,
+}) => (
+  <View style={gateStyles.compactRow}>
+    <Text style={gateStyles.compactLabel}>{label}</Text>
+    <Text style={gateStyles.compactValue} numberOfLines={2}>
+      {value}
+    </Text>
+  </View>
+);
+
+/** Wrong phase / wrong type — single slim card. */
+const WrongFlowScanResult: React.FC<{
+  batchData: any;
+  scanFlow: ScanFlow;
+  block: "finished_goods" | "wrong_status";
+  onScanAnother: () => void;
+}> = ({ batchData, scanFlow, block, onScanAnother }) => {
+  const required = requiredPhaseSentence(scanFlow);
+  const isFg = batchData.qr_kind === "fg";
+
+  const trackLine =
+    batchData.track_id ||
+    (batchData.public_code ? `#${batchData.public_code}` : "—");
+
+  const notice =
+    block === "finished_goods"
+      ? "FG batch — use QA / FG from Home."
+      : `Wrong phase — must be ${required} first.`;
+
+  return (
+    <View style={gateStyles.sheet}>
+      <View style={gateStyles.gateCard}>
+        <View style={gateStyles.cardTop}>
+          <View style={gateStyles.cardTopLeft}>
+            <View style={gateStyles.cardTitleRow}>
+              <Ionicons name="checkmark-circle" size={18} color={Colors.success} />
+              <Text style={gateStyles.cardTitle}>Batch found</Text>
+            </View>
+            <Text style={gateStyles.cardHint}>Not available for this step</Text>
+          </View>
+          <StatusBadge
+            status={batchData.status}
+            type={isFg ? "fg" : "batch"}
+            size="sm"
+          />
+        </View>
+
+        <View style={gateStyles.hairline} />
+
+        {isFg ? (
+          <>
+            <GateCompactRow label="Batch" value={batchData.batch_number || "—"} />
+            <GateCompactRow label="Product" value={batchData.product_name || "—"} />
+            <GateCompactRow label="Qty" value={formatQuantity(batchData.quantity)} />
+            <GateCompactRow label="Expiry" value={formatDate(batchData.expiry_date)} />
+            <GateCompactRow label="Track" value={trackLine} />
+          </>
+        ) : (
+          <>
+            <GateCompactRow label="Batch" value={batchData.batch_number || "—"} />
+            <GateCompactRow label="Material" value={batchData.material_name || "—"} />
+            <GateCompactRow label="Code" value={batchData.material_code || "—"} />
+            <GateCompactRow label="Prod. no." value={batchData.grn_number || "—"} />
+            <GateCompactRow label="Expiry" value={formatDate(batchData.expiry_date)} />
+          </>
+        )}
+
+        <View style={gateStyles.noticeBar}>
+          <Text style={gateStyles.noticeText}>{notice}</Text>
+        </View>
+      </View>
+
+      <Button
+        title="Scan another"
+        onPress={onScanAnother}
+        variant="outline"
+        fullWidth
+        style={{ marginTop: Spacing.md }}
+      />
+    </View>
+  );
+};
+
 export const QCScanScreen: React.FC = () => {
   const [permission, requestPermission] = useCameraPermissions();
   const [scanned, setScanned] = useState(false);
@@ -262,7 +434,14 @@ export const QCScanScreen: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const { user } = useAuthStore();
   const navigation = useNavigation<any>();
+  const route = useRoute<any>();
   const insets = useSafeAreaInsets();
+
+  const scanFlow = normalizeScanFlow(route.params?.scanFlow);
+  const flowGate =
+    batchData != null ? getFlowGate(scanFlow, batchData) : { kind: "full" as const };
+  const showGatedWrongPhase =
+    scanFlow != null && flowGate.kind === "blocked" && batchData != null;
 
   const scanSize = useMemo(() => {
     const { width, height } = Dimensions.get("window");
@@ -437,6 +616,17 @@ export const QCScanScreen: React.FC = () => {
           contentContainerStyle={styles.resultContent}
           keyboardShouldPersistTaps="handled"
         >
+          {showGatedWrongPhase &&
+          scanFlow &&
+          flowGate.kind === "blocked" ? (
+            <WrongFlowScanResult
+              batchData={batchData}
+              scanFlow={scanFlow}
+              block={flowGate.block}
+              onScanAnother={resetScan}
+            />
+          ) : (
+            <>
           <View style={styles.resultHeader}>
             <View style={styles.successIconWrap}>
               <Ionicons name="checkmark-circle" size={36} color={Colors.success} />
@@ -595,6 +785,8 @@ export const QCScanScreen: React.FC = () => {
             fullWidth
             style={{ marginTop: Spacing.md }}
           />
+            </>
+          )}
         </ScrollView>
       )}
     </SafeAreaView>
