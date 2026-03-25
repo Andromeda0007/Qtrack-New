@@ -1,9 +1,11 @@
 import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-// Change this to your backend IP when testing on a physical device
-// Use your machine's local IP address e.g. http://192.168.1.x:8000
-export const BASE_URL = "http://172.20.10.2:8000/api/v1";
+// Set EXPO_PUBLIC_API_BASE_URL in .env or eas.json (build env) before `eas build`.
+// Must include /api/v1 — e.g. https://your-service.onrender.com/api/v1
+const DEFAULT_PROD = "https://qtrack-new-backend.onrender.com/api/v1";
+const raw = process.env.EXPO_PUBLIC_API_BASE_URL || DEFAULT_PROD;
+export const BASE_URL = raw.replace(/\/$/, "");
 
 console.log("API BASE_URL:", BASE_URL);
 

@@ -4,9 +4,10 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 // API Base URL
 // Prefer EXPO_PUBLIC_API_BASE_URL so both Expo Go and APK use the same backend.
 // Fallback uses production Render backend.
+// Must match backend prefix /api/v1 (see src/api/client.ts).
 const API_BASE_URL =
   process.env.EXPO_PUBLIC_API_BASE_URL ||
-  "https://qtrack-backend.onrender.com/api";
+  "https://qtrack-new-backend.onrender.com/api/v1";
 
 // Create axios instance
 const api = axios.create({

@@ -18,7 +18,8 @@
       "permissions": [
         "android.permission.CAMERA",
         "android.permission.READ_EXTERNAL_STORAGE",
-        "android.permission.WRITE_EXTERNAL_STORAGE"
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.RECORD_AUDIO"
       ]
     },
     "plugins": [
@@ -28,6 +29,12 @@
           "cameraPermission": "Allow QTrack to access your camera to scan QR codes."
         }
       ]
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "8fe3ba32-2085-42ec-92f1-8189adafc3e3"
+      }
+    },
+    "owner": "andromeda007"
   }
 }
