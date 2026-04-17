@@ -471,22 +471,6 @@ export const CreateCardScreen: React.FC = () => {
               />
             </View>
 
-            <TouchableOpacity
-              style={styles.printBtn}
-              onPress={() => {
-                if (!result) return;
-                navigation.navigate('PrintLabels', {
-                  batchId: result.id ?? result.batch_id ?? result.batchId,
-                  grnNumber: result.grn_number,
-                  containerCount: result.container_count,
-                });
-              }}
-              activeOpacity={0.85}
-            >
-              <Ionicons name="print-outline" size={18} color={Colors.primary} />
-              <Text style={styles.printBtnText}>Print all labels</Text>
-            </TouchableOpacity>
-
             <Button
               title="Done"
               onPress={() => { setResult(null); navigation.goBack(); }}

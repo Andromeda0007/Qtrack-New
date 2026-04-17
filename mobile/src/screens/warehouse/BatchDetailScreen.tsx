@@ -3,6 +3,7 @@ import {
   View, Text, StyleSheet, ScrollView,
   TouchableOpacity, ActivityIndicator, Image, Modal, TextInput, Alert,
 } from 'react-native';
+import * as Sharing from 'expo-sharing';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -62,6 +63,7 @@ export const BatchDetailScreen: React.FC = () => {
   const [error, setError] = useState('');
   const [rackModal, setRackModal] = useState(false);
   const [rackInput, setRackInput] = useState('');
+  const [pdfLoading, setPdfLoading] = useState(false);
 
   const role = user?.role || '';
   const canSetRack =
@@ -114,6 +116,23 @@ export const BatchDetailScreen: React.FC = () => {
     }
     return acts;
   })();
+
+  const handleViewPdf = async () => {
+    setPdfLoading(true);
+    try {
+      const uri = await inventoryApi.downloadContainerLabelsPdf(batch.id);
+      const available = await Sharing.isAvailableAsync();
+      if (!available) {
+        Alert.alert('Unavailable', 'PDF viewer is not available on this device.');
+        return;
+      }
+      await Sharing.shareAsync(uri, { mimeType: 'application/pdf', UTI: 'com.adobe.pdf' });
+    } catch (e: any) {
+      Alert.alert('Error', e?.message || 'Could not open PDF.');
+    } finally {
+      setPdfLoading(false);
+    }
+  };
 
   useFocusEffect(
     useCallback(() => {
@@ -175,6 +194,25 @@ export const BatchDetailScreen: React.FC = () => {
             </>
           )}
 
+          {/* QR Code */}
+          {(batch.qr_base64 || batch.qr_code_path) ? (
+            <View style={styles.qrSection}>
+              <Text style={styles.qrLabel}>QR Code</Text>
+              <View style={styles.qrBox}>
+                <Image
+                  source={{
+                    uri: batch.qr_base64
+                      ? `data:image/png;base64,${batch.qr_base64}`
+                      : toImageUrl(batch.qr_code_path),
+                  }}
+                  style={styles.qrImage}
+                  resizeMode="contain"
+                />
+              </View>
+              <Text style={styles.qrHint}>Scan to track this item</Text>
+            </View>
+          ) : null}
+
           {/* Print labels — only in QUARANTINE, only once */}
           {(role === 'WAREHOUSE_USER' || role === 'WAREHOUSE_HEAD') &&
            batch.container_count &&
@@ -193,25 +231,6 @@ export const BatchDetailScreen: React.FC = () => {
               <Text style={styles.printRowText}>Print container labels</Text>
               <Ionicons name="chevron-forward" size={18} color={Colors.primary} />
             </TouchableOpacity>
-          ) : null}
-
-          {/* QR Code */}
-          {(batch.qr_base64 || batch.qr_code_path) ? (
-            <View style={styles.qrSection}>
-              <Text style={styles.qrLabel}>QR Code</Text>
-              <View style={styles.qrBox}>
-                <Image
-                  source={{
-                    uri: batch.qr_base64
-                      ? `data:image/png;base64,${batch.qr_base64}`
-                      : toImageUrl(batch.qr_code_path),
-                  }}
-                  style={styles.qrImage}
-                  resizeMode="contain"
-                />
-              </View>
-              <Text style={styles.qrHint}>Scan to track this item</Text>
-            </View>
           ) : null}
 
           {/* Quantities */}
@@ -332,6 +351,32 @@ export const BatchDetailScreen: React.FC = () => {
               </View>
             </>
           ) : null}
+
+          {/* Labels */}
+          <SectionTitle title="Labels" />
+          <View style={styles.card}>
+            <Row label="Labels Printed" value={batch.labels_printed ? 'Yes' : 'No'} />
+            {batch.labels_printed ? (
+              <>
+                <Divider />
+                <TouchableOpacity
+                  style={styles.viewPdfBtn}
+                  onPress={handleViewPdf}
+                  disabled={pdfLoading}
+                  activeOpacity={0.8}
+                >
+                  {pdfLoading ? (
+                    <ActivityIndicator size="small" color={Colors.primary} />
+                  ) : (
+                    <Ionicons name="document-text-outline" size={18} color={Colors.primary} />
+                  )}
+                  <Text style={styles.viewPdfText}>
+                    {pdfLoading ? 'Opening…' : 'View Labels PDF'}
+                  </Text>
+                </TouchableOpacity>
+              </>
+            ) : null}
+          </View>
 
           <View style={{ height: 32 }} />
         </ScrollView>
@@ -479,6 +524,12 @@ const styles = StyleSheet.create({
     borderWidth: 2, borderColor: Colors.primary + '33', ...Shadow.sm,
   },
   printRowText: { flex: 1, marginLeft: 10, color: Colors.primary, fontWeight: '700', fontSize: FontSize.sm },
+
+  viewPdfBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    paddingVertical: 10,
+  },
+  viewPdfText: { color: Colors.primary, fontWeight: '700', fontSize: FontSize.sm },
 
   actionsRow: { flexDirection: 'row', gap: 12, marginBottom: 4 },
   actionBtn: {

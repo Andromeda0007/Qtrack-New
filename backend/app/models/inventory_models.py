@@ -1,6 +1,6 @@
 from datetime import datetime, date
 from decimal import Decimal
-from sqlalchemy import Integer, String, Boolean, DateTime, Date, ForeignKey, Text, Numeric, Enum as SAEnum, UniqueConstraint
+from sqlalchemy import Integer, String, Boolean, DateTime, Date, ForeignKey, Text, Numeric, Enum as SAEnum, UniqueConstraint, LargeBinary
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 import enum
 
@@ -109,6 +109,7 @@ class Batch(Base):
     retest_date: Mapped[date | None] = mapped_column(Date, index=True)
     retest_cycle: Mapped[int] = mapped_column(Integer, default=0)
     labels_printed: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
+    labels_pdf: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)
     manufacturer_name: Mapped[str | None] = mapped_column(String(150))
     remarks: Mapped[str | None] = mapped_column(Text)
     created_by: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False)

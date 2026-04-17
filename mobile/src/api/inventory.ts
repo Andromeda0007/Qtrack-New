@@ -58,6 +58,10 @@ export const inventoryApi = {
     return dl.uri;
   },
 
+  markLabelsPrinted: async (batchId: number): Promise<void> => {
+    await apiClient.post(`/inventory/batches/${batchId}/mark-labels-printed`);
+  },
+
   getBatchById: async (id: number): Promise<any> => {
     const res = await apiClient.get(`/inventory/batches/${id}`);
     return res.data;

@@ -381,28 +381,40 @@ async def get_container_labels(
         for c in containers
     ]
 
-    # Return cached PDF immediately if it already exists
-    os.makedirs(settings.LABEL_DIR, exist_ok=True)
-    cached_path = os.path.join(settings.LABEL_DIR, f"container_labels_{batch.id}.pdf")
-    if os.path.exists(cached_path):
-        if not batch.labels_printed:
-            batch.labels_printed = True
-            await db.commit()
-        return FileResponse(
-            cached_path,
+    # Serve the exact PDF that was originally generated, stored in DB
+    if getattr(batch, "labels_pdf", None):
+        from fastapi.responses import Response
+        return Response(
+            content=batch.labels_pdf,
             media_type="application/pdf",
-            filename=f"container_labels_{batch.batch_number}.pdf",
+            headers={"Content-Disposition": f'attachment; filename="{batch.grn.grn_number if batch.grn else batch.batch_number}.pdf"'},
         )
 
-    # Generate in thread pool (CPU-bound — QR + ReportLab must not block the event loop)
+    # First time — generate, store bytes in DB, return
     pdf_path = await run_in_threadpool(generate_container_labels, batch_data, container_dicts)
+    with open(pdf_path, "rb") as f:
+        pdf_bytes = f.read()
+    batch.labels_pdf = pdf_bytes
+    await db.commit()
 
-    if not batch.labels_printed:
-        batch.labels_printed = True
-        await db.commit()
-
-    return FileResponse(
-        pdf_path,
+    from fastapi.responses import Response
+    return Response(
+        content=pdf_bytes,
         media_type="application/pdf",
-        filename=f"container_labels_{batch.batch_number}.pdf",
+        headers={"Content-Disposition": f'attachment; filename="{batch.grn.grn_number if batch.grn else batch.batch_number}.pdf"'},
     )
+
+
+@router.post("/batches/{batch_id}/mark-labels-printed")
+async def mark_labels_printed(
+    batch_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    result = await db.execute(select(Batch).where(Batch.id == batch_id))
+    batch = result.scalar_one_or_none()
+    if not batch:
+        raise HTTPException(status_code=404, detail="Batch not found.")
+    batch.labels_printed = True
+    await db.commit()
+    return {"ok": True}

@@ -40,6 +40,7 @@ export const PrintLabelsScreen: React.FC = () => {
     setBusy(true);
     try {
       await Print.printAsync({ uri });
+      await inventoryApi.markLabelsPrinted(batchId);
     } catch (e: any) {
       Alert.alert('Print failed', e?.message || 'Unable to open print sheet.');
     } finally {
@@ -57,6 +58,7 @@ export const PrintLabelsScreen: React.FC = () => {
         return;
       }
       await Sharing.shareAsync(uri, { mimeType: 'application/pdf' });
+      await inventoryApi.markLabelsPrinted(batchId);
     } catch (e: any) {
       Alert.alert('Share failed', e?.message || 'Unable to share PDF.');
     } finally {
