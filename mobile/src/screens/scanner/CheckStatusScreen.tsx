@@ -198,7 +198,7 @@ export const CheckStatusScreen: React.FC = () => {
         <StatusBar style="dark" />
         <View style={s.centeredLight}>
           <View style={s.permIconWrap}>
-            <Ionicons name="camera-off-outline" size={40} color={Colors.danger} />
+            <Ionicons name="camera-off" size={40} color={Colors.danger} />
           </View>
           <Text style={s.permTitle}>Camera access needed</Text>
           <Text style={s.permSubtextLight}>

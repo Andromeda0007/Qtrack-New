@@ -504,7 +504,7 @@ export const QCScanScreen: React.FC = () => {
         <StatusBar style="dark" />
         <View style={styles.centeredLight}>
           <View style={styles.permIconWrap}>
-            <Ionicons name="camera-off-outline" size={40} color={Colors.danger} />
+            <Ionicons name="camera-off" size={40} color={Colors.danger} />
           </View>
           <Text style={styles.permTitle}>Camera access needed</Text>
           <Text style={styles.permSubtextLight}>
