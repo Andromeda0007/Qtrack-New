@@ -57,7 +57,7 @@ export const FGBatchListView: React.FC<Props> = ({
         <Ionicons name="search" size={16} color={Colors.textMuted} />
         <TextInput
           style={styles.searchInput}
-          placeholder="Search by product name or batch…"
+          placeholder="Search"
           placeholderTextColor={Colors.textMuted}
           value={search}
           onChangeText={setSearch}

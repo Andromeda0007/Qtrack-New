@@ -14,7 +14,7 @@ from app.models.finished_goods_models import (
     FGStatus, QAInspectionStatus
 )
 from app.models.notification_models import Notification, NotificationType
-from app.models.chat_models import ChatRoom, ChatMember, ChatMessage
+from app.models.chat_models import ChatRoom, ChatMember, ChatMessage, ChatMessageRead
 from app.models.audit_models import AuditLog
 
 __all__ = [
@@ -28,6 +28,6 @@ __all__ = [
     "FinishedGoodsBatch", "QAInspection", "FGInventory", "DispatchRecord",
     "FGStatus", "QAInspectionStatus",
     "Notification", "NotificationType",
-    "ChatRoom", "ChatMember", "ChatMessage",
+    "ChatRoom", "ChatMember", "ChatMessage", "ChatMessageRead",
     "AuditLog",
 ]

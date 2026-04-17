@@ -1,5 +1,5 @@
 from datetime import datetime
-from sqlalchemy import Integer, String, Boolean, DateTime, ForeignKey, Text
+from sqlalchemy import Integer, String, Boolean, DateTime, ForeignKey, Text, UniqueConstraint, Index
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -44,6 +44,20 @@ class ChatMessage(Base):
 
     room: Mapped["ChatRoom"] = relationship("ChatRoom", back_populates="messages")
     sender: Mapped["User"] = relationship("User", foreign_keys=[sender_id], lazy="selectin")
+
+
+class ChatMessageRead(Base):
+    __tablename__ = "chat_message_reads"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    message_id: Mapped[int] = mapped_column(Integer, ForeignKey("chat_messages.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    read_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    __table_args__ = (
+        UniqueConstraint("message_id", "user_id", name="uq_message_user_read"),
+        Index("ix_chat_reads_user_msg", "user_id", "message_id"),
+    )
 
 
 from app.models.user_models import User  # noqa: E402 — avoid circular at module level

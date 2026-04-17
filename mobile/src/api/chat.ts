@@ -52,6 +52,16 @@ export const chatApi = {
     const res = await apiClient.get(`/chat/rooms/${roomId}`);
     return res.data;
   },
+
+  markRoomRead: async (roomId: number): Promise<{ marked: number }> => {
+    const res = await apiClient.post(`/chat/rooms/${roomId}/read`);
+    return res.data;
+  },
+
+  getUnreadTotal: async (): Promise<{ total: number }> => {
+    const res = await apiClient.get('/chat/unread-total');
+    return res.data;
+  },
 };
 
 export const createChatWebSocket = (token: string): WebSocket => {

@@ -75,6 +75,8 @@ export const ChatRoomScreen: React.FC = () => {
               () => flatListRef.current?.scrollToEnd({ animated: true }),
               80,
             );
+            // Auto mark as read — user is looking at this room right now.
+            chatApi.markRoomRead(rid).catch(() => {});
           } else if (payload.type === "edit") {
             setMessages((prev) =>
               prev.map((m) =>
@@ -110,6 +112,8 @@ export const ChatRoomScreen: React.FC = () => {
         .catch(() => {})
         .finally(() => setLoading(false));
       connectWS(initialRoomId);
+      // Mark everything in this room as read on open.
+      chatApi.markRoomRead(initialRoomId).catch(() => {});
     }
     return () => {
       wsRef.current?.close();

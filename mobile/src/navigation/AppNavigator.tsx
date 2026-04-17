@@ -35,6 +35,7 @@ import { CreateItemScreen } from '../screens/admin/CreateItemScreen';
 import { EditItemScreen } from '../screens/admin/EditItemScreen';
 import { WorkflowHubScreen } from '../screens/workflow/WorkflowHubScreen';
 import { FGBatchDetailScreen } from '../screens/qa/FGBatchDetailScreen';
+import { PrintLabelsScreen } from '../screens/labels/PrintLabelsScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -110,6 +111,7 @@ export const AppNavigator: React.FC = () => {
             <Stack.Screen name="EditItem"     component={EditItemScreen}     options={{ headerShown: false }} />
             <Stack.Screen name="WorkflowHub"  component={WorkflowHubScreen}  options={{ headerShown: false }} />
             <Stack.Screen name="FGBatchDetail" component={FGBatchDetailScreen} options={{ headerShown: false }} />
+            <Stack.Screen name="PrintLabels"  component={PrintLabelsScreen}  options={{ headerShown: false }} />
           </>
         )}
       </Stack.Navigator>

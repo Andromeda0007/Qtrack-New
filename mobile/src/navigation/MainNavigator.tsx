@@ -5,6 +5,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '../store/authStore';
 import { Colors } from '../utils/theme';
 import { RoleName } from '../types';
+import { useChatUnread } from '../hooks/useChatUnread';
+import { useNotifUnread } from '../hooks/useNotifUnread';
 
 import { DashboardScreen } from '../screens/dashboard/DashboardScreen';
 import { NotificationsScreen } from '../screens/notifications/NotificationsScreen';
@@ -61,6 +63,9 @@ export const MainNavigator: React.FC = () => {
   const role = (user?.role || 'PURCHASE_USER') as RoleName;
   const tabs = ROLE_TABS[role] || ROLE_TABS.PURCHASE_USER;
 
+  const chatUnread = useChatUnread();
+  const notifUnread = useNotifUnread();
+
   const TAB_BAR_HEIGHT = Platform.OS === 'ios' ? 58 : 54;
   const BOTTOM_PADDING = Platform.OS === 'ios' ? 24 : 10;
 
@@ -88,14 +93,23 @@ export const MainNavigator: React.FC = () => {
         },
       })}
     >
-      {tabs.map((tab) => (
-        <Tab.Screen
-          key={tab.name}
-          name={tab.name}
-          component={tab.component}
-          options={{ tabBarLabel: tab.label }}
-        />
-      ))}
+      {tabs.map((tab) => {
+        let badge: number | undefined;
+        if (tab.name === 'Chat' && chatUnread > 0) badge = chatUnread;
+        if (tab.name === 'Notifications' && notifUnread > 0) badge = notifUnread;
+        return (
+          <Tab.Screen
+            key={tab.name}
+            name={tab.name}
+            component={tab.component}
+            options={{
+              tabBarLabel: tab.label,
+              tabBarBadge: badge,
+              tabBarBadgeStyle: { backgroundColor: Colors.danger, color: '#fff', fontSize: 10 },
+            }}
+          />
+        );
+      })}
     </Tab.Navigator>
   );
 };

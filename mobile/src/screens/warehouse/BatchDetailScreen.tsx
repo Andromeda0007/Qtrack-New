@@ -174,6 +174,23 @@ export const BatchDetailScreen: React.FC = () => {
             </>
           )}
 
+          {/* Print labels (warehouse only) */}
+          {(role === 'WAREHOUSE_USER' || role === 'WAREHOUSE_HEAD') && batch.container_count ? (
+            <TouchableOpacity
+              style={styles.printRow}
+              onPress={() => navigation.navigate('PrintLabels', {
+                batchId: batch.id,
+                grnNumber: batch.grn_number,
+                containerCount: batch.container_count,
+              })}
+              activeOpacity={0.85}
+            >
+              <Ionicons name="print-outline" size={18} color={Colors.primary} />
+              <Text style={styles.printRowText}>Print container labels</Text>
+              <Ionicons name="chevron-forward" size={18} color={Colors.primary} />
+            </TouchableOpacity>
+          ) : null}
+
           {/* QR Code */}
           {batch.qr_code_path ? (
             <View style={styles.qrSection}>
@@ -446,6 +463,14 @@ const styles = StyleSheet.create({
   rowLabel: { fontSize: FontSize.sm, color: Colors.textMuted, fontWeight: '500', flex: 1 },
   rowValue: { fontSize: FontSize.sm, color: Colors.textPrimary, fontWeight: '600', flex: 1.5, textAlign: 'right' },
   divider: { height: 1, backgroundColor: Colors.borderLight },
+
+  printRow: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    backgroundColor: Colors.surface, borderRadius: BorderRadius.lg,
+    padding: Spacing.md, marginTop: 12, marginBottom: 4,
+    borderWidth: 2, borderColor: Colors.primary + '33', ...Shadow.sm,
+  },
+  printRowText: { flex: 1, marginLeft: 10, color: Colors.primary, fontWeight: '700', fontSize: FontSize.sm },
 
   actionsRow: { flexDirection: 'row', gap: 12, marginBottom: 4 },
   actionBtn: {

@@ -174,3 +174,21 @@ async def get_contact_profile(
         "phone": str(user.phone) if user.phone is not None else "",
         "role_name": role_name or "",
     }
+
+
+@router.post("/rooms/{room_id}/read")
+async def mark_room_read(
+    room_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    return await service.mark_room_read(db, room_id, current_user.id)
+
+
+@router.get("/unread-total")
+async def get_unread_total(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    total = await service.get_total_unread(db, current_user.id)
+    return {"total": total}

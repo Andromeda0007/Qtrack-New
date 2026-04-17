@@ -45,6 +45,19 @@ export const inventoryApi = {
     return res.data;
   },
 
+  downloadContainerLabelsPdf: async (batchId: number): Promise<string> => {
+    const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+    const FileSystem = require('expo-file-system');
+    const { BASE_URL } = require('./client');
+    const token = await AsyncStorage.getItem('access_token');
+    const url = `${BASE_URL}/inventory/batches/${batchId}/container-labels`;
+    const target = `${FileSystem.cacheDirectory}container-labels-${batchId}.pdf`;
+    const dl = await FileSystem.downloadAsync(url, target, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return dl.uri;
+  },
+
   getBatchById: async (id: number): Promise<any> => {
     const res = await apiClient.get(`/inventory/batches/${id}`);
     return res.data;

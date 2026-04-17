@@ -272,3 +272,65 @@ async def download_retest_quarantine_label(
         media_type="application/pdf",
         filename=f"quarantine_retest_{batch.batch_number}.pdf",
     )
+
+
+@router.get("/batches/{batch_id}/container-labels")
+async def get_container_labels(
+    batch_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Multi-page PDF with one label per container."""
+    from sqlalchemy.orm import selectinload
+    from sqlalchemy import select
+    from app.models.inventory_models import Batch, BatchContainer
+    from app.utils.pdf_generator import generate_container_labels
+
+    result = await db.execute(
+        select(Batch)
+        .options(
+            selectinload(Batch.material),
+            selectinload(Batch.supplier),
+            selectinload(Batch.grn),
+            selectinload(Batch.containers),
+        )
+        .where(Batch.id == batch_id)
+    )
+    batch = result.scalar_one_or_none()
+    if not batch:
+        raise HTTPException(status_code=404, detail="Batch not found")
+
+    containers = sorted(batch.containers or [], key=lambda x: x.container_number)
+    if not containers:
+        raise HTTPException(status_code=404, detail="Batch has no containers")
+
+    batch_data = {
+        "batch_id": batch.id,
+        "grn_number": batch.grn.grn_number if batch.grn else None,
+        "material_code": batch.material.material_code if batch.material else "",
+        "material_name": batch.material.material_name if batch.material else "",
+        "batch_number": batch.batch_number,
+        "pack_type": service.pack_type_display(batch),
+        "container_quantity": str(batch.container_quantity) if getattr(batch, "container_quantity", None) else "",
+        "unit_of_measure": getattr(batch, "unit_of_measure", "KG"),
+        "manufacture_date": str(batch.manufacture_date) if batch.manufacture_date else "",
+        "expiry_date": str(batch.expiry_date) if batch.expiry_date else "",
+        "supplier_name": batch.supplier.supplier_name if batch.supplier else "",
+        "manufacturer_name": getattr(batch, "manufacturer_name", "") or "",
+    }
+    container_dicts = [
+        {
+            "container_number": c.container_number,
+            "unique_code": c.unique_code,
+            "qr_code_path": c.qr_code_path,
+        }
+        for c in containers
+    ]
+
+    pdf_path = generate_container_labels(batch_data, container_dicts)
+
+    return FileResponse(
+        pdf_path,
+        media_type="application/pdf",
+        filename=f"container_labels_{batch.batch_number}.pdf",
+    )

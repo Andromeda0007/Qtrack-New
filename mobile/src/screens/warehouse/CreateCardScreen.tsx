@@ -471,6 +471,22 @@ export const CreateCardScreen: React.FC = () => {
               />
             </View>
 
+            <TouchableOpacity
+              style={styles.printBtn}
+              onPress={() => {
+                if (!result) return;
+                navigation.navigate('PrintLabels', {
+                  batchId: result.id ?? result.batch_id ?? result.batchId,
+                  grnNumber: result.grn_number,
+                  containerCount: result.container_count,
+                });
+              }}
+              activeOpacity={0.85}
+            >
+              <Ionicons name="print-outline" size={18} color={Colors.primary} />
+              <Text style={styles.printBtnText}>Print all labels</Text>
+            </TouchableOpacity>
+
             <Button
               title="Done"
               onPress={() => { setResult(null); navigation.goBack(); }}
@@ -587,4 +603,11 @@ const styles = StyleSheet.create({
   },
   quarantineBadgeText: { fontSize: FontSize.xs, color: '#856404', fontWeight: '700', letterSpacing: 0.5 },
   doneBtn: {},
+  printBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 8, paddingVertical: 12, borderRadius: BorderRadius.lg,
+    borderWidth: 2, borderColor: Colors.primary, backgroundColor: Colors.surface,
+    marginBottom: Spacing.sm,
+  },
+  printBtnText: { color: Colors.primary, fontWeight: '700', fontSize: FontSize.md },
 });

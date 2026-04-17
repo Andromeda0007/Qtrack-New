@@ -60,6 +60,23 @@ async def create_fg_batch(db: AsyncSession, data: dict, created_by: User) -> Fin
         from_status=None,
         to_status=audit_status_value(fg_batch.status),
     )
+
+    try:
+        import logging
+        from app.notifications.service import notify_roles
+        await notify_roles(
+            db,
+            ["QA_EXECUTIVE", "QA_HEAD"],
+            "New FG awaiting inspection",
+            f"{fg_batch.batch_number} · {fg_batch.product_name} — {fg_batch.quantity} units. "
+            f"Ready for QA inspection.",
+            entity_type="fg_batch",
+            entity_id=fg_batch.id,
+        )
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning("FG create notification failed: %s", e)
+
     await db.commit()
     await db.refresh(fg_batch)
     return fg_batch

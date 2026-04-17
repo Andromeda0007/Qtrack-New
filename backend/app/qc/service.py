@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime, date
 
 from fastapi import HTTPException
@@ -11,6 +12,25 @@ from app.models.inventory_models import (
 from app.models.qc_models import QCResult, RetestCycle, GradeTransfer, TestStatus, RetestStatus, GradeTransferStatus
 from app.models.user_models import User
 from app.audit.service import log_action, audit_status_value
+
+logger = logging.getLogger(__name__)
+
+
+async def _batch_display_info(db: AsyncSession, batch_id: int) -> dict:
+    """Fetch GRN number + material name for notification messages."""
+    from app.models.inventory_models import GRN
+    result = await db.execute(
+        select(Batch)
+        .options(selectinload(Batch.material), selectinload(Batch.grn))
+        .where(Batch.id == batch_id)
+    )
+    b = result.scalar_one_or_none()
+    if not b:
+        return {"grn": f"batch-{batch_id}", "material_name": "unknown"}
+    return {
+        "grn": (b.grn.grn_number if b.grn else None) or b.batch_number or f"batch-{batch_id}",
+        "material_name": (b.material.material_name if b.material else "unknown"),
+    }
 
 
 async def _get_batch_locked(db: AsyncSession, batch_id: int) -> Batch:
@@ -102,6 +122,22 @@ async def add_ar_number(db: AsyncSession, data: dict, done_by: User) -> QCResult
         from_status=audit_status_value(old_status),
         to_status=audit_status_value(batch.status),
     )
+
+    try:
+        from app.notifications.service import notify_roles
+        info = await _batch_display_info(db, batch.id)
+        await notify_roles(
+            db,
+            ["QC_HEAD"],
+            "Item under test",
+            f"{info['grn']} · {info['material_name']} — AR {data['ar_number']}. "
+            f"Awaiting approval/rejection.",
+            entity_type="batch",
+            entity_id=batch.id,
+        )
+    except Exception as e:
+        logger.warning("Under-test notification failed: %s", e)
+
     await db.commit()
     await db.refresh(qc_result)
     return qc_result
@@ -192,6 +228,22 @@ async def approve_material(db: AsyncSession, batch_id: int, retest_date: date | 
         from_status=audit_status_value(old_status),
         to_status=audit_status_value(batch.status),
     )
+
+    try:
+        from app.notifications.service import notify_roles
+        info = await _batch_display_info(db, batch.id)
+        await notify_roles(
+            db,
+            ["WAREHOUSE_USER", "WAREHOUSE_HEAD"],
+            "Item approved",
+            f"{info['grn']} · {info['material_name']} — approved. "
+            f"Ready to move to Production.",
+            entity_type="batch",
+            entity_id=batch.id,
+        )
+    except Exception as e:
+        logger.warning("Approval notification failed: %s", e)
+
     await db.commit()
     await db.refresh(batch)
     return batch
@@ -223,6 +275,21 @@ async def reject_material(db: AsyncSession, batch_id: int, remarks: str, rejecte
         from_status=audit_status_value(old_status),
         to_status=audit_status_value(batch.status),
     )
+
+    try:
+        from app.notifications.service import notify_roles
+        info = await _batch_display_info(db, batch.id)
+        await notify_roles(
+            db,
+            ["WAREHOUSE_USER", "WAREHOUSE_HEAD"],
+            "Item rejected",
+            f"{info['grn']} · {info['material_name']} — rejected. Remarks: {remarks}",
+            entity_type="batch",
+            entity_id=batch.id,
+        )
+    except Exception as e:
+        logger.warning("Rejection notification failed: %s", e)
+
     await db.commit()
     await db.refresh(batch)
     return batch
@@ -256,6 +323,21 @@ async def initiate_retest(db: AsyncSession, batch_id: int, remarks: str | None, 
         from_status=audit_status_value(old_status),
         to_status=audit_status_value(batch.status),
     )
+
+    try:
+        from app.notifications.service import notify_roles
+        info = await _batch_display_info(db, batch.id)
+        await notify_roles(
+            db,
+            ["QC_EXECUTIVE", "WAREHOUSE_HEAD"],
+            "Retest requested",
+            f"{info['grn']} · {info['material_name']} — retest cycle {batch.retest_cycle} requested.",
+            entity_type="batch",
+            entity_id=batch.id,
+        )
+    except Exception as e:
+        logger.warning("Retest notification failed: %s", e)
+
     await db.commit()
     await db.refresh(retest)
     return retest

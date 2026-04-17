@@ -136,3 +136,98 @@ def generate_shipper_label(fg_data: dict) -> str:
 
     c.save()
     return filepath
+
+
+def generate_container_labels(batch_data: dict, containers: list) -> str:
+    """Generate a multi-page B&W PDF, one page per container.
+
+    batch_data: dict with grn_number, material_code, material_name, batch_number,
+                pack_type, container_quantity, unit_of_measure, manufacture_date,
+                expiry_date, supplier_name, manufacturer_name, batch_id.
+    containers: list of dicts with container_number, unique_code, qr_code_path.
+
+    Layout (4x6 portrait, B&W):
+      Top center: "N / total"
+      Left (~45% width): QR code
+      Right: GRN, item code, item name, batch, pack, qty, dates, supplier, mfr
+      Bottom center: unique_code
+    """
+    os.makedirs(settings.LABEL_DIR, exist_ok=True)
+
+    filename = f"container_labels_{batch_data['batch_id']}.pdf"
+    filepath = os.path.join(settings.LABEL_DIR, filename)
+
+    width, height = 4 * inch, 6 * inch
+    c = canvas.Canvas(filepath, pagesize=(width, height))
+    total = len(containers)
+
+    for cont in containers:
+        c.setStrokeColor(colors.black)
+        c.setLineWidth(2)
+        c.rect(0.1 * inch, 0.1 * inch, width - 0.2 * inch, height - 0.2 * inch)
+
+        # Top: label count
+        c.setFillColor(colors.black)
+        c.setFont("Helvetica-Bold", 18)
+        c.drawCentredString(
+            width / 2,
+            height - 0.55 * inch,
+            f"{cont.get('container_number', '?')}  /  {total}",
+        )
+        c.setLineWidth(1)
+        c.line(0.2 * inch, height - 0.75 * inch, width - 0.2 * inch, height - 0.75 * inch)
+
+        # Left: QR
+        qr_path = cont.get("qr_code_path")
+        if qr_path and os.path.exists(qr_path):
+            # QR area: left 45% of width
+            qr_size = 1.7 * inch
+            qr_x = 0.2 * inch
+            qr_y = (height - 0.75 * inch - 0.7 * inch) / 2 + 0.7 * inch - qr_size / 2
+            c.drawImage(qr_path, qr_x, qr_y, qr_size, qr_size, preserveAspectRatio=True)
+
+        # Right: details
+        details_x = 2.0 * inch
+        y = height - 1.00 * inch
+        lh = 0.22 * inch
+
+        per_container = batch_data.get("container_quantity") or ""
+        unit = batch_data.get("unit_of_measure") or "KG"
+        qty_str = f"{per_container} {unit}".strip() if per_container else ""
+
+        fields = [
+            ("GRN", str(batch_data.get("grn_number", ""))),
+            ("Item Code", str(batch_data.get("material_code", ""))),
+            ("Item", str(batch_data.get("material_name", ""))),
+            ("Batch/Lot", str(batch_data.get("batch_number", ""))),
+            ("Pack", str(batch_data.get("pack_type", ""))),
+            ("Qty", qty_str),
+            ("Mfg", str(batch_data.get("manufacture_date", ""))),
+            ("Exp", str(batch_data.get("expiry_date", ""))),
+            ("Supplier", str(batch_data.get("supplier_name", ""))),
+            ("Mfr", str(batch_data.get("manufacturer_name", ""))),
+        ]
+
+        for label, value in fields:
+            c.setFont("Helvetica-Bold", 7)
+            c.drawString(details_x, y, f"{label}:")
+            c.setFont("Helvetica", 8)
+            # Wrap long values
+            val = str(value or "")
+            if len(val) > 22:
+                val = val[:20] + "…"
+            c.drawString(details_x + 0.45 * inch, y, val)
+            y -= lh
+
+        # Bottom center: unique_code
+        c.setFont("Helvetica-Bold", 9)
+        c.drawCentredString(
+            width / 2,
+            0.35 * inch,
+            str(cont.get("unique_code", "")),
+        )
+
+        c.showPage()
+
+    c.save()
+    return filepath

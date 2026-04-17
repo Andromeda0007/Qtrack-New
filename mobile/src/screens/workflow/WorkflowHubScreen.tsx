@@ -23,6 +23,8 @@ interface ModeConfig {
   statuses: string[];
   isFG: boolean;
   accentColor: string;
+  bgColor: string;
+  textColor: string;
   scanHint: string;
 }
 
@@ -34,6 +36,8 @@ const MODE_CONFIG: Record<WorkflowMode, ModeConfig> = {
     statuses: ['APPROVED'],
     isFG: false,
     accentColor: Colors.success,
+    bgColor: '#D4EDDA',
+    textColor: '#155724',
     scanHint: 'Scan the QR label on an approved item to move it to production.',
   },
   qc_test: {
@@ -43,6 +47,8 @@ const MODE_CONFIG: Record<WorkflowMode, ModeConfig> = {
     statuses: ['QUARANTINE', 'QUARANTINE_RETEST'],
     isFG: false,
     accentColor: Colors.warning,
+    bgColor: '#FFF3CD',
+    textColor: '#856404',
     scanHint: 'Scan the QR label on a quarantined item to begin QC testing.',
   },
   qc_decision: {
@@ -52,6 +58,8 @@ const MODE_CONFIG: Record<WorkflowMode, ModeConfig> = {
     statuses: ['UNDER_TEST'],
     isFG: false,
     accentColor: Colors.info,
+    bgColor: '#CCE5FF',
+    textColor: '#004085',
     scanHint: 'Scan the QR label on an under-test item to approve or reject it.',
   },
   qa_inspect: {
@@ -61,6 +69,8 @@ const MODE_CONFIG: Record<WorkflowMode, ModeConfig> = {
     statuses: ['QA_PENDING'],
     isFG: true,
     accentColor: Colors.accent,
+    bgColor: '#E8D5F5',
+    textColor: '#6B21A8',
     scanHint: 'Scan the QR label on a finished-goods batch to record an inspection.',
   },
   qa_decision: {
@@ -70,6 +80,8 @@ const MODE_CONFIG: Record<WorkflowMode, ModeConfig> = {
     statuses: ['QA_PENDING'],
     isFG: true,
     accentColor: Colors.primary,
+    bgColor: '#D1ECF1',
+    textColor: '#0c5460',
     scanHint: 'Scan the QR label on an inspected FG batch to approve or reject it.',
   },
   production_consume: {
@@ -79,12 +91,14 @@ const MODE_CONFIG: Record<WorkflowMode, ModeConfig> = {
     statuses: ['APPROVED'],
     isFG: false,
     accentColor: Colors.info,
+    bgColor: '#D1ECF1',
+    textColor: '#0c5460',
     scanHint: 'Scan the QR label on an approved material to record consumption.',
   },
 };
 
 const TABS = [
-  { key: 'cards', label: 'Cards', icon: 'list-outline' },
+  { key: 'cards', label: 'Items', icon: 'list-outline' },
   { key: 'scan', label: 'Scan', icon: 'scan-outline' },
 ];
 
@@ -154,6 +168,8 @@ export const WorkflowHubScreen: React.FC = () => {
               statuses={cfg.statuses}
               onRowPress={handleRowPress}
               accentColor={cfg.accentColor}
+              bgColor={cfg.bgColor}
+              textColor={cfg.textColor}
             />
           )
         )}

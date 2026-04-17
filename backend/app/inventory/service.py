@@ -230,10 +230,10 @@ async def create_product(db: AsyncSession, data: dict, created_by: User) -> dict
 
         await notify_roles(
             db,
-            ["WAREHOUSE_HEAD", "WAREHOUSE_USER", "QC_HEAD"],
-            "Material inward — quarantine",
-            f"{grn_number} | Batch {batch.batch_number} | {material.material_name} "
-            f"({container_count} container · {total_q} {uom}) received into quarantine.",
+            ["WAREHOUSE_HEAD", "QC_HEAD", "QC_EXECUTIVE"],
+            "New item in Quarantine",
+            f"{grn_number} · {material.material_name} — {container_count} container(s), "
+            f"{total_q} {uom}. Ready for QC testing.",
             entity_type="batch",
             entity_id=batch.id,
         )

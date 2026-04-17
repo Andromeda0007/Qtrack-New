@@ -1,9 +1,10 @@
 from fastapi import HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, and_
+from sqlalchemy import select, func, and_, not_, exists
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import selectinload
 
-from app.models.chat_models import ChatRoom, ChatMember, ChatMessage
+from app.models.chat_models import ChatRoom, ChatMember, ChatMessage, ChatMessageRead
 from app.models.user_models import User
 
 
@@ -71,16 +72,24 @@ async def get_user_rooms(db: AsyncSession, user_id: int) -> list[dict]:
         )
         last_msg = last_msg_res.scalar_one_or_none()
 
-        # Unread count
+        # Real unread count: messages in room (not sent by me, not deleted)
+        # that have no entry in chat_message_reads for me.
         unread_res = await db.execute(
             select(func.count(ChatMessage.id)).where(
                 ChatMessage.room_id == room.id,
                 ChatMessage.sender_id != user_id,
                 ChatMessage.is_deleted == False,
+                not_(
+                    exists().where(
+                        and_(
+                            ChatMessageRead.message_id == ChatMessage.id,
+                            ChatMessageRead.user_id == user_id,
+                        )
+                    )
+                ),
             )
         )
-        # (simplified unread — full read-receipts can be added later)
-        unread = 0
+        unread = unread_res.scalar() or 0
 
         members = [
             {"id": m.user.id, "name": m.user.name or m.user.username, "username": m.user.username}
@@ -226,3 +235,64 @@ async def search_users(db: AsyncSession, query: str, exclude_id: int) -> list[di
         }
         for u in users
     ]
+
+
+async def mark_room_read(db: AsyncSession, room_id: int, user_id: int) -> dict:
+    """Mark every message in this room (not sent by user, not already read) as read by user."""
+    # Membership check
+    member = await db.execute(
+        select(ChatMember).where(ChatMember.room_id == room_id, ChatMember.user_id == user_id)
+    )
+    if not member.scalar_one_or_none():
+        raise HTTPException(status_code=403, detail="Not a member of this room")
+
+    # Find all unread message ids for this user in this room
+    unread_rows = await db.execute(
+        select(ChatMessage.id).where(
+            ChatMessage.room_id == room_id,
+            ChatMessage.sender_id != user_id,
+            ChatMessage.is_deleted == False,
+            not_(
+                exists().where(
+                    and_(
+                        ChatMessageRead.message_id == ChatMessage.id,
+                        ChatMessageRead.user_id == user_id,
+                    )
+                )
+            ),
+        )
+    )
+    msg_ids = [row[0] for row in unread_rows.fetchall()]
+
+    if not msg_ids:
+        return {"marked": 0}
+
+    stmt = pg_insert(ChatMessageRead).values(
+        [{"message_id": mid, "user_id": user_id} for mid in msg_ids]
+    )
+    stmt = stmt.on_conflict_do_nothing(index_elements=["message_id", "user_id"])
+    await db.execute(stmt)
+    await db.commit()
+    return {"marked": len(msg_ids)}
+
+
+async def get_total_unread(db: AsyncSession, user_id: int) -> int:
+    """Total unread messages across all rooms this user is a member of."""
+    result = await db.execute(
+        select(func.count(ChatMessage.id))
+        .join(ChatMember, ChatMember.room_id == ChatMessage.room_id)
+        .where(
+            ChatMember.user_id == user_id,
+            ChatMessage.sender_id != user_id,
+            ChatMessage.is_deleted == False,
+            not_(
+                exists().where(
+                    and_(
+                        ChatMessageRead.message_id == ChatMessage.id,
+                        ChatMessageRead.user_id == user_id,
+                    )
+                )
+            ),
+        )
+    )
+    return result.scalar() or 0
