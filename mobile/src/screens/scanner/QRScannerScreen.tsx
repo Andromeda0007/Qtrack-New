@@ -669,25 +669,25 @@ export const QCScanScreen: React.FC = () => {
               </>
             ) : (
               <>
-                <DetailRow
-                  label="Track ID"
-                  value={
-                    batchData.track_id ||
-                    (batchData.public_code ? `#${batchData.public_code}` : "—")
-                  }
-                />
+                <DetailRow label="GRN" value={batchData.grn_number || "—"} />
                 <View style={scanCardStyles.detailDivider} />
+                {batchData.qr_kind === "container" && batchData.container_number != null ? (
+                  <>
+                    <DetailRow
+                      label="Container"
+                      value={`${batchData.container_number} / ${batchData.container_total ?? "?"}`}
+                    />
+                    <View style={scanCardStyles.detailDivider} />
+                  </>
+                ) : null}
                 <DetailRow
-                  label="Material code"
+                  label="Item code"
                   value={batchData.material_code || "—"}
                 />
                 <View style={scanCardStyles.detailDivider} />
-                <DetailRow label="Material" value={batchData.material_name || "—"} />
+                <DetailRow label="Item" value={batchData.material_name || "—"} />
                 <View style={scanCardStyles.detailDivider} />
-                <DetailRow
-                  label="GRN / Product no."
-                  value={batchData.grn_number || "—"}
-                />
+                <DetailRow label="Batch / Lot" value={batchData.batch_number || "—"} />
                 <View style={scanCardStyles.detailDivider} />
                 <DetailRow label="Supplier" value={batchData.supplier_name || "—"} />
                 <View style={scanCardStyles.detailDivider} />
@@ -700,12 +700,20 @@ export const QCScanScreen: React.FC = () => {
                 <View style={scanCardStyles.detailDivider} />
                 <DetailRow
                   label="Qty / container"
-                  value={formatQuantity(batchData.pack_size)}
+                  value={
+                    batchData.container_quantity != null
+                      ? `${batchData.container_quantity} ${batchData.unit_of_measure === "KG" ? "kg" : ""}`.trim()
+                      : formatQuantity(batchData.pack_size)
+                  }
                 />
                 <View style={scanCardStyles.detailDivider} />
                 <DetailRow
-                  label="Pack size (std)"
-                  value={batchData.pack_size_description || "—"}
+                  label="Containers"
+                  value={
+                    batchData.container_count != null
+                      ? String(batchData.container_count)
+                      : "—"
+                  }
                 />
                 <View style={scanCardStyles.detailDivider} />
                 <DetailRow

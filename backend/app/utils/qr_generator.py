@@ -43,6 +43,35 @@ def generate_batch_qr(batch_id: int, batch_number: str, public_code: str | None 
     return filepath
 
 
+def generate_container_qr(batch_id: int, container_number: int, unique_code: str) -> str:
+    """Generate a per-container QR.
+
+    Encoded payload: ``QTRACK|CNT|<unique_code>`` — a single token that the
+    scanner can match directly against ``batch_containers.unique_code``.
+    Also compatible with the legacy parser (entity_type=``CNT``, entity_id=0
+    when no numeric id is meaningful).
+    """
+    os.makedirs(settings.QR_DIR, exist_ok=True)
+
+    data = f"QTRACK|CNT|{unique_code}"
+    filename = f"cnt_{batch_id}_{container_number}.png"
+    filepath = os.path.join(settings.QR_DIR, filename)
+
+    qr = qrcode.QRCode(
+        version=1,
+        error_correction=qrcode.constants.ERROR_CORRECT_M,
+        box_size=10,
+        border=4,
+    )
+    qr.add_data(data)
+    qr.make(fit=True)
+
+    img = qr.make_image(fill_color="black", back_color="white")
+    img.save(filepath)
+
+    return filepath
+
+
 def generate_fg_qr(fg_batch_id: int, fg_batch_number: str) -> str:
     """Generate QR code for a finished goods batch."""
     os.makedirs(settings.QR_DIR, exist_ok=True)

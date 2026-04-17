@@ -1,33 +1,31 @@
-from pydantic import BaseModel, field_validator
-from typing import Optional
+from pydantic import BaseModel, field_validator, Field
+from typing import Optional, List
 from decimal import Decimal
 from datetime import datetime, date
 
 
-class ProductCreate(BaseModel):
-    item_code: str
-    item_name: str
-    grn_number: str
+class GRNCreate(BaseModel):
+    """Warehouse Phase 1.A payload for creating a GRN.
+
+    - ``material_id`` replaces the legacy free-text item_code/item_name pair
+    - ``grn_number`` is server-generated and no longer sent by the client
+    - ``rack_number`` is dropped (rack is assigned post-approval)
+    - ``pack_size_description`` is deprecated
+    - ``unit_of_measure`` (KG | COUNT), ``container_count`` and
+      ``container_quantity`` are the new quantity model
+    """
+    material_id: int
     batch_number: str
-    total_quantity: Decimal
-    container_quantity: Decimal
-    pack_type: str = "BAG"
     supplier_name: str
     manufacturer_name: str
     date_of_receipt: date
     manufacture_date: date
     expiry_date: date
-    # Optional e.g. "160 x 25.00 kg" for quarantine label / reports.
-    pack_size_description: Optional[str] = None
-    # Physical location in quarantine area (required — no default rack).
-    rack_number: str
-
-    @field_validator("rack_number")
-    @classmethod
-    def rack_required(cls, v: str) -> str:
-        if not (v or "").strip():
-            raise ValueError("Quarantine rack / storage location is required")
-        return v.strip()
+    pack_type: str = "BAG"
+    unit_of_measure: str = Field(default="KG", pattern="^(KG|COUNT)$")
+    container_count: int
+    container_quantity: Decimal
+    total_quantity: Decimal
 
     @field_validator("total_quantity", "container_quantity")
     @classmethod
@@ -36,10 +34,36 @@ class ProductCreate(BaseModel):
             raise ValueError("Quantity must be positive")
         return v
 
+    @field_validator("container_count")
+    @classmethod
+    def containers_positive(cls, v):
+        if v < 1:
+            raise ValueError("Container count must be at least 1")
+        return v
+
     @field_validator("pack_type")
     @classmethod
     def normalize_pack_type(cls, v):
         return v.upper()
+
+    @field_validator("unit_of_measure")
+    @classmethod
+    def normalize_uom(cls, v):
+        return v.upper()
+
+
+# Legacy alias — old routers referenced ``ProductCreate``. Keep a subclass so
+# any stray imports still work during the transition.
+class ProductCreate(GRNCreate):
+    pass
+
+
+class ContainerResponse(BaseModel):
+    container_number: int
+    unique_code: str
+    qr_base64: Optional[str] = None
+
+    model_config = {"from_attributes": True}
 
 
 class IssueStockRequest(BaseModel):

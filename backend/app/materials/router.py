@@ -1,31 +1,80 @@
-from fastapi import APIRouter, Depends, HTTPException
+"""Item (Material) master — managed by Warehouse Head.
+
+Code is auto-generated as ``ITM-NNN`` by a single-row counter (``item_counter``).
+Warehouse Head only supplies the name (and optional description / unit default).
+Soft delete via ``is_active = False``.
+"""
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, update, func
 
 from app.database import get_db
 from app.auth.dependencies import get_current_user, require_permission
-from app.models.inventory_models import Material
+from app.models.inventory_models import Material, ItemCounter, Batch, BatchStatus
 from app.models.user_models import User
-from app.materials.schemas import MaterialCreate, MaterialUpdate, MaterialResponse
+from app.materials.schemas import (
+    MaterialCreate, MaterialUpdate, MaterialResponse, MaterialBatchCounts,
+)
 from app.audit.service import log_action
 
 router = APIRouter()
 
 
+async def _allocate_next_item_code(db: AsyncSession) -> str:
+    """Atomically bump the ITM counter and return the next ``ITM-NNN`` code."""
+    # SELECT ... FOR UPDATE on the single row to prevent concurrent double-allocation.
+    result = await db.execute(
+        select(ItemCounter).where(ItemCounter.id == 1).with_for_update()
+    )
+    counter = result.scalar_one_or_none()
+    if counter is None:
+        # Self-heal if seed missed it
+        counter = ItemCounter(id=1, last_number=0)
+        db.add(counter)
+        await db.flush()
+        result = await db.execute(
+            select(ItemCounter).where(ItemCounter.id == 1).with_for_update()
+        )
+        counter = result.scalar_one()
+
+    counter.last_number += 1
+    next_num = counter.last_number
+    # 3-digit min, grows naturally (ITM-001, ITM-002, …, ITM-999, ITM-1000)
+    return f"ITM-{next_num:03d}"
+
+
 @router.post("/", response_model=MaterialResponse)
 async def create_material(
     payload: MaterialCreate,
-    current_user: User = Depends(require_permission("MANAGE_USERS")),
+    current_user: User = Depends(require_permission("MANAGE_ITEMS")),
     db: AsyncSession = Depends(get_db),
 ):
-    existing = await db.execute(select(Material).where(Material.material_code == payload.material_code))
+    # Reject duplicate ACTIVE name (case-insensitive is nicer but sticking to exact for now)
+    existing = await db.execute(
+        select(Material).where(
+            func.lower(Material.material_name) == payload.material_name.strip().lower(),
+            Material.is_active == True,  # noqa: E712
+        )
+    )
     if existing.scalar_one_or_none():
-        raise HTTPException(status_code=400, detail="Material code already exists")
+        raise HTTPException(status_code=400, detail="An active item with this name already exists")
 
-    material = Material(**payload.model_dump())
+    code = await _allocate_next_item_code(db)
+
+    material = Material(
+        material_name=payload.material_name.strip(),
+        material_code=code,
+        description=payload.description,
+        unit_of_measure=payload.unit_of_measure,
+        is_active=True,
+        created_by=current_user.id,
+    )
     db.add(material)
     await db.flush()
-    await log_action(db, "CREATE_MATERIAL", current_user.id, current_user.username, "material", material.id, f"Created material '{material.material_name}'")
+    await log_action(
+        db, "CREATE_ITEM", current_user.id, current_user.username, "material", material.id,
+        f"Created item {code} '{material.material_name}'",
+    )
     await db.commit()
     await db.refresh(material)
     return material
@@ -33,10 +82,14 @@ async def create_material(
 
 @router.get("/", response_model=list[MaterialResponse])
 async def list_materials(
+    include_inactive: bool = Query(False, description="Include deactivated items (Head only)"),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    result = await db.execute(select(Material).where(Material.is_active == True).order_by(Material.material_name))
+    query = select(Material).order_by(Material.material_code)
+    if not include_inactive:
+        query = query.where(Material.is_active == True)  # noqa: E712
+    result = await db.execute(query)
     return result.scalars().all()
 
 
@@ -48,25 +101,86 @@ async def get_material(
 ):
     material = await db.get(Material, material_id)
     if not material:
-        raise HTTPException(status_code=404, detail="Material not found")
+        raise HTTPException(status_code=404, detail="Item not found")
     return material
+
+
+@router.get("/{material_id}/batch-counts", response_model=MaterialBatchCounts)
+async def get_material_batch_counts(
+    material_id: int,
+    current_user: User = Depends(require_permission("MANAGE_ITEMS")),
+    db: AsyncSession = Depends(get_db),
+):
+    """Return counts of non-terminal batches — used by the mobile Deactivate warning."""
+    material = await db.get(Material, material_id)
+    if not material:
+        raise HTTPException(status_code=404, detail="Item not found")
+
+    # Active = anything not REJECTED
+    rows = await db.execute(
+        select(Batch.status, func.count(Batch.id))
+        .where(Batch.material_id == material_id)
+        .where(Batch.status != BatchStatus.REJECTED)
+        .group_by(Batch.status)
+    )
+    counts = {str(s): int(n) for s, n in rows.all()}
+    q = int(counts.get(BatchStatus.QUARANTINE.value, 0))
+    ut = int(counts.get(BatchStatus.UNDER_TEST.value, 0))
+    ap = int(counts.get(BatchStatus.APPROVED.value, 0))
+    qr = int(counts.get(BatchStatus.QUARANTINE_RETEST.value, 0))
+    ip = int(counts.get(BatchStatus.ISSUED_TO_PRODUCTION.value, 0))
+    return MaterialBatchCounts(
+        quarantine=q,
+        under_test=ut,
+        approved=ap,
+        quarantine_retest=qr,
+        issued_to_production=ip,
+        total_active=q + ut + ap + qr + ip,
+    )
 
 
 @router.patch("/{material_id}", response_model=MaterialResponse)
 async def update_material(
     material_id: int,
     payload: MaterialUpdate,
-    current_user: User = Depends(require_permission("MANAGE_USERS")),
+    current_user: User = Depends(require_permission("MANAGE_ITEMS")),
     db: AsyncSession = Depends(get_db),
 ):
     material = await db.get(Material, material_id)
     if not material:
-        raise HTTPException(status_code=404, detail="Material not found")
+        raise HTTPException(status_code=404, detail="Item not found")
 
-    for key, value in payload.model_dump(exclude_none=True).items():
+    data = payload.model_dump(exclude_none=True)
+
+    # If renaming, ensure uniqueness among active items (excluding self)
+    if "material_name" in data:
+        new_name = data["material_name"].strip()
+        dup = await db.execute(
+            select(Material.id).where(
+                func.lower(Material.material_name) == new_name.lower(),
+                Material.is_active == True,  # noqa: E712
+                Material.id != material_id,
+            )
+        )
+        if dup.scalar_one_or_none():
+            raise HTTPException(status_code=400, detail="Another active item already uses this name")
+        data["material_name"] = new_name
+
+    was_active = material.is_active
+    for key, value in data.items():
         setattr(material, key, value)
 
-    await log_action(db, "UPDATE_MATERIAL", current_user.id, current_user.username, "material", material_id)
+    action = "UPDATE_ITEM"
+    if "is_active" in data and was_active and not material.is_active:
+        action = "DEACTIVATE_ITEM"
+    elif "is_active" in data and not was_active and material.is_active:
+        action = "REACTIVATE_ITEM"
+
+    await log_action(
+        db, action, current_user.id, current_user.username,
+        "material", material_id,
+        f"{action} on {material.material_code}",
+    )
     await db.commit()
     await db.refresh(material)
     return material

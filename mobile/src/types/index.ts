@@ -40,6 +40,14 @@ export type BatchStatus =
   | 'QUARANTINE_RETEST'
   | 'ISSUED_TO_PRODUCTION';
 
+export type UnitOfMeasure = 'KG' | 'COUNT';
+
+export interface BatchContainer {
+  container_number: number;
+  unique_code: string;
+  qr_base64?: string;
+}
+
 export interface Batch {
   id: number;
   batch_number: string;
@@ -54,14 +62,13 @@ export interface Batch {
   retest_date: string | null;
   retest_cycle: number;
   manufacture_date?: string | null;
-  pack_size?: string | null;
   pack_type?: string;
-  pack_size_description?: string | null;
+  unit_of_measure?: UnitOfMeasure;
+  container_count?: number | null;
+  container_quantity?: string | null;
   qr_code_path?: string | null;
   ar_number?: string | null;
   rack_number?: string | null;
-  public_code?: string;
-  track_id?: string;
 }
 
 export interface StockMovement {
@@ -76,10 +83,21 @@ export interface StockMovement {
 export interface Material {
   id: number;
   material_name: string;
-  material_code: string;
-  unit_of_measure: string;
-  default_pack_size: string | null;
+  material_code: string;   // auto-generated, format "ITM-NNN"
+  description?: string | null;
+  unit_of_measure: UnitOfMeasure;
   is_active: boolean;
+  created_by?: number | null;
+  created_at?: string;
+}
+
+export interface MaterialBatchCounts {
+  quarantine: number;
+  under_test: number;
+  approved: number;
+  quarantine_retest: number;
+  issued_to_production: number;
+  total_active: number;
 }
 
 export interface Supplier {

@@ -110,7 +110,7 @@ const ROLE_QUICK_ACTIONS: Record<RoleName, QuickAction[]> = {
   /** R1: Create | Check Status — R2: Move to Production (scanner) */
   WAREHOUSE_USER: [
     {
-      label: "Create",
+      label: "Create GRN",
       icon: "add-circle",
       color: Colors.primary,
       screen: "CreateCard",
@@ -124,7 +124,7 @@ const ROLE_QUICK_ACTIONS: Record<RoleName, QuickAction[]> = {
       params: { scanFlow: "warehouse_issue" },
     },
   ],
-  /** Exactly 3 cards: Users → Check Status → Audit. R1: Manage Users | Check Status — R2: Audit Logs */
+  /** R1: Manage Users | Check Status — R2: Manage Items | Audit Logs */
   WAREHOUSE_HEAD: [
     {
       label: "Manage Users",
@@ -134,6 +134,12 @@ const ROLE_QUICK_ACTIONS: Record<RoleName, QuickAction[]> = {
       params: { tab: "users" },
     },
     CHECK_STATUS_ACTION,
+    {
+      label: "Manage Items",
+      icon: "cube",
+      color: Colors.accent,
+      screen: "ItemsList",
+    },
     {
       label: "Audit Logs",
       icon: "document-text",

@@ -1,24 +1,31 @@
 import apiClient from './client';
-import { Batch, Material, Supplier, StockMovement } from '../types';
+import { Batch, Material, Supplier, StockMovement, UnitOfMeasure } from '../types';
+
+export interface CreateGRNPayload {
+  material_id: number;
+  batch_number: string;
+  supplier_name: string;
+  manufacturer_name: string;
+  date_of_receipt: string;
+  manufacture_date: string;
+  expiry_date: string;
+  pack_type: string;
+  unit_of_measure: UnitOfMeasure;
+  container_count: number;
+  container_quantity: number;
+  total_quantity: number;
+}
 
 export const inventoryApi = {
-  // Create product card
-  createProduct: async (data: {
-    item_code: string;
-    item_name: string;
-    grn_number: string;
-    batch_number: string;
-    total_quantity: number;
-    container_quantity: number;
-    pack_type: string;
-    supplier_name: string;
-    manufacturer_name: string;
-    date_of_receipt: string;
-    manufacture_date: string;
-    expiry_date: string;
-    rack_number: string;
-    pack_size_description?: string;
-  }) => {
+  // Create a GRN (per Warehouse Phase 1.A).
+  // URL still points at /inventory/product to preserve backend compat.
+  createGRN: async (data: CreateGRNPayload) => {
+    const res = await apiClient.post('/inventory/product', data);
+    return res.data;
+  },
+
+  // Legacy alias so in-flight callers keep working during the rollout.
+  createProduct: async (data: CreateGRNPayload) => {
     const res = await apiClient.post('/inventory/product', data);
     return res.data;
   },

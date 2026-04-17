@@ -30,6 +30,9 @@ import { InitiateRetestScreen } from '../screens/qc/InitiateRetestScreen';
 import { InspectFGScreen } from '../screens/qa/InspectFGScreen';
 import { ApproveFGScreen } from '../screens/qa/ApproveFGScreen';
 import { RejectFGScreen } from '../screens/qa/RejectFGScreen';
+import { ItemsListScreen } from '../screens/admin/ItemsListScreen';
+import { CreateItemScreen } from '../screens/admin/CreateItemScreen';
+import { EditItemScreen } from '../screens/admin/EditItemScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -100,6 +103,9 @@ export const AppNavigator: React.FC = () => {
             <Stack.Screen name="ChatGroupInfo" component={ChatGroupInfoScreen} options={{ headerShown: false }} />
             <Stack.Screen name="NewChat"   component={NewChatScreen}   options={{ headerShown: false }} />
             <Stack.Screen name="NewGroup"  component={NewGroupScreen}  options={{ headerShown: false }} />
+            <Stack.Screen name="ItemsList"  component={ItemsListScreen}  options={{ headerShown: false }} />
+            <Stack.Screen name="CreateItem" component={CreateItemScreen} options={{ headerShown: false }} />
+            <Stack.Screen name="EditItem"   component={EditItemScreen}   options={{ headerShown: false }} />
           </>
         )}
       </Stack.Navigator>

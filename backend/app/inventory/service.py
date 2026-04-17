@@ -1,4 +1,5 @@
 import logging
+from datetime import datetime
 from decimal import Decimal
 
 from fastapi import HTTPException
@@ -10,27 +11,19 @@ from sqlalchemy.orm import selectinload
 
 from app.models.inventory_models import (
     Batch, GRN, BatchStatusHistory, StockMovement,
-    BatchStatus, MovementType, PackType, Location, Material, Supplier
+    BatchStatus, MovementType, PackType, Location, Material, Supplier,
+    BatchContainer, GRNCounter,
 )
 from app.models.user_models import User
 from app.models.finished_goods_models import FGStatus
-from app.utils.qr_generator import generate_batch_qr, get_qr_base64
+from app.utils.qr_generator import (
+    generate_batch_qr, generate_container_qr, get_qr_base64,
+)
 from app.utils.batch_public_code import generate_unique_public_code, normalize_public_code_input
 from app.audit.service import log_action, audit_status_value
 
-
-async def _get_or_create_material(db: AsyncSession, item_code: str, item_name: str) -> Material:
-    result = await db.execute(select(Material).where(Material.material_code == item_code.strip()))
-    material = result.scalar_one_or_none()
-    if not material:
-        material = Material(
-            material_name=item_name.strip(),
-            material_code=item_code.strip(),
-            unit_of_measure="pcs",
-        )
-        db.add(material)
-        await db.flush()
-    return material
+# Allowed rounding slack when validating Total == Containers × Per for KG mode.
+_QTY_TOLERANCE_KG = Decimal("0.001")
 
 
 async def _get_or_create_supplier(db: AsyncSession, supplier_name: str) -> Supplier:
@@ -45,36 +38,90 @@ async def _get_or_create_supplier(db: AsyncSession, supplier_name: str) -> Suppl
     return supplier
 
 
-async def create_product(db: AsyncSession, data: dict, created_by: User) -> dict:
-    # Get or create material by item_code
-    material = await _get_or_create_material(db, data["item_code"], data["item_name"])
+async def _allocate_next_grn_number(db: AsyncSession, year: int | None = None) -> str:
+    """Race-safe GRN-YYYY-NNN allocation (resets each calendar year)."""
+    year = year or datetime.utcnow().year
+    # SELECT ... FOR UPDATE on the year row. If missing, create it.
+    row = await db.execute(
+        select(GRNCounter).where(GRNCounter.year == year).with_for_update()
+    )
+    counter = row.scalar_one_or_none()
+    if counter is None:
+        counter = GRNCounter(year=year, last_number=0)
+        db.add(counter)
+        await db.flush()
+        row = await db.execute(
+            select(GRNCounter).where(GRNCounter.year == year).with_for_update()
+        )
+        counter = row.scalar_one()
+    counter.last_number += 1
+    return f"GRN-{year}-{counter.last_number:03d}"
 
-    # Get or create supplier
+
+def _validate_quantities(uom: str, total: Decimal, count: int, per: Decimal) -> None:
+    """Validate total = count × per under the unit's rules."""
+    expected = Decimal(count) * per
+    if uom == "KG":
+        if abs(expected - total) > _QTY_TOLERANCE_KG:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"Quantity mismatch: {count} × {per} = {expected}, "
+                    f"but total = {total} (tolerance ±{_QTY_TOLERANCE_KG} kg)"
+                ),
+            )
+    elif uom == "COUNT":
+        if per != per.to_integral_value() or total != total.to_integral_value():
+            raise HTTPException(
+                status_code=400,
+                detail="COUNT mode requires integer values for total and qty per container",
+            )
+        if expected != total:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Quantity mismatch: {count} × {per} = {expected}, total = {total}",
+            )
+    else:
+        raise HTTPException(status_code=400, detail=f"Unknown unit_of_measure '{uom}'")
+
+
+async def create_product(db: AsyncSession, data: dict, created_by: User) -> dict:
+    # 1. Resolve Material from the picker (reject inactive)
+    material = await db.get(Material, int(data["material_id"]))
+    if not material:
+        raise HTTPException(status_code=404, detail="Selected item not found")
+    if not material.is_active:
+        raise HTTPException(status_code=400, detail="Selected item is deactivated; ask Warehouse Head to re-activate it")
+
+    # 2. Quantity validation
+    uom = (data.get("unit_of_measure") or "KG").upper()
+    total_q = Decimal(str(data["total_quantity"]))
+    container_q = Decimal(str(data["container_quantity"]))
+    container_count = int(data["container_count"])
+    _validate_quantities(uom, total_q, container_count, container_q)
+
+    # 3. Batch number uniqueness (still user-supplied, still globally unique for now)
+    existing_batch = await db.execute(
+        select(Batch).where(Batch.batch_number == data["batch_number"])
+    )
+    if existing_batch.scalar_one_or_none():
+        raise HTTPException(
+            status_code=400,
+            detail=f"Batch number '{data['batch_number']}' already exists",
+        )
+
+    # 4. Supplier (free-text; auto-upsert for now)
     supplier = await _get_or_create_supplier(db, data["supplier_name"])
 
-    # Validate batch_number uniqueness
-    existing_batch = await db.execute(select(Batch).where(Batch.batch_number == data["batch_number"]))
-    if existing_batch.scalar_one_or_none():
-        raise HTTPException(status_code=400, detail=f"Batch number '{data['batch_number']}' already exists")
-
-    # Validate product number uniqueness
-    existing_grn = await db.execute(select(GRN).where(GRN.grn_number == data["grn_number"]))
-    if existing_grn.scalar_one_or_none():
-        raise HTTPException(status_code=400, detail=f"Product number '{data['grn_number']}' already exists")
-
-    # Get quarantine location
+    # 5. Quarantine location
     q_loc = await db.execute(select(Location).where(Location.location_type == "QUARANTINE"))
     quarantine = q_loc.scalar_one_or_none()
 
-    public_code = await generate_unique_public_code(db)
+    # 6. Backend-generated identifiers
+    grn_number = await _allocate_next_grn_number(db)
+    public_code = await generate_unique_public_code(db)  # kept for legacy-scanner fallback
 
-    rack = (data.get("rack_number") or "").strip()
-    if not rack:
-        raise HTTPException(
-            status_code=400,
-            detail="Quarantine rack / storage location is required when creating a product card.",
-        )
-
+    # 7. Create Batch
     batch = Batch(
         material_id=material.id,
         supplier_id=supplier.id,
@@ -83,67 +130,97 @@ async def create_product(db: AsyncSession, data: dict, created_by: User) -> dict
         manufacturer_name=data.get("manufacturer_name"),
         manufacture_date=data.get("manufacture_date"),
         expiry_date=data.get("expiry_date"),
-        pack_size=data.get("container_quantity"),
+        pack_size=None,
         pack_type=PackType(data.get("pack_type", "BAG").upper()),
-        pack_size_description=(
-            (data.get("pack_size_description") or "").strip() or None
-        ),
-        total_quantity=data["total_quantity"],
-        remaining_quantity=data["total_quantity"],
+        pack_size_description=None,
+        unit_of_measure=uom,
+        container_count=container_count,
+        container_quantity=container_q,
+        total_quantity=total_q,
+        remaining_quantity=total_q,
         status=BatchStatus.QUARANTINE,
         location_id=quarantine.id if quarantine else None,
-        rack_number=rack,
+        rack_number=None,  # rack is assigned post-approval, not at GRN time
         created_by=created_by.id,
     )
     db.add(batch)
     await db.flush()
 
+    # 8. GRN row
     grn = GRN(
         batch_id=batch.id,
-        grn_number=data["grn_number"],
+        grn_number=grn_number,
         received_by=created_by.id,
         received_date=data.get("date_of_receipt"),
     )
     db.add(grn)
 
-    # Initial stock movement
-    movement = StockMovement(
+    # 9. Per-container rows (unique_code = GRN-YYYY-NNN-CCC)
+    containers: list[BatchContainer] = []
+    for idx in range(1, container_count + 1):
+        containers.append(BatchContainer(
+            batch_id=batch.id,
+            container_number=idx,
+            unique_code=f"{grn_number}-{idx:03d}",
+        ))
+    db.add_all(containers)
+
+    # 10. Initial stock movement (entire batch into quarantine)
+    db.add(StockMovement(
         batch_id=batch.id,
         movement_type=MovementType.GRN_RECEIVED,
-        quantity=data["total_quantity"],
+        quantity=total_q,
         to_location_id=quarantine.id if quarantine else None,
         performed_by=created_by.id,
-        reference_id=data["grn_number"],
-        remarks=f"Product receipt - {data['grn_number']}",
-    )
-    db.add(movement)
+        reference_id=grn_number,
+        remarks=f"Received — {grn_number}",
+    ))
 
-    # Status history
-    history = BatchStatusHistory(
+    # 11. Status history
+    db.add(BatchStatusHistory(
         batch_id=batch.id,
         old_status=None,
         new_status=BatchStatus.QUARANTINE,
         changed_by=created_by.id,
-        remarks="Initial product receipt",
-    )
-    db.add(history)
+        remarks="Initial receipt into quarantine",
+    ))
 
     await db.flush()
 
-    # Generate QR code (non-blocking — failures don't abort the product creation)
+    # 12. QR generation — one representative (batch-level) + one per container.
+    #     All non-blocking: any QR failures get logged but don't abort.
     qr_base64 = ""
     try:
         qr_path = generate_batch_qr(batch.id, batch.batch_number, batch.public_code)
         batch.qr_code_path = qr_path
         qr_base64 = get_qr_base64(qr_path)
     except Exception as e:
-        logger.warning("QR generation failed: %s", e)
+        logger.warning("Batch-level QR generation failed: %s", e)
+
+    container_payload: list[dict] = []
+    for c in containers:
+        b64 = ""
+        try:
+            path = generate_container_qr(batch.id, c.container_number, c.unique_code)
+            c.qr_code_path = path
+            b64 = get_qr_base64(path)
+        except Exception as e:
+            logger.warning(
+                "Container QR gen failed (batch=%s, container=%s): %s",
+                batch.id, c.container_number, e,
+            )
+        container_payload.append({
+            "container_number": c.container_number,
+            "unique_code": c.unique_code,
+            "qr_base64": b64,
+        })
 
     await log_action(
-        db, "CREATE_PRODUCT",
+        db, "CREATE_GRN",
         created_by.id, created_by.username,
         "batch", batch.id,
-        f"Card created — Product {data['grn_number']}, Batch {batch.batch_number}",
+        f"GRN {grn_number} created — {material.material_code} {material.material_name} · "
+        f"{container_count} container(s) · {total_q} {uom}",
         from_status=None,
         to_status=audit_status_value(batch.status),
     )
@@ -155,7 +232,8 @@ async def create_product(db: AsyncSession, data: dict, created_by: User) -> dict
             db,
             ["WAREHOUSE_HEAD", "WAREHOUSE_USER", "QC_HEAD"],
             "Material inward — quarantine",
-            f"GRN {data['grn_number']} | Batch {batch.batch_number} | {material.material_name} received into quarantine.",
+            f"{grn_number} | Batch {batch.batch_number} | {material.material_name} "
+            f"({container_count} container · {total_q} {uom}) received into quarantine.",
             entity_type="batch",
             entity_id=batch.id,
         )
@@ -169,13 +247,17 @@ async def create_product(db: AsyncSession, data: dict, created_by: User) -> dict
         "batch": batch,
         "material": material,
         "supplier": supplier,
-        "grn_number": data["grn_number"],
+        "grn_number": grn_number,
+        "unit_of_measure": uom,
+        "container_count": container_count,
+        "container_quantity": str(container_q),
+        "total_quantity": str(total_q),
         "manufacturer_name": data.get("manufacturer_name", ""),
         "date_of_receipt": str(data.get("date_of_receipt", "")),
         "qr_base64": qr_base64,
         "qr_data": f"QTRACK|BATCH|{batch.id}|{batch.batch_number}|{batch.public_code}",
         "public_code": batch.public_code,
-        "track_id": f"#{batch.public_code}",
+        "containers": container_payload,
     }
 
 
@@ -259,15 +341,18 @@ def _batch_scan_payload(
         "id": b.id,
         "batch_number": b.batch_number,
         "public_code": b.public_code,
-        "track_id": f"#{b.public_code}",
+        "track_id": f"#{b.public_code}" if b.public_code else None,
         "material_name": b.material.material_name if b.material else None,
         "material_code": b.material.material_code if b.material else None,
         "supplier_name": b.supplier.supplier_name if b.supplier else None,
         "grn_number": b.grn.grn_number if b.grn else None,
         "date_of_receipt": str(b.grn.received_date) if b.grn and b.grn.received_date else None,
         "pack_type": pack_type_display(b),
-        "pack_size": str(b.pack_size) if b.pack_size is not None else None,
-        "pack_size_description": b.pack_size_description,
+        "unit_of_measure": getattr(b, "unit_of_measure", "KG") or "KG",
+        "container_count": getattr(b, "container_count", None),
+        "container_quantity": (
+            str(b.container_quantity) if getattr(b, "container_quantity", None) is not None else None
+        ),
         "manufacture_date": str(b.manufacture_date) if b.manufacture_date else None,
         "expiry_date": str(b.expiry_date) if b.expiry_date else None,
         "status": st,
@@ -289,11 +374,58 @@ def _batch_scan_payload(
     return payload
 
 
+import re as _re
+_CONTAINER_CODE_RE = _re.compile(r"^GRN-\d{4}-\d{3,}-\d{3,}$")
+
+
+async def _resolve_container_code(db: AsyncSession, code: str) -> dict | None:
+    """Try to resolve a container-level unique code and return its scan payload.
+
+    Returns None if the code is not a container code (caller falls back to
+    batch / FG resolution). Container QR payloads carry an extra
+    ``container_number`` / ``container_total`` so the scanner can show
+    ``Container 47 / 100``.
+    """
+    stripped = code.strip()
+    if stripped.startswith("QTRACK|CNT|"):
+        stripped = stripped[len("QTRACK|CNT|"):]
+    if not _CONTAINER_CODE_RE.match(stripped):
+        return None
+
+    r = await db.execute(
+        select(BatchContainer).where(BatchContainer.unique_code == stripped)
+    )
+    container = r.scalar_one_or_none()
+    if not container:
+        raise HTTPException(status_code=404, detail="Unknown container code")
+
+    b = await get_batch_by_id(db, container.batch_id)
+    payload = _batch_scan_payload(b, None)  # caller adds role gate below
+    payload["qr_kind"] = "container"
+    payload["container_number"] = container.container_number
+    payload["container_total"] = b.container_count
+    payload["container_unique_code"] = container.unique_code
+    payload["is_lost"] = container.is_lost
+    return payload
+
+
 async def resolve_scan_payload(db: AsyncSession, qr_data: str, current_user: User | None = None) -> dict:
-    """Parse QTRACK QR (BATCH or FG), or 8-char public code, for the mobile scanner."""
+    """Parse QTRACK QR (CONTAINER, BATCH or FG) or 8-char legacy public code."""
     from app.utils.qr_generator import parse_qr_data
     from app.production.service import get_fg_batch_by_id
 
+    # 1) Container-level code (new in Warehouse Phase 1.A)
+    container_payload = await _resolve_container_code(db, qr_data)
+    if container_payload is not None:
+        if _user_is_qa_role(current_user):
+            container_payload["qa_scan_blocked"] = True
+            container_payload["qa_scan_message"] = (
+                "Raw material is handled by QC only. For QA, scan a finished goods (FG) "
+                "barcode — not a raw material container."
+            )
+        return container_payload
+
+    # 2) Legacy 8-char public code
     slug = normalize_public_code_input(qr_data)
     if slug:
         r = await db.execute(

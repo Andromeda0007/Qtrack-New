@@ -81,7 +81,7 @@ export const BatchDetailScreen: React.FC = () => {
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
           <Ionicons name="chevron-back" size={22} color="#fff" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Product Card</Text>
+        <Text style={styles.headerTitle}>GRN</Text>
         <View style={{ width: 38 }} />
       </View>
 
@@ -118,7 +118,7 @@ export const BatchDetailScreen: React.FC = () => {
                   resizeMode="contain"
                 />
               </View>
-              <Text style={styles.qrHint}>Scan to track this product</Text>
+              <Text style={styles.qrHint}>Scan to track this item</Text>
             </View>
           ) : null}
 
@@ -176,16 +176,10 @@ export const BatchDetailScreen: React.FC = () => {
             ) : null}
           </View>
 
-          {/* Product Info */}
-          <SectionTitle title="Product Info" />
+          {/* Item Info */}
+          <SectionTitle title="Item Info" />
           <View style={styles.card}>
-            <Row
-              label="Track ID"
-              value={
-                batch.track_id ??
-                (batch.public_code ? `#${batch.public_code}` : '—')
-              }
-            />
+            <Row label="GRN" value={batch.grn_number ?? '—'} />
             <Divider />
             <Row label="Item Code" value={batch.material?.code ?? '—'} />
             <Divider />
@@ -193,16 +187,18 @@ export const BatchDetailScreen: React.FC = () => {
             <Divider />
             <Row label="Batch / Lot No." value={batch.batch_number ?? '—'} />
             <Divider />
-            <Row label="Product Number" value={batch.grn_number ?? '—'} />
-            <Divider />
             <Row label="Pack Type" value={String(batch.pack_type ?? '—')} />
             <Divider />
-            <Row
-              label="Pack size (std)"
-              value={batch.pack_size_description ? String(batch.pack_size_description) : '—'}
-            />
+            <Row label="Unit" value={String(batch.unit_of_measure ?? 'KG')} />
             <Divider />
-            <Row label="Container Qty" value={batch.pack_size != null ? String(batch.pack_size) : '—'} />
+            <Row
+              label="Containers"
+              value={
+                batch.container_count != null && batch.container_quantity != null
+                  ? `${batch.container_count} × ${batch.container_quantity}`
+                  : '—'
+              }
+            />
           </View>
 
           {/* Supplier & Manufacturer */}

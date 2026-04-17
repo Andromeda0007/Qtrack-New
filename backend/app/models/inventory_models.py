@@ -1,6 +1,6 @@
 from datetime import datetime, date
 from decimal import Decimal
-from sqlalchemy import Integer, String, Boolean, DateTime, Date, ForeignKey, Text, Numeric, Enum as SAEnum
+from sqlalchemy import Integer, String, Boolean, DateTime, Date, ForeignKey, Text, Numeric, Enum as SAEnum, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 import enum
 
@@ -41,12 +41,14 @@ class Material(Base):
     __tablename__ = "materials"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
-    material_name: Mapped[str] = mapped_column(String(150), nullable=False)
+    material_name: Mapped[str] = mapped_column(String(150), unique=True, nullable=False, index=True)
     material_code: Mapped[str] = mapped_column(String(50), unique=True, nullable=False, index=True)
     description: Mapped[str | None] = mapped_column(Text)
-    unit_of_measure: Mapped[str] = mapped_column(String(20), default="kg")
+    # Default unit hint shown when this item is picked on Create-GRN (user can override per-GRN).
+    unit_of_measure: Mapped[str] = mapped_column(String(10), default="KG")
     default_pack_size: Mapped[Decimal | None] = mapped_column(Numeric(10, 3))
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_by: Mapped[int | None] = mapped_column(Integer, ForeignKey("users.id"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -90,10 +92,14 @@ class Batch(Base):
     public_code: Mapped[str] = mapped_column(String(10), unique=True, nullable=False, index=True)
     manufacture_date: Mapped[date | None] = mapped_column(Date)
     expiry_date: Mapped[date | None] = mapped_column(Date, index=True)
-    pack_size: Mapped[Decimal | None] = mapped_column(Numeric(10, 3))
+    pack_size: Mapped[Decimal | None] = mapped_column(Numeric(10, 3))  # deprecated — leave nullable
     pack_type: Mapped[str] = mapped_column(SAEnum(PackType), default=PackType.BAG)
-    # Optional client text e.g. "160 x 25.00 kg" (standard pack definition).
+    # Deprecated — no longer written by Create-GRN; keep nullable for legacy rows.
     pack_size_description: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    # Per-GRN choice: "KG" or "COUNT". Added in the Warehouse Phase 1.A overhaul.
+    unit_of_measure: Mapped[str] = mapped_column(String(10), nullable=False, default="KG")
+    container_count: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    container_quantity: Mapped[Decimal] = mapped_column(Numeric(12, 3), nullable=False, default=Decimal("0"))
     total_quantity: Mapped[Decimal] = mapped_column(Numeric(12, 3), nullable=False)
     remaining_quantity: Mapped[Decimal] = mapped_column(Numeric(12, 3), nullable=False)
     status: Mapped[str] = mapped_column(SAEnum(BatchStatus), default=BatchStatus.QUARANTINE, index=True)
@@ -116,6 +122,58 @@ class Batch(Base):
     qc_results: Mapped[list["QCResult"]] = relationship("QCResult", back_populates="batch")
     retest_cycles: Mapped[list["RetestCycle"]] = relationship("RetestCycle", back_populates="batch")
     grade_transfers: Mapped[list["GradeTransfer"]] = relationship("GradeTransfer", back_populates="batch")
+    containers: Mapped[list["BatchContainer"]] = relationship(
+        "BatchContainer", back_populates="batch", cascade="all, delete-orphan"
+    )
+
+
+class BatchContainer(Base):
+    """One row per physical container under a batch.
+
+    Enables per-container QR labels. `unique_code` is derived as
+    ``{grn_number}-{container_number:03d}`` (e.g. ``GRN-2026-001-047``) —
+    globally unique by construction (GRN is unique + container_number is unique
+    within batch).
+    """
+    __tablename__ = "batch_containers"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    batch_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("batches.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    container_number: Mapped[int] = mapped_column(Integer, nullable=False)
+    unique_code: Mapped[str] = mapped_column(String(60), unique=True, nullable=False, index=True)
+    qr_code_path: Mapped[str | None] = mapped_column(String(500))
+    is_lost: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    batch: Mapped["Batch"] = relationship("Batch", back_populates="containers")
+
+    __table_args__ = (
+        UniqueConstraint("batch_id", "container_number", name="uq_batch_container_number"),
+    )
+
+
+class GRNCounter(Base):
+    """Race-safe GRN allocation counter, keyed by year. Year resets yearly."""
+    __tablename__ = "grn_counters"
+
+    year: Mapped[int] = mapped_column(Integer, primary_key=True)
+    last_number: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow
+    )
+
+
+class ItemCounter(Base):
+    """Single-row counter for ITM-NNN allocation."""
+    __tablename__ = "item_counter"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, default=1)
+    last_number: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow
+    )
 
 
 class GRN(Base):

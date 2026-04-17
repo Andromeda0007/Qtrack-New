@@ -2,7 +2,8 @@ from app.models.user_models import User, Role, Permission, RolePermission, Passw
 from app.models.inventory_models import (
     Material, Supplier, Location, Batch, GRN,
     BatchStatusHistory, StockMovement,
-    PackType, BatchStatus, MovementType
+    BatchContainer, GRNCounter, ItemCounter,
+    PackType, BatchStatus, MovementType,
 )
 from app.models.qc_models import (
     QCResult, RetestCycle, GradeTransfer,
@@ -20,6 +21,7 @@ __all__ = [
     "User", "Role", "Permission", "RolePermission", "PasswordResetToken",
     "Material", "Supplier", "Location", "Batch", "GRN",
     "BatchStatusHistory", "StockMovement",
+    "BatchContainer", "GRNCounter", "ItemCounter",
     "PackType", "BatchStatus", "MovementType",
     "QCResult", "RetestCycle", "GradeTransfer",
     "TestStatus", "RetestStatus", "GradeTransferStatus",

@@ -9,7 +9,7 @@ from app.auth.dependencies import get_current_user, require_permission
 from app.models.user_models import User
 from app.models.inventory_models import BatchStatus
 from app.inventory import service
-from app.inventory.schemas import ProductCreate, IssueStockRequest, StockAdjustmentRequest, UpdateRackRequest
+from app.inventory.schemas import GRNCreate, ProductCreate, IssueStockRequest, StockAdjustmentRequest, UpdateRackRequest
 from app.utils.pdf_generator import generate_quarantine_label
 
 router = APIRouter()
@@ -17,23 +17,30 @@ router = APIRouter()
 
 @router.post("/product")
 async def create_product(
-    payload: ProductCreate,
+    payload: GRNCreate,
     current_user: User = Depends(require_permission("CREATE_PRODUCT")),
     db: AsyncSession = Depends(get_db),
 ):
+    """Create a GRN (Goods Receipt Note) with per-container identifiers.
+
+    URL preserved as ``/product`` for backward compatibility with the mobile
+    client; logically this is "Create GRN" in the new Warehouse terminology.
+    """
     result = await service.create_product(db, payload.model_dump(), current_user)
     batch = result["batch"]
     material = result["material"]
     supplier = result["supplier"]
     return {
-        "message": "Product card created successfully",
+        "message": "GRN created successfully",
         "batch_id": batch.id,
         "item_code": material.material_code,
         "item_name": material.material_name,
         "batch_number": batch.batch_number,
         "grn_number": result["grn_number"],
-        "total_quantity": str(batch.total_quantity),
-        "container_quantity": str(batch.pack_size or ""),
+        "unit_of_measure": result["unit_of_measure"],
+        "container_count": result["container_count"],
+        "container_quantity": result["container_quantity"],
+        "total_quantity": result["total_quantity"],
         "pack_type": service.pack_type_display(batch),
         "supplier_name": supplier.supplier_name,
         "manufacturer_name": result["manufacturer_name"],
@@ -44,10 +51,10 @@ async def create_product(
         "created_at": str(batch.created_at),
         "qr_data": result["qr_data"],
         "qr_base64": result["qr_base64"],
+        "containers": result["containers"],
+        # Legacy fields kept so the in-flight mobile app doesn't crash during rollout:
         "public_code": result["public_code"],
-        "track_id": result["track_id"],
-        "pack_size_description": batch.pack_size_description,
-        "rack_number": batch.rack_number,
+        "track_id": f"#{result['public_code']}",
     }
 
 
@@ -69,14 +76,14 @@ async def list_batches(
             "grn_number": b.grn.grn_number if b.grn else None,
             "total_quantity": b.total_quantity,
             "remaining_quantity": service.remaining_quantity_for_api(b),
+            "unit_of_measure": getattr(b, "unit_of_measure", "KG"),
+            "container_count": getattr(b, "container_count", None),
+            "container_quantity": getattr(b, "container_quantity", None),
             "status": b.status,
             "expiry_date": b.expiry_date,
             "retest_date": b.retest_date,
             "retest_cycle": b.retest_cycle,
             "rack_number": b.rack_number,
-            "public_code": b.public_code,
-            "track_id": f"#{b.public_code}",
-            "pack_size_description": b.pack_size_description,
             "pack_type": service.pack_type_display(b),
             "created_at": b.created_at,
         }
@@ -101,9 +108,10 @@ async def get_batch(
         "manufacturer_name": batch.manufacturer_name,
         "manufacture_date": batch.manufacture_date,
         "expiry_date": batch.expiry_date,
-        "pack_size": batch.pack_size,
         "pack_type": service.pack_type_display(batch),
-        "pack_size_description": batch.pack_size_description,
+        "unit_of_measure": getattr(batch, "unit_of_measure", "KG"),
+        "container_count": getattr(batch, "container_count", None),
+        "container_quantity": getattr(batch, "container_quantity", None),
         "total_quantity": batch.total_quantity,
         "remaining_quantity": service.remaining_quantity_for_api(batch),
         "status": batch.status,
@@ -112,8 +120,6 @@ async def get_batch(
         "qr_code_path": batch.qr_code_path,
         "ar_number": batch.qc_results[-1].ar_number if batch.qc_results else None,
         "rack_number": batch.rack_number,
-        "public_code": batch.public_code,
-        "track_id": f"#{batch.public_code}",
     }
 
 
