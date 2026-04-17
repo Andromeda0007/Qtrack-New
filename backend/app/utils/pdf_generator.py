@@ -1,5 +1,8 @@
+import io
 import os
+import qrcode
 from reportlab.lib.pagesizes import inch
+from reportlab.lib.utils import ImageReader
 from reportlab.pdfgen import canvas
 from reportlab.lib import colors
 
@@ -177,14 +180,30 @@ def generate_container_labels(batch_data: dict, containers: list) -> str:
         c.setLineWidth(1)
         c.line(0.2 * inch, height - 0.75 * inch, width - 0.2 * inch, height - 0.75 * inch)
 
-        # Left: QR
+        # Left: QR — use file if present, otherwise generate in-memory (Render ephemeral FS)
         qr_path = cont.get("qr_code_path")
+        unique_code = cont.get("unique_code", "")
+        qr_src = None
         if qr_path and os.path.exists(qr_path):
-            # QR area: left 45% of width
+            qr_src = qr_path
+        elif unique_code:
+            qr_obj = qrcode.QRCode(
+                version=1,
+                error_correction=qrcode.constants.ERROR_CORRECT_M,
+                box_size=10,
+                border=4,
+            )
+            qr_obj.add_data(f"QTRACK|CNT|{unique_code}")
+            qr_obj.make(fit=True)
+            buf = io.BytesIO()
+            qr_obj.make_image(fill_color="black", back_color="white").save(buf)
+            buf.seek(0)
+            qr_src = ImageReader(buf)
+        if qr_src:
             qr_size = 1.7 * inch
             qr_x = 0.2 * inch
             qr_y = (height - 0.75 * inch - 0.7 * inch) / 2 + 0.7 * inch - qr_size / 2
-            c.drawImage(qr_path, qr_x, qr_y, qr_size, qr_size, preserveAspectRatio=True)
+            c.drawImage(qr_src, qr_x, qr_y, qr_size, qr_size, preserveAspectRatio=True)
 
         # Right: details
         details_x = 2.0 * inch

@@ -79,6 +79,12 @@ async def add_ar_number(db: AsyncSession, data: dict, done_by: User) -> QCResult
             detail=f"Cannot add AR number — batch status is {batch.status}. Must be QUARANTINE or QUARANTINE_RETEST.",
         )
 
+    if not batch.labels_printed:
+        raise HTTPException(
+            status_code=400,
+            detail="Container labels must be printed before moving the batch to Under Test.",
+        )
+
     # Check AR number not duplicate
     existing = await db.execute(select(QCResult).where(QCResult.ar_number == data["ar_number"]))
     if existing.scalar_one_or_none():

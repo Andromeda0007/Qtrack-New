@@ -110,6 +110,7 @@ class BatchResponse(BaseModel):
     status: str
     retest_date: Optional[date] = None
     retest_cycle: int
+    labels_printed: bool = False
     qr_code_path: Optional[str] = None
     created_at: datetime
 

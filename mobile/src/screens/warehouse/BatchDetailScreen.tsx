@@ -1,10 +1,10 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView,
   TouchableOpacity, ActivityIndicator, Image, Modal, TextInput, Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { inventoryApi } from '../../api/inventory';
 import { useAuthStore } from '../../store/authStore';
@@ -115,12 +115,13 @@ export const BatchDetailScreen: React.FC = () => {
     return acts;
   })();
 
-  useEffect(() => {
-    inventoryApi.getBatchById(batchId)
-      .then(setBatch)
-      .catch(() => setError('Failed to load batch details.'))
-      .finally(() => setLoading(false));
-  }, [batchId]);
+  useFocusEffect(
+    useCallback(() => {
+      inventoryApi.getBatchById(batchId)
+        .then(data => { setBatch(data); setLoading(false); })
+        .catch(() => { setError('Failed to load batch details.'); setLoading(false); });
+    }, [batchId])
+  );
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -174,8 +175,11 @@ export const BatchDetailScreen: React.FC = () => {
             </>
           )}
 
-          {/* Print labels (warehouse only) */}
-          {(role === 'WAREHOUSE_USER' || role === 'WAREHOUSE_HEAD') && batch.container_count ? (
+          {/* Print labels — only in QUARANTINE, only once */}
+          {(role === 'WAREHOUSE_USER' || role === 'WAREHOUSE_HEAD') &&
+           batch.container_count &&
+           batch.status === 'QUARANTINE' &&
+           !batch.labels_printed ? (
             <TouchableOpacity
               style={styles.printRow}
               onPress={() => navigation.navigate('PrintLabels', {

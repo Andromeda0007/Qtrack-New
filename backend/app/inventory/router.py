@@ -329,6 +329,10 @@ async def get_container_labels(
 
     pdf_path = generate_container_labels(batch_data, container_dicts)
 
+    if not batch.labels_printed:
+        batch.labels_printed = True
+        await db.commit()
+
     return FileResponse(
         pdf_path,
         media_type="application/pdf",

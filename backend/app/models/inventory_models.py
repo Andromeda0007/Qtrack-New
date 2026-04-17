@@ -108,6 +108,7 @@ class Batch(Base):
     rack_number: Mapped[str | None] = mapped_column(String(80), nullable=True, index=True)
     retest_date: Mapped[date | None] = mapped_column(Date, index=True)
     retest_cycle: Mapped[int] = mapped_column(Integer, default=0)
+    labels_printed: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
     manufacturer_name: Mapped[str | None] = mapped_column(String(150))
     remarks: Mapped[str | None] = mapped_column(Text)
     created_by: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False)
