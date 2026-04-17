@@ -1,6 +1,13 @@
 import apiClient from './client';
 
 export const qaApi = {
+  listFgBatches: async (status?: string): Promise<any[]> => {
+    const params: any = {};
+    if (status) params.status = status;
+    const res = await apiClient.get('/qa/fg-batches', { params });
+    return res.data;
+  },
+
   inspectFG: async (fg_batch_id: number, quantity_verified?: number, inspection_remarks?: string) => {
     const res = await apiClient.post('/qa/inspect', { fg_batch_id, quantity_verified, inspection_remarks });
     return res.data;

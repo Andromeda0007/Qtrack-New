@@ -25,7 +25,6 @@ const UNIT_OPTIONS: { value: UnitOfMeasure; label: string; hint: string }[] = [
 export const CreateItemScreen: React.FC = () => {
   const navigation = useNavigation<any>();
   const [name, setName] = useState('');
-  const [description, setDescription] = useState('');
   const [unit, setUnit] = useState<UnitOfMeasure>('KG');
   const [submitting, setSubmitting] = useState(false);
 
@@ -38,7 +37,6 @@ export const CreateItemScreen: React.FC = () => {
     try {
       const created = await materialsApi.create({
         material_name: name.trim(),
-        description: description.trim() || undefined,
         unit_of_measure: unit,
       });
       Toast.show({
@@ -86,14 +84,6 @@ export const CreateItemScreen: React.FC = () => {
               placeholder="e.g. Paracetamol Powder"
               value={name}
               onChangeText={setName}
-            />
-
-            <Input
-              label="Description (optional)"
-              placeholder="e.g. USP grade, pharmaceutical"
-              value={description}
-              onChangeText={setDescription}
-              multiline
             />
 
             <Text style={styles.label}>Default Unit *</Text>

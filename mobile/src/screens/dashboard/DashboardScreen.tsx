@@ -107,7 +107,7 @@ interface ProductStats {
  * Scanner tile **labels** differ by role (same `Scanner` screen / `RoleActions` unless you add params).
  */
 const ROLE_QUICK_ACTIONS: Record<RoleName, QuickAction[]> = {
-  /** R1: Create | Check Status — R2: Move to Production (scanner) */
+  /** R1: Create | Check Status — R2: Move to Production (hub) */
   WAREHOUSE_USER: [
     {
       label: "Create GRN",
@@ -120,8 +120,8 @@ const ROLE_QUICK_ACTIONS: Record<RoleName, QuickAction[]> = {
       label: "Move to Production",
       icon: "arrow-forward-circle-outline",
       color: Colors.info,
-      screen: "Scanner",
-      params: { scanFlow: "warehouse_issue" },
+      screen: "WorkflowHub",
+      params: { mode: "warehouse_issue" },
     },
   ],
   /** R1: Manage Users | Check Status — R2: Manage Items | Audit Logs */
@@ -154,8 +154,8 @@ const ROLE_QUICK_ACTIONS: Record<RoleName, QuickAction[]> = {
       label: "Test",
       icon: "clipboard-outline",
       color: Colors.accent,
-      screen: "Scanner",
-      params: { scanFlow: "qc_test" },
+      screen: "WorkflowHub",
+      params: { mode: "qc_test" },
     },
     CHECK_STATUS_ACTION,
   ],
@@ -163,21 +163,21 @@ const ROLE_QUICK_ACTIONS: Record<RoleName, QuickAction[]> = {
   QC_HEAD: [
     {
       label: "Approve / Reject",
-      /** Review + record outcome (approve or reject) — not a checkmark-only metaphor */
       icon: "clipboard-outline",
       color: Colors.primary,
-      screen: "Scanner",
-      params: { scanFlow: "qc_decision" },
+      screen: "WorkflowHub",
+      params: { mode: "qc_decision" },
     },
     CHECK_STATUS_ACTION,
   ],
-  /** R1: Scan FG | Check Status */
+  /** R1: Inspect FG | Check Status */
   QA_EXECUTIVE: [
     {
-      label: "Scan FG",
+      label: "Inspect FG",
       icon: "scan",
       color: Colors.accent,
-      screen: "Scanner",
+      screen: "WorkflowHub",
+      params: { mode: "qa_inspect" },
     },
     CHECK_STATUS_ACTION,
   ],
@@ -187,11 +187,12 @@ const ROLE_QUICK_ACTIONS: Record<RoleName, QuickAction[]> = {
       label: "Approve / Reject FG",
       icon: "clipboard-outline",
       color: Colors.primary,
-      screen: "Scanner",
+      screen: "WorkflowHub",
+      params: { mode: "qa_decision" },
     },
     CHECK_STATUS_ACTION,
   ],
-  /** R1: Create FG | Check Status — R2: Scan Material */
+  /** R1: Create FG | Check Status — R2: Consume Material (hub) */
   PRODUCTION_USER: [
     {
       label: "Create FG Batch",
@@ -201,10 +202,11 @@ const ROLE_QUICK_ACTIONS: Record<RoleName, QuickAction[]> = {
     },
     CHECK_STATUS_ACTION,
     {
-      label: "Scan Material",
-      icon: "scan",
+      label: "Consume Material",
+      icon: "layers-outline",
       color: Colors.accent,
-      screen: "Scanner",
+      screen: "WorkflowHub",
+      params: { mode: "production_consume" },
     },
   ],
   /** R1: Approved | Check Status — R2: All Products */

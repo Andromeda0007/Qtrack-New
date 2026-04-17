@@ -21,7 +21,6 @@ export const EditItemScreen: React.FC = () => {
 
   const [item, setItem] = useState<Material | null>(null);
   const [name, setName] = useState('');
-  const [description, setDescription] = useState('');
   const [unit, setUnit] = useState<UnitOfMeasure>('KG');
   const [isActive, setIsActive] = useState(true);
   const [loading, setLoading] = useState(true);
@@ -34,7 +33,6 @@ export const EditItemScreen: React.FC = () => {
         const m = await materialsApi.get(id);
         setItem(m);
         setName(m.material_name);
-        setDescription(m.description || '');
         setUnit(m.unit_of_measure);
         setIsActive(m.is_active);
       } catch (e) {
@@ -48,7 +46,6 @@ export const EditItemScreen: React.FC = () => {
   const dirty =
     item &&
     (name !== item.material_name ||
-      description !== (item.description || '') ||
       unit !== item.unit_of_measure);
 
   const handleSave = async () => {
@@ -61,7 +58,6 @@ export const EditItemScreen: React.FC = () => {
     try {
       const updated = await materialsApi.update(item.id, {
         material_name: name.trim(),
-        description: description.trim() || undefined,
         unit_of_measure: unit,
       });
       setItem(updated);
@@ -169,13 +165,6 @@ export const EditItemScreen: React.FC = () => {
               onChangeText={setName}
               placeholder="e.g. Paracetamol Powder"
             />
-            <Input
-              label="Description"
-              value={description}
-              onChangeText={setDescription}
-              multiline
-            />
-
             <Text style={styles.label}>Default Unit</Text>
             <View style={styles.unitRow}>
               {(['KG', 'COUNT'] as UnitOfMeasure[]).map((u) => (

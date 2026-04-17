@@ -68,6 +68,53 @@ export const BatchDetailScreen: React.FC = () => {
     (batch?.status === 'APPROVED' || batch?.status === 'ISSUED_TO_PRODUCTION') &&
     (role === 'WAREHOUSE_USER' || role === 'WAREHOUSE_HEAD');
 
+  const batchActions: { label: string; color: string; icon: string; onPress: () => void }[] = (() => {
+    if (!batch) return [];
+    const acts: { label: string; color: string; icon: string; onPress: () => void }[] = [];
+    const batchNum = batch.batch_number;
+    if (role === 'WAREHOUSE_USER' && batch.status === 'APPROVED') {
+      acts.push({
+        label: 'Issue to Production',
+        color: Colors.success,
+        icon: 'arrow-forward-circle-outline',
+        onPress: () => navigation.navigate('IssueStock', { batchId, batchNumber: batchNum, initialRack: batch.rack_number }),
+      });
+    }
+    if (role === 'QC_EXECUTIVE' && (batch.status === 'QUARANTINE' || batch.status === 'QUARANTINE_RETEST')) {
+      acts.push({
+        label: 'Add AR Number',
+        color: Colors.info,
+        icon: 'flask-outline',
+        onPress: () => navigation.navigate('AddARNumber', { batchId, batchNumber: batchNum }),
+      });
+    }
+    if (role === 'QC_HEAD' && batch.status === 'UNDER_TEST') {
+      acts.push(
+        {
+          label: 'Approve',
+          color: Colors.success,
+          icon: 'checkmark-circle-outline',
+          onPress: () => navigation.navigate('ApproveBatch', { batchId, batchNumber: batchNum }),
+        },
+        {
+          label: 'Reject',
+          color: Colors.danger,
+          icon: 'close-circle-outline',
+          onPress: () => navigation.navigate('RejectBatch', { batchId, batchNumber: batchNum }),
+        },
+      );
+    }
+    if (role === 'PRODUCTION_USER' && batch.status === 'APPROVED') {
+      acts.push({
+        label: 'Issue to Production',
+        color: Colors.info,
+        icon: 'arrow-forward-circle-outline',
+        onPress: () => navigation.navigate('IssueStock', { batchId, batchNumber: batchNum, initialRack: batch.rack_number }),
+      });
+    }
+    return acts;
+  })();
+
   useEffect(() => {
     inventoryApi.getBatchById(batchId)
       .then(setBatch)
@@ -106,6 +153,26 @@ export const BatchDetailScreen: React.FC = () => {
             </View>
             <StatusBadge status={batch.status} />
           </View>
+
+          {/* Actions */}
+          {batchActions.length > 0 && (
+            <>
+              <Text style={[styles.sectionTitle, { marginTop: 12 }]}>Actions</Text>
+              <View style={styles.actionsRow}>
+                {batchActions.map(a => (
+                  <TouchableOpacity
+                    key={a.label}
+                    style={[styles.actionBtn, { borderColor: a.color }]}
+                    onPress={a.onPress}
+                    activeOpacity={0.8}
+                  >
+                    <Ionicons name={a.icon as any} size={20} color={a.color} />
+                    <Text style={[styles.actionBtnLabel, { color: a.color }]}>{a.label}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </>
+          )}
 
           {/* QR Code */}
           {batch.qr_code_path ? (
@@ -379,4 +446,12 @@ const styles = StyleSheet.create({
   rowLabel: { fontSize: FontSize.sm, color: Colors.textMuted, fontWeight: '500', flex: 1 },
   rowValue: { fontSize: FontSize.sm, color: Colors.textPrimary, fontWeight: '600', flex: 1.5, textAlign: 'right' },
   divider: { height: 1, backgroundColor: Colors.borderLight },
+
+  actionsRow: { flexDirection: 'row', gap: 12, marginBottom: 4 },
+  actionBtn: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 8, paddingVertical: 14, borderRadius: BorderRadius.lg,
+    borderWidth: 2, backgroundColor: Colors.surface, ...Shadow.sm,
+  },
+  actionBtnLabel: { fontSize: FontSize.sm, fontWeight: '700' },
 });

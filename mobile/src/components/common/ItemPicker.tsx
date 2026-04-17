@@ -66,28 +66,37 @@ export const ItemPicker: React.FC<Props> = ({
     setQuery('');
   };
 
-  const renderLabel = () => {
-    if (!selected) return <Text style={styles.placeholder}>{placeholder}</Text>;
-    return (
-      <Text style={styles.selectedText} numberOfLines={1}>
-        <Text style={styles.code}>{selected.material_code}</Text>
-        <Text style={styles.dot}>  ·  </Text>
-        <Text>{selected.material_name}</Text>
-      </Text>
-    );
-  };
+  const renderLabel = () => (
+    <Text style={styles.placeholder}>{placeholder}</Text>
+  );
 
   return (
     <View style={styles.wrap}>
       {label ? <Text style={styles.label}>{label}</Text> : null}
-      <TouchableOpacity
-        onPress={() => setOpen(true)}
-        style={styles.field}
-        activeOpacity={0.7}
-      >
-        <View style={{ flex: 1 }}>{renderLabel()}</View>
-        <Ionicons name="chevron-down" size={18} color={Colors.textMuted} />
-      </TouchableOpacity>
+      {selected ? (
+        <TouchableOpacity onPress={() => setOpen(true)} activeOpacity={0.8}>
+          <View style={styles.selectedBoxRow}>
+            <View style={styles.selectedBox}>
+              <Text style={styles.selectedKey}>Item Code</Text>
+              <Text style={styles.selectedVal}>{selected.material_code}</Text>
+            </View>
+            <View style={[styles.selectedBox, { flex: 2 }]}>
+              <Text style={styles.selectedKey}>Item Name</Text>
+              <Text style={styles.selectedVal} numberOfLines={2}>{selected.material_name}</Text>
+            </View>
+            <Ionicons name="chevron-down" size={16} color={Colors.textMuted} style={{ alignSelf: 'center' }} />
+          </View>
+        </TouchableOpacity>
+      ) : (
+        <TouchableOpacity
+          onPress={() => setOpen(true)}
+          style={styles.field}
+          activeOpacity={0.7}
+        >
+          <View style={{ flex: 1 }}>{renderLabel()}</View>
+          <Ionicons name="chevron-down" size={18} color={Colors.textMuted} />
+        </TouchableOpacity>
+      )}
 
       {!loading && items.length === 0 ? (
         <Text style={styles.empty}>
@@ -178,9 +187,19 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.surface,
   },
   placeholder: { color: Colors.textMuted, fontSize: FontSize.md },
-  selectedText: { fontSize: FontSize.md, color: Colors.textPrimary },
+  selectedBoxRow: { flexDirection: 'row', gap: 8, alignItems: 'stretch' },
+  selectedBox: {
+    flex: 1,
+    backgroundColor: Colors.surface,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: Colors.primary + '55',
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
+  selectedKey: { fontSize: 10, color: Colors.textMuted, fontWeight: '600', marginBottom: 2 },
+  selectedVal: { fontSize: FontSize.sm, color: Colors.textPrimary, fontWeight: '700' },
   code: { fontWeight: '800', color: Colors.primary },
-  dot: { color: Colors.textMuted },
   empty: {
     color: Colors.textMuted, fontSize: FontSize.sm, marginTop: 6, fontStyle: 'italic',
   },

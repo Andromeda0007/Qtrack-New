@@ -39,6 +39,12 @@ export const inventoryApi = {
     return res.data;
   },
 
+  getBatchesByStatuses: async (statuses: string[]): Promise<Batch[]> => {
+    const params: any = { statuses: statuses.join(',') };
+    const res = await apiClient.get('/inventory/batches', { params });
+    return res.data;
+  },
+
   getBatchById: async (id: number): Promise<any> => {
     const res = await apiClient.get(`/inventory/batches/${id}`);
     return res.data;

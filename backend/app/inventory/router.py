@@ -61,11 +61,13 @@ async def create_product(
 @router.get("/batches")
 async def list_batches(
     status: Optional[str] = Query(None),
+    statuses: Optional[str] = Query(None),  # comma-separated e.g. "QUARANTINE,QUARANTINE_RETEST"
     material_id: Optional[int] = Query(None),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    batches = await service.get_all_batches(db, status, material_id)
+    statuses_list = [s.strip() for s in statuses.split(",")] if statuses else None
+    batches = await service.get_all_batches(db, status, material_id, statuses_list)
     return [
         {
             "id": b.id,

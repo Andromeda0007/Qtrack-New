@@ -1,13 +1,44 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
+from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 
 from app.database import get_db
-from app.auth.dependencies import require_permission
+from app.auth.dependencies import require_permission, get_current_user
 from app.models.user_models import User
+from app.models.finished_goods_models import FinishedGoodsBatch
 from app.qa import service
 from app.qa.schemas import InspectFGRequest, ApproveFGRequest, RejectFGRequest
 
 router = APIRouter()
+
+
+@router.get("/fg-batches")
+async def list_fg_batches(
+    status: Optional[str] = Query(None),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    query = select(FinishedGoodsBatch).order_by(FinishedGoodsBatch.created_at.desc())
+    if status:
+        query = query.where(FinishedGoodsBatch.status == status)
+    result = await db.execute(query)
+    batches = result.scalars().all()
+    return [
+        {
+            "id": b.id,
+            "product_name": b.product_name,
+            "batch_number": b.batch_number,
+            "manufacture_date": b.manufacture_date,
+            "expiry_date": b.expiry_date,
+            "quantity": str(b.quantity),
+            "carton_count": b.carton_count,
+            "net_weight": str(b.net_weight) if b.net_weight else None,
+            "status": b.status,
+            "created_at": b.created_at,
+        }
+        for b in batches
+    ]
 
 
 @router.post("/inspect")

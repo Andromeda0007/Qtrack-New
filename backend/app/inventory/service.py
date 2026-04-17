@@ -662,13 +662,20 @@ async def adjust_stock(db: AsyncSession, batch_id: int, quantity: Decimal, reaso
     return {"batch_id": batch.id, "adjustment": quantity, "new_remaining": batch.remaining_quantity}
 
 
-async def get_all_batches(db: AsyncSession, status: str | None = None, material_id: int | None = None) -> list:
+async def get_all_batches(
+    db: AsyncSession,
+    status: str | None = None,
+    material_id: int | None = None,
+    statuses: list[str] | None = None,
+) -> list:
     query = (
         select(Batch)
         .options(selectinload(Batch.material), selectinload(Batch.supplier), selectinload(Batch.grn))
         .order_by(Batch.created_at.desc())
     )
-    if status:
+    if statuses:
+        query = query.where(Batch.status.in_(statuses))
+    elif status:
         query = query.where(Batch.status == status)
     if material_id:
         query = query.where(Batch.material_id == material_id)
