@@ -196,12 +196,16 @@ export const BatchDetailScreen: React.FC = () => {
           ) : null}
 
           {/* QR Code */}
-          {batch.qr_code_path ? (
+          {(batch.qr_base64 || batch.qr_code_path) ? (
             <View style={styles.qrSection}>
               <Text style={styles.qrLabel}>QR Code</Text>
               <View style={styles.qrBox}>
                 <Image
-                  source={{ uri: toImageUrl(batch.qr_code_path) }}
+                  source={{
+                    uri: batch.qr_base64
+                      ? `data:image/png;base64,${batch.qr_base64}`
+                      : toImageUrl(batch.qr_code_path),
+                  }}
                   style={styles.qrImage}
                   resizeMode="contain"
                 />

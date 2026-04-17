@@ -70,6 +70,7 @@ export interface Batch {
   ar_number?: string | null;
   rack_number?: string | null;
   labels_printed?: boolean;
+  qr_base64?: string | null;
 }
 
 export interface StockMovement {

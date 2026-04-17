@@ -1,4 +1,8 @@
-from fastapi import APIRouter, Depends, Query, HTTPException
+import os
+import logging
+
+from fastapi import APIRouter, BackgroundTasks, Depends, Query, HTTPException
+from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import FileResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Optional
@@ -11,6 +15,18 @@ from app.models.inventory_models import BatchStatus
 from app.inventory import service
 from app.inventory.schemas import GRNCreate, ProductCreate, IssueStockRequest, StockAdjustmentRequest, UpdateRackRequest
 from app.utils.pdf_generator import generate_quarantine_label
+from app.config import settings
+
+logger = logging.getLogger(__name__)
+
+
+def _pre_generate_labels(batch_id: int, batch_data: dict, container_dicts: list) -> None:
+    """Sync background task: pre-build the container-labels PDF after GRN creation."""
+    try:
+        from app.utils.pdf_generator import generate_container_labels
+        generate_container_labels(batch_data, container_dicts)
+    except Exception as exc:
+        logger.warning("Label pre-generation failed for batch %s: %s", batch_id, exc)
 
 router = APIRouter()
 
@@ -18,6 +34,7 @@ router = APIRouter()
 @router.post("/product")
 async def create_product(
     payload: GRNCreate,
+    background_tasks: BackgroundTasks,
     current_user: User = Depends(require_permission("CREATE_PRODUCT")),
     db: AsyncSession = Depends(get_db),
 ):
@@ -30,6 +47,28 @@ async def create_product(
     batch = result["batch"]
     material = result["material"]
     supplier = result["supplier"]
+
+    # Pre-generate the container-labels PDF in background so first Print tap is fast
+    _bg_batch_data = {
+        "batch_id": batch.id,
+        "grn_number": result["grn_number"],
+        "material_code": material.material_code,
+        "material_name": material.material_name,
+        "batch_number": batch.batch_number,
+        "pack_type": service.pack_type_display(batch),
+        "container_quantity": result["container_quantity"],
+        "unit_of_measure": result["unit_of_measure"],
+        "manufacture_date": str(batch.manufacture_date) if batch.manufacture_date else "",
+        "expiry_date": str(batch.expiry_date) if batch.expiry_date else "",
+        "supplier_name": supplier.supplier_name,
+        "manufacturer_name": result["manufacturer_name"],
+    }
+    _bg_containers = [
+        {"container_number": c["container_number"], "unique_code": c["unique_code"], "qr_code_path": None}
+        for c in result["containers"]
+    ]
+    background_tasks.add_task(_pre_generate_labels, batch.id, _bg_batch_data, _bg_containers)
+
     return {
         "message": "GRN created successfully",
         "batch_id": batch.id,
@@ -100,6 +139,20 @@ async def get_batch(
     db: AsyncSession = Depends(get_db),
 ):
     batch = await service.get_batch_by_id(db, batch_id)
+
+    # QR base64 — regenerate if file was lost (Render ephemeral FS)
+    from app.utils.qr_generator import generate_batch_qr, get_qr_base64
+    qr_b64 = ""
+    qr_path = batch.qr_code_path
+    try:
+        if qr_path and os.path.exists(qr_path):
+            qr_b64 = get_qr_base64(qr_path)
+        elif getattr(batch, "public_code", None):
+            qr_path = generate_batch_qr(batch.id, batch.batch_number, batch.public_code)
+            qr_b64 = get_qr_base64(qr_path)
+    except Exception:
+        pass
+
     return {
         "id": batch.id,
         "batch_number": batch.batch_number,
@@ -119,7 +172,8 @@ async def get_batch(
         "status": batch.status,
         "retest_date": batch.retest_date,
         "retest_cycle": batch.retest_cycle,
-        "qr_code_path": batch.qr_code_path,
+        "labels_printed": getattr(batch, "labels_printed", False),
+        "qr_base64": qr_b64,
         "ar_number": batch.qc_results[-1].ar_number if batch.qc_results else None,
         "rack_number": batch.rack_number,
     }
@@ -327,7 +381,21 @@ async def get_container_labels(
         for c in containers
     ]
 
-    pdf_path = generate_container_labels(batch_data, container_dicts)
+    # Return cached PDF immediately if it already exists
+    os.makedirs(settings.LABEL_DIR, exist_ok=True)
+    cached_path = os.path.join(settings.LABEL_DIR, f"container_labels_{batch.id}.pdf")
+    if os.path.exists(cached_path):
+        if not batch.labels_printed:
+            batch.labels_printed = True
+            await db.commit()
+        return FileResponse(
+            cached_path,
+            media_type="application/pdf",
+            filename=f"container_labels_{batch.batch_number}.pdf",
+        )
+
+    # Generate in thread pool (CPU-bound — QR + ReportLab must not block the event loop)
+    pdf_path = await run_in_threadpool(generate_container_labels, batch_data, container_dicts)
 
     if not batch.labels_printed:
         batch.labels_printed = True
