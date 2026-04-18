@@ -409,6 +409,8 @@ async def mark_labels_printed(
     db: AsyncSession = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
+    from sqlalchemy import select
+    from app.models.inventory_models import Batch
     result = await db.execute(select(Batch).where(Batch.id == batch_id))
     batch = result.scalar_one_or_none()
     if not batch:
