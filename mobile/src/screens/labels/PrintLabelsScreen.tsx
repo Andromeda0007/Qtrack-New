@@ -4,7 +4,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Print from 'expo-print';
-import * as Sharing from 'expo-sharing';
 import { inventoryApi } from '../../api/inventory';
 import { Colors, FontSize, Spacing, BorderRadius, Shadow } from '../../utils/theme';
 
@@ -36,35 +35,22 @@ export const PrintLabelsScreen: React.FC = () => {
   }, [batchId]);
 
   const handlePrint = async () => {
-    if (!uri) return;
+    if (!uri || busy) return;
     setBusy(true);
     try {
       await Print.printAsync({ uri });
       await inventoryApi.markLabelsPrinted(batchId);
     } catch (e: any) {
-      Alert.alert('Print failed', e?.message || 'Unable to open print sheet.');
+      const msg = e?.message || '';
+      // Ignore "already in progress" — user dismissed and tapped again
+      if (!msg.toLowerCase().includes('progress')) {
+        Alert.alert('Print failed', msg || 'Unable to open print dialog.');
+      }
     } finally {
       setBusy(false);
     }
   };
 
-  const handleShare = async () => {
-    if (!uri) return;
-    setBusy(true);
-    try {
-      const available = await Sharing.isAvailableAsync();
-      if (!available) {
-        Alert.alert('Unavailable', 'Sharing is not available on this device.');
-        return;
-      }
-      await Sharing.shareAsync(uri, { mimeType: 'application/pdf' });
-      await inventoryApi.markLabelsPrinted(batchId);
-    } catch (e: any) {
-      Alert.alert('Share failed', e?.message || 'Unable to share PDF.');
-    } finally {
-      setBusy(false);
-    }
-  };
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -105,16 +91,6 @@ export const PrintLabelsScreen: React.FC = () => {
             <Ionicons name="print-outline" size={20} color="#fff" />
             <Text style={styles.primaryBtnText}>Print</Text>
           </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.secondaryBtn, (!uri || busy) && styles.btnDisabled]}
-            onPress={handleShare}
-            disabled={!uri || busy}
-            activeOpacity={0.8}
-          >
-            <Ionicons name="share-outline" size={20} color={Colors.primary} />
-            <Text style={styles.secondaryBtnText}>Share / Save</Text>
-          </TouchableOpacity>
         </View>
 
         <Text style={styles.hint}>
@@ -153,12 +129,6 @@ const styles = StyleSheet.create({
     gap: 10, backgroundColor: Colors.primary, paddingVertical: 14, borderRadius: BorderRadius.lg, ...Shadow.sm,
   },
   primaryBtnText: { color: '#fff', fontSize: FontSize.md, fontWeight: '700' },
-  secondaryBtn: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    gap: 10, backgroundColor: Colors.surface, paddingVertical: 14, borderRadius: BorderRadius.lg,
-    borderWidth: 2, borderColor: Colors.primary,
-  },
-  secondaryBtnText: { color: Colors.primary, fontSize: FontSize.md, fontWeight: '700' },
   btnDisabled: { opacity: 0.5 },
 
   hint: { fontSize: FontSize.xs, color: Colors.textMuted, textAlign: 'center', marginTop: 8 },
