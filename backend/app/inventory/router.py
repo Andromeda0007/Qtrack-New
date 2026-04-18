@@ -385,7 +385,7 @@ async def get_container_labels(
         return Response(
             content=batch.labels_pdf,
             media_type="application/pdf",
-            headers={"Content-Disposition": f'inline; filename="container_labels_{batch.batch_number}.pdf"'},
+            headers={"Content-Disposition": f'attachment; filename="container_labels_{batch.batch_number}.pdf"'},
         )
 
     # First time — generate, store bytes in DB, return
@@ -399,7 +399,7 @@ async def get_container_labels(
     return Response(
         content=pdf_bytes,
         media_type="application/pdf",
-        headers={"Content-Disposition": f'inline; filename="container_labels_{batch.batch_number}.pdf"'},
+        headers={"Content-Disposition": f'attachment; filename="container_labels_{batch.batch_number}.pdf"'},
     )
 
 

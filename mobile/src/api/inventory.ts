@@ -51,7 +51,7 @@ export const inventoryApi = {
     const { BASE_URL } = require('./client');
     const token = await AsyncStorage.getItem('access_token');
     const url = `${BASE_URL}/inventory/batches/${batchId}/container-labels`;
-    const target = `${FileSystem.documentDirectory}container-labels-${batchId}.pdf`;
+    const target = `${FileSystem.cacheDirectory}container-labels-${batchId}.pdf`;
     const dl = await FileSystem.downloadAsync(url, target, {
       headers: { Authorization: `Bearer ${token}` },
     });

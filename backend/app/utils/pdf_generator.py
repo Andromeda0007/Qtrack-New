@@ -141,112 +141,155 @@ def generate_shipper_label(fg_data: dict) -> str:
     return filepath
 
 
+def _make_qr_src(unique_code: str, qr_code_path: str | None):
+    """Return a ReportLab image source for the container QR code."""
+    if qr_code_path and os.path.exists(qr_code_path):
+        return qr_code_path
+    if not unique_code:
+        return None
+    qr_obj = qrcode.QRCode(
+        version=1,
+        error_correction=qrcode.constants.ERROR_CORRECT_M,
+        box_size=10,
+        border=4,
+    )
+    qr_obj.add_data(f"QTRACK|CNT|{unique_code}")
+    qr_obj.make(fit=True)
+    buf = io.BytesIO()
+    qr_obj.make_image(fill_color="black", back_color="white").save(buf, format='PNG')
+    buf.seek(0)
+    return ImageReader(buf)
+
+
+def _draw_container_label(c, cont: dict, batch_data: dict, total: int, label_bottom: float):
+    """Draw one container label. label_bottom is the y coordinate of the label's bottom edge."""
+    MARGIN = 0.2 * inch
+    PAGE_W = 8.27 * inch
+    LABEL_H = 5.5 * inch
+
+    label_left = MARGIN
+    label_right = PAGE_W - MARGIN
+    label_top = label_bottom + LABEL_H
+    label_w = label_right - label_left
+
+    # Outer border
+    c.setStrokeColor(colors.black)
+    c.setLineWidth(1.5)
+    c.rect(label_left, label_bottom, label_w, LABEL_H)
+
+    # ── Header: "N / Total" ──────────────────────────────────────────
+    header_h = 0.55 * inch
+    c.setFont("Helvetica-Bold", 16)
+    c.setFillColor(colors.black)
+    c.drawCentredString(
+        label_left + label_w / 2,
+        label_top - header_h + 0.12 * inch,
+        f"Container  {cont.get('container_number', '?')}  /  {total}",
+    )
+    c.setLineWidth(1)
+    c.line(label_left, label_top - header_h, label_right, label_top - header_h)
+
+    # Body area (below header)
+    body_top = label_top - header_h
+    body_bottom = label_bottom + 0.15 * inch
+    body_h = body_top - body_bottom
+
+    # ── Left column: QR + unique code ───────────────────────────────
+    divider_x = label_left + 3.1 * inch
+    qr_col_center_x = label_left + (divider_x - label_left) / 2
+
+    qr_size = 2.4 * inch
+    qr_x = qr_col_center_x - qr_size / 2
+    qr_y = body_bottom + (body_h - qr_size) / 2 + 0.2 * inch  # slightly above center (room for code below)
+
+    qr_src = _make_qr_src(cont.get("unique_code", ""), cont.get("qr_code_path"))
+    if qr_src:
+        c.drawImage(qr_src, qr_x, qr_y, qr_size, qr_size, preserveAspectRatio=True)
+
+    # Unique code below QR
+    c.setFont("Helvetica-Bold", 7)
+    c.setFillColor(colors.black)
+    c.drawCentredString(qr_col_center_x, qr_y - 0.22 * inch, str(cont.get("unique_code", "")))
+
+    # ── Vertical divider ─────────────────────────────────────────────
+    c.setLineWidth(0.75)
+    c.line(divider_x, body_top, divider_x, body_bottom)
+
+    # ── Right column: details ────────────────────────────────────────
+    details_x = divider_x + 0.2 * inch
+    value_x = details_x + 1.0 * inch
+    right_max_w = label_right - value_x - 0.1 * inch  # max chars width
+
+    per_container = batch_data.get("container_quantity") or ""
+    unit = batch_data.get("unit_of_measure") or "KG"
+    qty_str = f"{per_container} {unit}".strip() if per_container else ""
+
+    fields = [
+        ("GRN",       str(batch_data.get("grn_number", "") or "")),
+        ("Item Code", str(batch_data.get("material_code", "") or "")),
+        ("Item",      str(batch_data.get("material_name", "") or "")),
+        ("Batch/Lot", str(batch_data.get("batch_number", "") or "")),
+        ("Pack",      str(batch_data.get("pack_type", "") or "")),
+        ("Qty",       qty_str),
+        ("Mfg Date",  str(batch_data.get("manufacture_date", "") or "")),
+        ("Exp Date",  str(batch_data.get("expiry_date", "") or "")),
+        ("Supplier",  str(batch_data.get("supplier_name", "") or "")),
+        ("Mfr",       str(batch_data.get("manufacturer_name", "") or "")),
+    ]
+
+    lh = 0.29 * inch
+    # Start fields vertically centered in the body
+    total_fields_h = len(fields) * lh
+    y = body_top - (body_h - total_fields_h) / 2 - lh * 0.3
+
+    for label, value in fields:
+        c.setFont("Helvetica-Bold", 8)
+        c.setFillColor(colors.black)
+        c.drawString(details_x, y, f"{label}:")
+        c.setFont("Helvetica", 9)
+        val = str(value)
+        # Truncate if too long (~28 chars fits in right column at 9pt)
+        if len(val) > 28:
+            val = val[:26] + "…"
+        c.drawString(value_x, y, val)
+        y -= lh
+
+
 def generate_container_labels(batch_data: dict, containers: list) -> str:
-    """Generate a multi-page B&W PDF, one page per container.
+    """Generate an A4 PDF with 2 container labels per page.
 
-    batch_data: dict with grn_number, material_code, material_name, batch_number,
-                pack_type, container_quantity, unit_of_measure, manufacture_date,
-                expiry_date, supplier_name, manufacturer_name, batch_id.
+    Each label: QR code on the left, details on the right.
+    batch_data keys: grn_number, material_code, material_name, batch_number,
+                     pack_type, container_quantity, unit_of_measure, manufacture_date,
+                     expiry_date, supplier_name, manufacturer_name, batch_id.
     containers: list of dicts with container_number, unique_code, qr_code_path.
-
-    Layout (4x6 portrait, B&W):
-      Top center: "N / total"
-      Left (~45% width): QR code
-      Right: GRN, item code, item name, batch, pack, qty, dates, supplier, mfr
-      Bottom center: unique_code
     """
     os.makedirs(settings.LABEL_DIR, exist_ok=True)
 
     filename = f"container_labels_{batch_data['batch_id']}.pdf"
     filepath = os.path.join(settings.LABEL_DIR, filename)
 
-    width, height = 4 * inch, 6 * inch
-    c = canvas.Canvas(filepath, pagesize=(width, height))
+    from reportlab.lib.pagesizes import A4
+    page_w, page_h = A4  # 595.28 pt × 841.89 pt  ≈  8.27" × 11.69"
+
+    c = canvas.Canvas(filepath, pagesize=A4)
     total = len(containers)
 
-    for cont in containers:
-        c.setStrokeColor(colors.black)
-        c.setLineWidth(2)
-        c.rect(0.1 * inch, 0.1 * inch, width - 0.2 * inch, height - 0.2 * inch)
+    # Two label positions per A4 page (bottom edges, in points from page bottom)
+    MARGIN = 0.2 * inch
+    LABEL_H = 5.5 * inch
+    GAP = page_h - 2 * LABEL_H - 2 * MARGIN  # ~0.19"
+    label_bottoms = [
+        MARGIN + LABEL_H + GAP,  # top label
+        MARGIN,                   # bottom label
+    ]
 
-        # Top: label count
-        c.setFillColor(colors.black)
-        c.setFont("Helvetica-Bold", 18)
-        c.drawCentredString(
-            width / 2,
-            height - 0.55 * inch,
-            f"{cont.get('container_number', '?')}  /  {total}",
-        )
-        c.setLineWidth(1)
-        c.line(0.2 * inch, height - 0.75 * inch, width - 0.2 * inch, height - 0.75 * inch)
-
-        # Left: QR — use file if present, otherwise generate in-memory (Render ephemeral FS)
-        qr_path = cont.get("qr_code_path")
-        unique_code = cont.get("unique_code", "")
-        qr_src = None
-        if qr_path and os.path.exists(qr_path):
-            qr_src = qr_path
-        elif unique_code:
-            qr_obj = qrcode.QRCode(
-                version=1,
-                error_correction=qrcode.constants.ERROR_CORRECT_M,
-                box_size=10,
-                border=4,
-            )
-            qr_obj.add_data(f"QTRACK|CNT|{unique_code}")
-            qr_obj.make(fit=True)
-            buf = io.BytesIO()
-            qr_obj.make_image(fill_color="black", back_color="white").save(buf, format='PNG')
-            buf.seek(0)
-            qr_src = ImageReader(buf)
-        if qr_src:
-            qr_size = 1.7 * inch
-            qr_x = 0.2 * inch
-            qr_y = (height - 0.75 * inch - 0.7 * inch) / 2 + 0.7 * inch - qr_size / 2
-            c.drawImage(qr_src, qr_x, qr_y, qr_size, qr_size, preserveAspectRatio=True)
-
-        # Right: details
-        details_x = 2.0 * inch
-        y = height - 1.00 * inch
-        lh = 0.22 * inch
-
-        per_container = batch_data.get("container_quantity") or ""
-        unit = batch_data.get("unit_of_measure") or "KG"
-        qty_str = f"{per_container} {unit}".strip() if per_container else ""
-
-        fields = [
-            ("GRN", str(batch_data.get("grn_number", ""))),
-            ("Item Code", str(batch_data.get("material_code", ""))),
-            ("Item", str(batch_data.get("material_name", ""))),
-            ("Batch/Lot", str(batch_data.get("batch_number", ""))),
-            ("Pack", str(batch_data.get("pack_type", ""))),
-            ("Qty", qty_str),
-            ("Mfg", str(batch_data.get("manufacture_date", ""))),
-            ("Exp", str(batch_data.get("expiry_date", ""))),
-            ("Supplier", str(batch_data.get("supplier_name", ""))),
-            ("Mfr", str(batch_data.get("manufacturer_name", ""))),
-        ]
-
-        for label, value in fields:
-            c.setFont("Helvetica-Bold", 7)
-            c.drawString(details_x, y, f"{label}:")
-            c.setFont("Helvetica", 8)
-            # Wrap long values
-            val = str(value or "")
-            if len(val) > 22:
-                val = val[:20] + "…"
-            c.drawString(details_x + 0.45 * inch, y, val)
-            y -= lh
-
-        # Bottom center: unique_code
-        c.setFont("Helvetica-Bold", 9)
-        c.drawCentredString(
-            width / 2,
-            0.35 * inch,
-            str(cont.get("unique_code", "")),
-        )
-
-        c.showPage()
+    for i, cont in enumerate(containers):
+        slot = i % 2  # 0 = top, 1 = bottom
+        _draw_container_label(c, cont, batch_data, total, label_bottoms[slot])
+        # Emit page after filling both slots (or at the very last container)
+        if slot == 1 or i == total - 1:
+            c.showPage()
 
     c.save()
     return filepath
