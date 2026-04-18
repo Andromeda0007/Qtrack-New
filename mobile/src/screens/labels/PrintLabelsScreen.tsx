@@ -3,7 +3,8 @@ import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Alert } fr
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
-import * as Print from 'expo-print';
+import * as Sharing from 'expo-sharing';
+import * as FileSystem from 'expo-file-system/legacy';
 import { inventoryApi } from '../../api/inventory';
 import { Colors, FontSize, Spacing, BorderRadius, Shadow } from '../../utils/theme';
 
@@ -34,17 +35,29 @@ export const PrintLabelsScreen: React.FC = () => {
     })();
   }, [batchId]);
 
+  const handleSave = async () => {
+    if (!uri || busy) return;
+    setBusy(true);
+    try {
+      const dest = `${FileSystem.documentDirectory}container-labels-${batchId}.pdf`;
+      await FileSystem.copyAsync({ from: uri, to: dest });
+      await inventoryApi.markLabelsPrinted(batchId);
+      Alert.alert('Saved', 'PDF saved to your Files app.');
+    } catch (e: any) {
+      Alert.alert('Error', e?.message || 'Unable to save PDF.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const handlePrint = async () => {
     if (!uri || busy) return;
     setBusy(true);
     try {
-      await Print.printAsync({ uri });
+      await Sharing.shareAsync(uri, { mimeType: 'application/pdf', UTI: 'com.adobe.pdf' });
       await inventoryApi.markLabelsPrinted(batchId);
     } catch (e: any) {
-      const msg = e?.message || '';
-      if (!msg.toLowerCase().includes('progress')) {
-        Alert.alert('Print failed', msg || 'Unable to open print dialog.');
-      }
+      Alert.alert('Error', e?.message || 'Unable to open share sheet.');
     } finally {
       setBusy(false);
     }
@@ -90,11 +103,20 @@ export const PrintLabelsScreen: React.FC = () => {
             <Ionicons name="print-outline" size={20} color="#fff" />
             <Text style={styles.primaryBtnText}>Print</Text>
           </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.secondaryBtn, (!uri || busy) && styles.btnDisabled]}
+            onPress={handleSave}
+            disabled={!uri || busy}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="download-outline" size={20} color={Colors.primary} />
+            <Text style={styles.secondaryBtnText}>Save to Files</Text>
+          </TouchableOpacity>
         </View>
 
         <Text style={styles.hint}>
-          Tap Print to open the printer settings. Select your printer and number of copies, then tap{' '}
-          <Text style={{ fontWeight: '700' }}>Print</Text>.
+          Tap Print → share sheet opens → tap{' '}
+          <Text style={{ fontWeight: '700' }}>Print</Text> in the menu → full printer settings (printer, copies, pages).
         </Text>
       </View>
     </SafeAreaView>
@@ -128,6 +150,12 @@ const styles = StyleSheet.create({
     gap: 10, backgroundColor: Colors.primary, paddingVertical: 14, borderRadius: BorderRadius.lg, ...Shadow.sm,
   },
   primaryBtnText: { color: '#fff', fontSize: FontSize.md, fontWeight: '700' },
+  secondaryBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 10, backgroundColor: Colors.surface, paddingVertical: 14, borderRadius: BorderRadius.lg,
+    borderWidth: 2, borderColor: Colors.primary, ...Shadow.sm,
+  },
+  secondaryBtnText: { color: Colors.primary, fontSize: FontSize.md, fontWeight: '700' },
   btnDisabled: { opacity: 0.5 },
 
   hint: { fontSize: FontSize.xs, color: Colors.textMuted, textAlign: 'center', marginTop: 8 },
