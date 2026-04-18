@@ -196,7 +196,7 @@ def generate_container_labels(batch_data: dict, containers: list) -> str:
             qr_obj.add_data(f"QTRACK|CNT|{unique_code}")
             qr_obj.make(fit=True)
             buf = io.BytesIO()
-            qr_obj.make_image(fill_color="black", back_color="white").save(buf)
+            qr_obj.make_image(fill_color="black", back_color="white").save(buf, format='PNG')
             buf.seek(0)
             qr_src = ImageReader(buf)
         if qr_src:

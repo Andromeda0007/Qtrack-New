@@ -42,7 +42,6 @@ export const PrintLabelsScreen: React.FC = () => {
       await inventoryApi.markLabelsPrinted(batchId);
     } catch (e: any) {
       const msg = e?.message || '';
-      // Ignore "already in progress" — user dismissed and tapped again
       if (!msg.toLowerCase().includes('progress')) {
         Alert.alert('Print failed', msg || 'Unable to open print dialog.');
       }
@@ -94,8 +93,8 @@ export const PrintLabelsScreen: React.FC = () => {
         </View>
 
         <Text style={styles.hint}>
-          Each label shows its container number (e.g. 47 / {containerCount ?? '100'}),
-          QR code, item info, and a unique container code for traceability.
+          Tap Print to open the printer settings. Select your printer and number of copies, then tap{' '}
+          <Text style={{ fontWeight: '700' }}>Print</Text>.
         </Text>
       </View>
     </SafeAreaView>
