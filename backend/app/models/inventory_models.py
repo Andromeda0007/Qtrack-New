@@ -110,6 +110,7 @@ class Batch(Base):
     retest_cycle: Mapped[int] = mapped_column(Integer, default=0)
     labels_printed: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
     labels_pdf: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)
+    ar_number: Mapped[str | None] = mapped_column(String(100), nullable=True, index=True)
     manufacturer_name: Mapped[str | None] = mapped_column(String(150))
     remarks: Mapped[str | None] = mapped_column(Text)
     created_by: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False)

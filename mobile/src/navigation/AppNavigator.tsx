@@ -24,6 +24,7 @@ import { RejectedListScreen } from '../screens/inventory/RejectedListScreen';
 import { RetestListScreen } from '../screens/inventory/RetestListScreen';
 import { ProductionListScreen } from '../screens/inventory/ProductionListScreen';
 import { AddARNumberScreen } from '../screens/qc/AddARNumberScreen';
+import { StartTestingScreen } from '../screens/qc/StartTestingScreen';
 import { ApproveBatchScreen } from '../screens/qc/ApproveBatchScreen';
 import { RejectBatchScreen } from '../screens/qc/RejectBatchScreen';
 import { InitiateRetestScreen } from '../screens/qc/InitiateRetestScreen';
@@ -94,7 +95,8 @@ export const AppNavigator: React.FC = () => {
             <Stack.Screen name="ApprovedList"   component={ApprovedListScreen}   options={{ headerShown: false }} />
             <Stack.Screen name="RejectedList"   component={RejectedListScreen}   options={{ headerShown: false }} />
             <Stack.Screen name="RetestList"     component={RetestListScreen}     options={{ headerShown: false }} />
-            <Stack.Screen name="AddARNumber"      component={AddARNumberScreen}      options={{ headerShown: false }} />
+            <Stack.Screen name="AddARNumber"    component={AddARNumberScreen}    options={{ headerShown: false }} />
+            <Stack.Screen name="StartTesting"   component={StartTestingScreen}   options={{ headerShown: false }} />
             <Stack.Screen name="ApproveBatch"     component={ApproveBatchScreen}    options={{ headerShown: false }} />
             <Stack.Screen name="RejectBatch"      component={RejectBatchScreen}     options={{ headerShown: false }} />
             <Stack.Screen name="InitiateRetest"   component={InitiateRetestScreen}  options={{ headerShown: false }} />

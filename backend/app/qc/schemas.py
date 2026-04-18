@@ -7,7 +7,18 @@ from datetime import date
 class AddARNumberRequest(BaseModel):
     batch_id: int
     ar_number: str
-    sample_quantity: Optional[Decimal] = None
+
+
+class StartTestingRequest(BaseModel):
+    batch_id: int
+    sample_quantity: Decimal
+
+    @field_validator("sample_quantity")
+    @classmethod
+    def qty_positive(cls, v):
+        if v <= 0:
+            raise ValueError("Sample quantity must be positive")
+        return v
 
 
 class WithdrawSampleRequest(BaseModel):

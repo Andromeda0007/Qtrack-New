@@ -174,7 +174,7 @@ async def get_batch(
         "retest_cycle": batch.retest_cycle,
         "labels_printed": getattr(batch, "labels_printed", False),
         "qr_base64": qr_b64,
-        "ar_number": batch.qc_results[-1].ar_number if batch.qc_results else None,
+        "ar_number": getattr(batch, "ar_number", None),
         "rack_number": batch.rack_number,
     }
 
@@ -297,9 +297,7 @@ async def download_retest_quarantine_label(
             status_code=400,
             detail="Retest label is only for batches in QUARANTINE (RETESTING).",
         )
-    ar_number = ""
-    if batch.qc_results:
-        ar_number = batch.qc_results[-1].ar_number or ""
+    ar_number = getattr(batch, "ar_number", "") or ""
     label_data = {
         "batch_id": batch.id,
         "material_name": batch.material.material_name if batch.material else "",
@@ -387,7 +385,7 @@ async def get_container_labels(
         return Response(
             content=batch.labels_pdf,
             media_type="application/pdf",
-            headers={"Content-Disposition": f'attachment; filename="{batch.grn.grn_number if batch.grn else batch.batch_number}.pdf"'},
+            headers={"Content-Disposition": f'attachment; filename="container_labels_{batch.batch_number}.pdf"'},
         )
 
     # First time — generate, store bytes in DB, return
@@ -401,7 +399,7 @@ async def get_container_labels(
     return Response(
         content=pdf_bytes,
         media_type="application/pdf",
-        headers={"Content-Disposition": f'attachment; filename="{batch.grn.grn_number if batch.grn else batch.batch_number}.pdf"'},
+        headers={"Content-Disposition": f'attachment; filename="container_labels_{batch.batch_number}.pdf"'},
     )
 
 

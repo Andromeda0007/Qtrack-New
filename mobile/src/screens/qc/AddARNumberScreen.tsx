@@ -18,7 +18,6 @@ import { Button } from '../../components/common/Button';
 import { qcApi } from '../../api/qc';
 import { extractError } from '../../api/client';
 import { Colors, FontSize, Spacing, BorderRadius, Shadow } from '../../utils/theme';
-import { resetToDashboardHome } from '../../navigation/goHome';
 import { OperationResultModal } from '../../components/common/OperationResultModal';
 
 export const AddARNumberScreen: React.FC = () => {
@@ -27,7 +26,6 @@ export const AddARNumberScreen: React.FC = () => {
   const { batchId, batchNumber } = route.params as { batchId: number; batchNumber?: string };
 
   const [arNumber, setArNumber] = useState('');
-  const [sampleQty, setSampleQty] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [flowDone, setFlowDone] = useState<{ title: string; message: string } | null>(null);
 
@@ -37,21 +35,12 @@ export const AddARNumberScreen: React.FC = () => {
       Alert.alert('Required', 'Enter an AR number.');
       return;
     }
-    let sample: number | undefined;
-    if (sampleQty.trim()) {
-      const n = parseFloat(sampleQty.replace(',', '.'));
-      if (Number.isNaN(n) || n <= 0) {
-        Alert.alert('Invalid', 'Sample quantity must be a positive number.');
-        return;
-      }
-      sample = n;
-    }
     setSubmitting(true);
     try {
-      await qcApi.addARNumber(batchId, ar, sample);
+      await qcApi.addARNumber(batchId, ar);
       setFlowDone({
-        title: 'Under test',
-        message: 'AR number added. The batch is now Under Test. You can continue from Home.',
+        title: 'AR number assigned',
+        message: 'AR number saved. The batch is still in Quarantine. Return to the batch and tap "Start Testing" to record the sample quantity.',
       });
     } catch (e) {
       Alert.alert('Error', extractError(e));
@@ -78,8 +67,9 @@ export const AddARNumberScreen: React.FC = () => {
             Batch {batchNumber ?? `#${batchId}`}
           </Text>
           <Text style={styles.help}>
-            Assign an analytical record (AR) number and optionally record sample quantity. The batch
-            moves to <Text style={{ fontWeight: '700' }}>Under Test</Text> in the QC lab.
+            Assign an analytical record (AR) number. The batch stays in Quarantine — you will record
+            the sample quantity separately when you are ready to{' '}
+            <Text style={{ fontWeight: '700' }}>Start Testing</Text>.
           </Text>
           <View style={styles.card}>
             <Input
@@ -89,16 +79,9 @@ export const AddARNumberScreen: React.FC = () => {
               placeholder="e.g. AR-2026-00142"
               autoCapitalize="characters"
             />
-            <Input
-              label="Sample quantity (optional)"
-              value={sampleQty}
-              onChangeText={setSampleQty}
-              placeholder="Qty withdrawn for testing"
-              keyboardType="decimal-pad"
-            />
           </View>
           <Button
-            title={submitting ? 'Saving...' : 'Submit & start testing'}
+            title={submitting ? 'Saving...' : 'Assign AR number'}
             onPress={submit}
             disabled={submitting}
           />
@@ -112,7 +95,7 @@ export const AddARNumberScreen: React.FC = () => {
         message={flowDone?.message ?? ''}
         onDismiss={() => {
           setFlowDone(null);
-          resetToDashboardHome(navigation);
+          navigation.goBack();
         }}
       />
     </SafeAreaView>

@@ -7,6 +7,7 @@ from app.models.user_models import User
 from app.qc import service
 from app.qc.schemas import (
     AddARNumberRequest,
+    StartTestingRequest,
     WithdrawSampleRequest,
     ApproveRejectRequest,
     RejectRequest,
@@ -25,9 +26,19 @@ async def add_ar_number(
     current_user: User = Depends(require_permission("GENERATE_AR_NUMBER")),
     db: AsyncSession = Depends(get_db),
 ):
-    qc = await service.add_ar_number(db, payload.model_dump(), current_user)
+    result = await service.assign_ar_number(db, payload.batch_id, payload.ar_number, current_user)
+    return {"message": "AR number assigned. Batch remains in Quarantine.", **result}
+
+
+@router.post("/start-testing")
+async def start_testing(
+    payload: StartTestingRequest,
+    current_user: User = Depends(require_permission("GENERATE_AR_NUMBER")),
+    db: AsyncSession = Depends(get_db),
+):
+    qc = await service.start_testing(db, payload.batch_id, payload.sample_quantity, current_user)
     return {
-        "message": "AR number added and batch moved to UNDER_TEST",
+        "message": "Sample recorded. Batch moved to Under Test.",
         "qc_result_id": qc.id,
         "ar_number": qc.ar_number,
     }

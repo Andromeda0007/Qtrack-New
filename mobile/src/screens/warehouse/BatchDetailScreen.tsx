@@ -83,12 +83,26 @@ export const BatchDetailScreen: React.FC = () => {
       });
     }
     if (role === 'QC_EXECUTIVE' && (batch.status === 'QUARANTINE' || batch.status === 'QUARANTINE_RETEST')) {
-      acts.push({
-        label: 'Add AR Number',
-        color: Colors.info,
-        icon: 'flask-outline',
-        onPress: () => navigation.navigate('AddARNumber', { batchId, batchNumber: batchNum }),
-      });
+      if (!batch.ar_number) {
+        acts.push({
+          label: 'Add AR Number',
+          color: Colors.info,
+          icon: 'flask-outline',
+          onPress: () => navigation.navigate('AddARNumber', { batchId, batchNumber: batchNum }),
+        });
+      } else {
+        acts.push({
+          label: 'Start Testing',
+          color: Colors.primary,
+          icon: 'play-circle-outline',
+          onPress: () => navigation.navigate('StartTesting', {
+            batchId,
+            batchNumber: batchNum,
+            arNumber: batch.ar_number,
+            unitOfMeasure: batch.unit_of_measure ?? 'KG',
+          }),
+        });
+      }
     }
     if (role === 'QC_HEAD' && batch.status === 'UNDER_TEST') {
       acts.push(

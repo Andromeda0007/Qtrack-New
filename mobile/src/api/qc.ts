@@ -1,8 +1,13 @@
 import apiClient from './client';
 
 export const qcApi = {
-  addARNumber: async (batch_id: number, ar_number: string, sample_quantity?: number) => {
-    const res = await apiClient.post('/qc/ar-number', { batch_id, ar_number, sample_quantity });
+  addARNumber: async (batch_id: number, ar_number: string) => {
+    const res = await apiClient.post('/qc/ar-number', { batch_id, ar_number });
+    return res.data;
+  },
+
+  startTesting: async (batch_id: number, sample_quantity: number) => {
+    const res = await apiClient.post('/qc/start-testing', { batch_id, sample_quantity });
     return res.data;
   },
 

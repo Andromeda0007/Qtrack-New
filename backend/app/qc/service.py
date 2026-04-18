@@ -70,61 +70,102 @@ async def _update_batch_status(
     db.add(history)
 
 
-async def add_ar_number(db: AsyncSession, data: dict, done_by: User) -> QCResult:
-    batch = await _get_batch_locked(db, data["batch_id"])
+async def assign_ar_number(db: AsyncSession, batch_id: int, ar_number: str, done_by: User) -> dict:
+    """Step 1: Save AR number on the batch. Batch stays in QUARANTINE."""
+    batch = await _get_batch_locked(db, batch_id)
 
     if batch.status not in [BatchStatus.QUARANTINE, BatchStatus.QUARANTINE_RETEST]:
         raise HTTPException(
             status_code=400,
-            detail=f"Cannot add AR number — batch status is {batch.status}. Must be QUARANTINE or QUARANTINE_RETEST.",
+            detail=f"Cannot assign AR number — batch status is {batch.status}. Must be QUARANTINE or QUARANTINE_RETEST.",
         )
 
     if not batch.labels_printed:
         raise HTTPException(
             status_code=400,
-            detail="Container labels must be printed before moving the batch to Under Test.",
+            detail="Container labels must be printed before assigning an AR number.",
         )
 
-    # Check AR number not duplicate
-    existing = await db.execute(select(QCResult).where(QCResult.ar_number == data["ar_number"]))
-    if existing.scalar_one_or_none():
+    # Check AR number not duplicate across QCResult and batches tables
+    existing_qc = await db.execute(select(QCResult).where(QCResult.ar_number == ar_number))
+    if existing_qc.scalar_one_or_none():
         raise HTTPException(status_code=400, detail="AR number already exists")
+    from app.models.inventory_models import Batch as BatchModel
+    existing_batch = await db.execute(
+        select(BatchModel).where(BatchModel.ar_number == ar_number, BatchModel.id != batch_id)
+    )
+    if existing_batch.scalar_one_or_none():
+        raise HTTPException(status_code=400, detail="AR number already exists")
+
+    batch.ar_number = ar_number
+
+    await log_action(
+        db, "ASSIGN_AR_NUMBER", done_by.id, done_by.username,
+        "batch", batch.id,
+        f"AR number {ar_number} assigned. Batch remains in {batch.status}.",
+        from_status=audit_status_value(batch.status),
+        to_status=audit_status_value(batch.status),
+    )
+
+    await db.commit()
+    return {"batch_id": batch.id, "ar_number": ar_number}
+
+
+async def start_testing(db: AsyncSession, batch_id: int, sample_quantity, done_by: User) -> QCResult:
+    """Step 2: Record sample quantity and move batch to UNDER_TEST."""
+    batch = await _get_batch_locked(db, batch_id)
+
+    if batch.status not in [BatchStatus.QUARANTINE, BatchStatus.QUARANTINE_RETEST]:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Batch must be QUARANTINE or QUARANTINE_RETEST to start testing. Current: {batch.status}",
+        )
+
+    if not batch.ar_number:
+        raise HTTPException(
+            status_code=400,
+            detail="AR number must be assigned before starting testing.",
+        )
+
+    # For COUNT unit, sample_quantity must be a whole number
+    uom = getattr(batch, "unit_of_measure", "KG")
+    if uom == "COUNT":
+        if sample_quantity != int(sample_quantity):
+            raise HTTPException(status_code=400, detail="Sample quantity must be a whole number for COUNT items.")
+        sample_quantity = int(sample_quantity)
+
+    if batch.remaining_quantity < sample_quantity:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Insufficient quantity for sample. Available: {batch.remaining_quantity}",
+        )
+
+    batch.remaining_quantity -= sample_quantity
+    movement = StockMovement(
+        batch_id=batch.id,
+        movement_type=MovementType.QC_SAMPLE,
+        quantity=sample_quantity,
+        performed_by=done_by.id,
+        remarks=f"QC sample for AR {batch.ar_number}",
+    )
+    db.add(movement)
 
     qc_result = QCResult(
         batch_id=batch.id,
-        ar_number=data["ar_number"],
-        sample_quantity=data.get("sample_quantity"),
+        ar_number=batch.ar_number,
+        sample_quantity=sample_quantity,
         test_status=TestStatus.UNDER_TEST,
         sample_taken_by=done_by.id,
     )
     db.add(qc_result)
 
-    # Deduct sample only when registering quantity here (optional if sample was withdrawn earlier via WITHDRAW_SAMPLE)
-    sq = data.get("sample_quantity")
-    if sq is not None and sq > 0:
-        if batch.remaining_quantity < sq:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Insufficient quantity for sample. Available: {batch.remaining_quantity}",
-            )
-        batch.remaining_quantity -= sq
-        movement = StockMovement(
-            batch_id=batch.id,
-            movement_type=MovementType.QC_SAMPLE,
-            quantity=sq,
-            performed_by=done_by.id,
-            remarks=f"QC sample withdrawal for AR {data['ar_number']}",
-        )
-        db.add(movement)
-
     old_status = batch.status
     await _update_batch_status(db, batch, BatchStatus.UNDER_TEST, done_by.id, "QC sampling initiated", "TESTING")
 
-    # Audit: only the status move (quarantine → under test); AR/sample details stay in QC tables.
     await log_action(
-        db, "ADD_AR_NUMBER", done_by.id, done_by.username,
+        db, "START_TESTING", done_by.id, done_by.username,
         "batch", batch.id,
-        "Quarantine → under test",
+        f"Sample qty {sample_quantity} taken for AR {batch.ar_number}. Quarantine → Under Test.",
         from_status=audit_status_value(old_status),
         to_status=audit_status_value(batch.status),
     )
@@ -136,8 +177,7 @@ async def add_ar_number(db: AsyncSession, data: dict, done_by: User) -> QCResult
             db,
             ["QC_HEAD"],
             "Item under test",
-            f"{info['grn']} · {info['material_name']} — AR {data['ar_number']}. "
-            f"Awaiting approval/rejection.",
+            f"{info['grn']} · {info['material_name']} — AR {batch.ar_number}. Awaiting approval/rejection.",
             entity_type="batch",
             entity_id=batch.id,
         )
