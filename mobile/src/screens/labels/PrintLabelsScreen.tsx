@@ -5,6 +5,7 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Sharing from 'expo-sharing';
 import * as FileSystem from 'expo-file-system/legacy';
+import { Platform } from 'react-native';
 import { inventoryApi } from '../../api/inventory';
 import { Colors, FontSize, Spacing, BorderRadius, Shadow } from '../../utils/theme';
 
@@ -39,10 +40,17 @@ export const PrintLabelsScreen: React.FC = () => {
     if (!uri || busy) return;
     setBusy(true);
     try {
-      const dest = `${FileSystem.documentDirectory}container-labels-${batchId}.pdf`;
-      await FileSystem.copyAsync({ from: uri, to: dest });
-      await inventoryApi.markLabelsPrinted(batchId);
-      Alert.alert('Saved', 'PDF saved to your Files app.');
+      if (Platform.OS === 'ios') {
+        // iOS: copy to documentDirectory — visible in Files app under On My iPhone
+        const dest = `${FileSystem.documentDirectory}container-labels-${batchId}.pdf`;
+        await FileSystem.copyAsync({ from: uri, to: dest });
+        await inventoryApi.markLabelsPrinted(batchId);
+        Alert.alert('Saved', 'PDF saved to your Files app.');
+      } else {
+        // Android: documentDirectory is internal — use share sheet so user can save to Downloads/Drive
+        await Sharing.shareAsync(uri, { mimeType: 'application/pdf' });
+        await inventoryApi.markLabelsPrinted(batchId);
+      }
     } catch (e: any) {
       Alert.alert('Error', e?.message || 'Unable to save PDF.');
     } finally {
@@ -54,7 +62,7 @@ export const PrintLabelsScreen: React.FC = () => {
     if (!uri || busy) return;
     setBusy(true);
     try {
-      await Sharing.shareAsync(uri, { mimeType: 'application/pdf', UTI: 'com.adobe.pdf' });
+      await Sharing.shareAsync(uri, { mimeType: 'application/pdf', ...(Platform.OS === 'ios' && { UTI: 'com.adobe.pdf' }) });
       await inventoryApi.markLabelsPrinted(batchId);
     } catch (e: any) {
       Alert.alert('Error', e?.message || 'Unable to open share sheet.');

@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView,
-  TouchableOpacity, ActivityIndicator, Image, Modal, TextInput, Alert,
+  TouchableOpacity, ActivityIndicator, Image, Modal, TextInput, Alert, Platform,
 } from 'react-native';
 import * as Sharing from 'expo-sharing';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -140,7 +140,7 @@ export const BatchDetailScreen: React.FC = () => {
         Alert.alert('Unavailable', 'PDF viewer is not available on this device.');
         return;
       }
-      await Sharing.shareAsync(uri, { mimeType: 'application/pdf', UTI: 'com.adobe.pdf' });
+      await Sharing.shareAsync(uri, { mimeType: 'application/pdf', ...(Platform.OS === 'ios' && { UTI: 'com.adobe.pdf' }) });
     } catch (e: any) {
       Alert.alert('Error', e?.message || 'Could not open PDF.');
     } finally {
