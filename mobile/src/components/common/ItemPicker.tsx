@@ -162,7 +162,6 @@ export const ItemPicker: React.FC<Props> = ({
                       </Text>
                       {inactive ? <Text style={styles.inactiveTag}>Inactive</Text> : null}
                     </View>
-                    <Text style={styles.rowUom}>{item.unit_of_measure}</Text>
                   </TouchableOpacity>
                 );
               }}
