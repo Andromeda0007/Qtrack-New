@@ -141,12 +141,11 @@ export const ItemsListScreen: React.FC = () => {
               <View style={{ flex: 1 }}>
                 <Text style={styles.code}>{item.material_code}</Text>
                 <Text style={styles.name} numberOfLines={1}>{item.material_name}</Text>
-                <View style={styles.metaRow}>
-                  <Text style={styles.metaTag}>{item.unit_of_measure}</Text>
-                  {!item.is_active ? (
+                {!item.is_active ? (
+                  <View style={styles.metaRow}>
                     <Text style={[styles.metaTag, styles.inactiveTag]}>Inactive</Text>
-                  ) : null}
-                </View>
+                  </View>
+                ) : null}
               </View>
               <Ionicons name="chevron-forward" size={18} color={Colors.textMuted} />
             </TouchableOpacity>

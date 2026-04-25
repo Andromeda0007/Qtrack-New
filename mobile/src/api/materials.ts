@@ -1,16 +1,15 @@
 import apiClient from './client';
-import { Material, MaterialBatchCounts, UnitOfMeasure } from '../types';
+import { Material, MaterialBatchCounts } from '../types';
 
 export interface CreateItemPayload {
   material_name: string;
+  material_code: string;
   description?: string;
-  unit_of_measure?: UnitOfMeasure;
 }
 
 export interface UpdateItemPayload {
   material_name?: string;
   description?: string;
-  unit_of_measure?: UnitOfMeasure;
   is_active?: boolean;
 }
 

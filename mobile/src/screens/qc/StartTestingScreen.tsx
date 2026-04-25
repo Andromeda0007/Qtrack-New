@@ -26,6 +26,7 @@ export const StartTestingScreen: React.FC = () => {
   };
 
   const isCount = unitOfMeasure === 'COUNT';
+  const uomLabel = isCount ? 'count' : unitOfMeasure === 'L' ? 'L' : 'kg';
 
   const [sampleQty, setSampleQty] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -59,7 +60,7 @@ export const StartTestingScreen: React.FC = () => {
       await qcApi.startTesting(batchId, n);
       setFlowDone({
         title: 'Under Test',
-        message: `Sample of ${n} ${isCount ? '' : 'kg'} recorded for AR ${arNumber}. The batch is now Under Test.`,
+        message: `Sample of ${n} ${isCount ? '' : uomLabel} recorded for AR ${arNumber}. The batch is now Under Test.`,
       });
     } catch (e) {
       Alert.alert('Error', extractError(e));
@@ -93,7 +94,7 @@ export const StartTestingScreen: React.FC = () => {
 
           <View style={styles.card}>
             <Input
-              label={`Sample Quantity * (${isCount ? 'count' : 'kg'})`}
+              label={`Sample Quantity * (${uomLabel})`}
               value={sampleQty}
               onChangeText={handleQtyChange}
               placeholder={isCount ? 'e.g. 5' : 'e.g. 0.500'}

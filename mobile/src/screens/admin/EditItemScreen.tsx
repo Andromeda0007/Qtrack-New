@@ -11,7 +11,7 @@ import { Colors, FontSize, Spacing, BorderRadius, Shadow } from '../../utils/the
 import { Input } from '../../components/common/Input';
 import { Button } from '../../components/common/Button';
 import { materialsApi } from '../../api/materials';
-import { Material, MaterialBatchCounts, UnitOfMeasure } from '../../types';
+import { Material, MaterialBatchCounts } from '../../types';
 import { extractError } from '../../api/client';
 
 export const EditItemScreen: React.FC = () => {
@@ -21,7 +21,7 @@ export const EditItemScreen: React.FC = () => {
 
   const [item, setItem] = useState<Material | null>(null);
   const [name, setName] = useState('');
-  const [unit, setUnit] = useState<UnitOfMeasure>('KG');
+  const [description, setDescription] = useState('');
   const [isActive, setIsActive] = useState(true);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -33,7 +33,7 @@ export const EditItemScreen: React.FC = () => {
         const m = await materialsApi.get(id);
         setItem(m);
         setName(m.material_name);
-        setUnit(m.unit_of_measure);
+        setDescription(m.description ?? '');
         setIsActive(m.is_active);
       } catch (e) {
         Alert.alert('Error', extractError(e));
@@ -46,7 +46,7 @@ export const EditItemScreen: React.FC = () => {
   const dirty =
     item &&
     (name !== item.material_name ||
-      unit !== item.unit_of_measure);
+      description !== (item.description ?? ''));
 
   const handleSave = async () => {
     if (!item) return;
@@ -58,7 +58,7 @@ export const EditItemScreen: React.FC = () => {
     try {
       const updated = await materialsApi.update(item.id, {
         material_name: name.trim(),
-        unit_of_measure: unit,
+        description: description.trim() || undefined,
       });
       setItem(updated);
       Toast.show({ type: 'success', text1: 'Item updated' });
@@ -165,19 +165,13 @@ export const EditItemScreen: React.FC = () => {
               onChangeText={setName}
               placeholder="e.g. Paracetamol Powder"
             />
-            <Text style={styles.label}>Default Unit</Text>
-            <View style={styles.unitRow}>
-              {(['KG', 'COUNT'] as UnitOfMeasure[]).map((u) => (
-                <TouchableOpacity
-                  key={u}
-                  style={[styles.unitChip, unit === u && styles.unitChipActive]}
-                  onPress={() => setUnit(u)}
-                  activeOpacity={0.7}
-                >
-                  <Text style={[styles.unitText, unit === u && styles.unitTextActive]}>{u}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
+            <Input
+              label="Description"
+              value={description}
+              onChangeText={setDescription}
+              placeholder="Optional description"
+              multiline
+            />
 
             {!isActive ? (
               <View style={styles.inactiveBanner}>
@@ -246,20 +240,6 @@ const styles = StyleSheet.create({
   codeValue: {
     fontSize: FontSize.md, color: Colors.primary, fontWeight: '800', letterSpacing: 0.5,
   },
-
-  label: {
-    fontSize: FontSize.sm, fontWeight: '600',
-    color: Colors.textPrimary, marginBottom: 8, marginTop: 4,
-  },
-  unitRow: { flexDirection: 'row', gap: 10 },
-  unitChip: {
-    flex: 1, borderWidth: 1.5, borderColor: Colors.border,
-    borderRadius: BorderRadius.md, paddingVertical: 14, alignItems: 'center',
-    backgroundColor: '#fafafa',
-  },
-  unitChipActive: { borderColor: Colors.primary, backgroundColor: Colors.primary + '10' },
-  unitText: { fontSize: FontSize.md, fontWeight: '800', color: Colors.textSecondary },
-  unitTextActive: { color: Colors.primary },
 
   inactiveBanner: {
     flexDirection: 'row', alignItems: 'flex-start', gap: 8,

@@ -114,15 +114,15 @@ export const CreateCardScreen: React.FC = () => {
 
   const set = (key: string, value: string) => setForm((f) => ({ ...f, [key]: value }));
 
-  /** Enforce unit-specific numeric input (KG: 3 decimals; COUNT: integer). */
-  const sanitize = (v: string): string => (unit === 'KG' ? v : v.replace(/[^\d]/g, ''));
+  /** Enforce unit-specific numeric input (KG/L: 3 decimals; COUNT: integer). */
+  const sanitize = (v: string): string => (unit === 'COUNT' ? v.replace(/[^\d]/g, '') : v);
 
   const handleQtyChange = (
     setter: React.Dispatch<React.SetStateAction<string>>,
     raw: string,
   ) => {
     const cleaned = sanitize(raw);
-    if (unit === 'KG' && !KG_DEC.test(cleaned)) return;
+    if ((unit === 'KG' || unit === 'L') && !KG_DEC.test(cleaned)) return;
     if (unit === 'COUNT' && !INT_RE.test(cleaned)) return;
     setter(cleaned);
   };
@@ -144,15 +144,17 @@ export const CreateCardScreen: React.FC = () => {
     }
   };
 
+  const unitLabel = unit === 'KG' ? 'kg' : unit === 'L' ? 'L' : 'count';
+
   const qtyMismatch: string | null = useMemo(() => {
     const t = parseFloat(totalQty);
     const c = parseFloat(containers);
     const p = parseFloat(perContainer);
     if ([t, c, p].some(isNaN)) return null;
     const expected = c * p;
-    if (unit === 'KG') {
+    if (unit === 'KG' || unit === 'L') {
       return Math.abs(expected - t) > 0.001
-        ? `Total should be ${expected.toFixed(3)} kg (${c} × ${p})`
+        ? `Total should be ${expected.toFixed(3)} ${unitLabel} (${c} × ${p})`
         : null;
     }
     return expected !== t
@@ -231,7 +233,7 @@ export const CreateCardScreen: React.FC = () => {
   // Whenever an item is picked, sync the unit hint from the item's default.
   const handleItemChange = (m: Material | null) => {
     setSelectedItem(m);
-    if (m && (m.unit_of_measure === 'KG' || m.unit_of_measure === 'COUNT')) {
+    if (m && (m.unit_of_measure === 'KG' || m.unit_of_measure === 'COUNT' || m.unit_of_measure === 'L')) {
       setUnit(m.unit_of_measure);
     }
   };
@@ -293,7 +295,7 @@ export const CreateCardScreen: React.FC = () => {
           <View style={styles.card}>
             <Text style={styles.fieldLabel}>Unit *</Text>
             <View style={styles.unitRow}>
-              {(['KG', 'COUNT'] as UnitOfMeasure[]).map((u) => (
+              {(['KG', 'COUNT', 'L'] as UnitOfMeasure[]).map((u) => (
                 <TouchableOpacity
                   key={u}
                   style={[styles.unitChip, unit === u && styles.unitChipActive]}
@@ -309,12 +311,12 @@ export const CreateCardScreen: React.FC = () => {
             </View>
 
             <Input
-              label={`Received Total Quantity * (${unit === 'KG' ? 'kg' : 'count'})`}
-              placeholder={unit === 'KG' ? 'e.g. 4000.000' : 'e.g. 200'}
+              label={`Received Total Quantity * (${unitLabel})`}
+              placeholder={unit === 'COUNT' ? 'e.g. 200' : 'e.g. 4000.000'}
               value={totalQty}
               onChangeText={(v) => handleQtyChange(setTotalQty, v)}
               onBlur={onQtyBlur}
-              keyboardType={unit === 'KG' ? 'decimal-pad' : 'number-pad'}
+              keyboardType={unit === 'COUNT' ? 'number-pad' : 'decimal-pad'}
             />
             <Input
               label="No. of Containers *"
@@ -328,12 +330,12 @@ export const CreateCardScreen: React.FC = () => {
               keyboardType="number-pad"
             />
             <Input
-              label={`Quantity per Container * (${unit === 'KG' ? 'kg' : 'count'})`}
-              placeholder={unit === 'KG' ? 'e.g. 40.000' : 'e.g. 10'}
+              label={`Quantity per Container * (${unitLabel})`}
+              placeholder={unit === 'COUNT' ? 'e.g. 10' : 'e.g. 40.000'}
               value={perContainer}
               onChangeText={(v) => handleQtyChange(setPerContainer, v)}
               onBlur={onQtyBlur}
-              keyboardType={unit === 'KG' ? 'decimal-pad' : 'number-pad'}
+              keyboardType={unit === 'COUNT' ? 'number-pad' : 'decimal-pad'}
             />
             {qtyMismatch ? (
               <Text style={styles.errorText}>{qtyMismatch}</Text>
@@ -432,7 +434,7 @@ export const CreateCardScreen: React.FC = () => {
                 label="Total Quantity"
                 value={
                   result
-                    ? `${result.total_quantity} ${result.unit_of_measure === 'KG' ? 'kg' : ''}`.trim()
+                    ? `${result.total_quantity} ${result.unit_of_measure !== 'COUNT' ? result.unit_of_measure : ''}`.trim()
                     : ''
                 }
               />
@@ -442,7 +444,7 @@ export const CreateCardScreen: React.FC = () => {
                 value={
                   result
                     ? `${result.container_count} × ${result.container_quantity} ` +
-                      `${result.unit_of_measure === 'KG' ? 'kg' : ''} ` +
+                      `${result.unit_of_measure !== 'COUNT' ? result.unit_of_measure : ''} ` +
                       `(${result.pack_type})`
                     : ''
                 }

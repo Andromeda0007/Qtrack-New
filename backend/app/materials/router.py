@@ -72,7 +72,7 @@ async def list_materials(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    query = select(Material).order_by(Material.material_code)
+    query = select(Material).order_by(func.lower(Material.material_name))
     if not include_inactive:
         query = query.where(Material.is_active == True)  # noqa: E712
     result = await db.execute(query)

@@ -40,7 +40,7 @@ export type BatchStatus =
   | 'QUARANTINE_RETEST'
   | 'ISSUED_TO_PRODUCTION';
 
-export type UnitOfMeasure = 'KG' | 'COUNT';
+export type UnitOfMeasure = 'KG' | 'COUNT' | 'L';
 
 export interface BatchContainer {
   container_number: number;
