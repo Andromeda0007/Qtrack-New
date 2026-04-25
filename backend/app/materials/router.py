@@ -1,16 +1,16 @@
 """Item (Material) master — managed by Warehouse Head.
 
-Code is auto-generated as ``ITM-NNN`` by a single-row counter (``item_counter``).
-Warehouse Head only supplies the name (and optional description / unit default).
+Warehouse Head supplies item name, item code, and optional description.
 Soft delete via ``is_active = False``.
 """
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, update, func
+from sqlalchemy import select, func
+from sqlalchemy.exc import IntegrityError
 
 from app.database import get_db
 from app.auth.dependencies import get_current_user, require_permission
-from app.models.inventory_models import Material, ItemCounter, Batch, BatchStatus
+from app.models.inventory_models import Material, Batch, BatchStatus
 from app.models.user_models import User
 from app.materials.schemas import (
     MaterialCreate, MaterialUpdate, MaterialResponse, MaterialBatchCounts,
@@ -20,36 +20,13 @@ from app.audit.service import log_action
 router = APIRouter()
 
 
-async def _allocate_next_item_code(db: AsyncSession) -> str:
-    """Atomically bump the ITM counter and return the next ``ITM-NNN`` code."""
-    # SELECT ... FOR UPDATE on the single row to prevent concurrent double-allocation.
-    result = await db.execute(
-        select(ItemCounter).where(ItemCounter.id == 1).with_for_update()
-    )
-    counter = result.scalar_one_or_none()
-    if counter is None:
-        # Self-heal if seed missed it
-        counter = ItemCounter(id=1, last_number=0)
-        db.add(counter)
-        await db.flush()
-        result = await db.execute(
-            select(ItemCounter).where(ItemCounter.id == 1).with_for_update()
-        )
-        counter = result.scalar_one()
-
-    counter.last_number += 1
-    next_num = counter.last_number
-    # 3-digit min, grows naturally (ITM-001, ITM-002, …, ITM-999, ITM-1000)
-    return f"ITM-{next_num:03d}"
-
-
 @router.post("/", response_model=MaterialResponse)
 async def create_material(
     payload: MaterialCreate,
     current_user: User = Depends(require_permission("MANAGE_ITEMS")),
     db: AsyncSession = Depends(get_db),
 ):
-    # Reject duplicate ACTIVE name (case-insensitive is nicer but sticking to exact for now)
+    # Reject duplicate ACTIVE name (case-insensitive)
     existing = await db.execute(
         select(Material).where(
             func.lower(Material.material_name) == payload.material_name.strip().lower(),
@@ -59,13 +36,22 @@ async def create_material(
     if existing.scalar_one_or_none():
         raise HTTPException(status_code=400, detail="An active item with this name already exists")
 
-    code = await _allocate_next_item_code(db)
+    # Reject duplicate code (any status — codes must be globally unique)
+    code_check = await db.execute(
+        select(Material.id).where(
+            func.upper(Material.material_code) == payload.material_code.strip().upper()
+        )
+    )
+    if code_check.scalar_one_or_none():
+        raise HTTPException(status_code=409, detail=f"Item code '{payload.material_code.strip()}' is already in use")
+
+    code = payload.material_code.strip().upper()
 
     material = Material(
         material_name=payload.material_name.strip(),
         material_code=code,
         description=payload.description,
-        unit_of_measure=payload.unit_of_measure,
+        unit_of_measure="KG",
         is_active=True,
         created_by=current_user.id,
     )

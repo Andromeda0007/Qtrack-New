@@ -5,17 +5,15 @@ from datetime import datetime
 
 
 class MaterialCreate(BaseModel):
-    """Warehouse Head creates an Item. Code is auto-generated (ITM-NNN)."""
+    """Warehouse Head creates an Item. Code is supplied by the user."""
     material_name: str = Field(..., min_length=1, max_length=150)
+    material_code: str = Field(..., min_length=1, max_length=50)
     description: Optional[str] = None
-    # Default unit hint for this item (KG or COUNT). User can override per-GRN.
-    unit_of_measure: str = Field(default="KG", pattern="^(KG|COUNT)$")
 
 
 class MaterialUpdate(BaseModel):
     material_name: Optional[str] = Field(None, min_length=1, max_length=150)
     description: Optional[str] = None
-    unit_of_measure: Optional[str] = Field(None, pattern="^(KG|COUNT)$")
     is_active: Optional[bool] = None
 
 

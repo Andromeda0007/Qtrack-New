@@ -22,7 +22,7 @@ class GRNCreate(BaseModel):
     manufacture_date: date
     expiry_date: date
     pack_type: str = "BAG"
-    unit_of_measure: str = Field(default="KG", pattern="^(KG|COUNT)$")
+    unit_of_measure: str = Field(default="KG", pattern="^(KG|COUNT|L)$")
     container_count: int
     container_quantity: Decimal
     total_quantity: Decimal
@@ -49,7 +49,10 @@ class GRNCreate(BaseModel):
     @field_validator("unit_of_measure")
     @classmethod
     def normalize_uom(cls, v):
-        return v.upper()
+        normalized = v.upper()
+        if normalized == "LITRES" or normalized == "LITER" or normalized == "LITRE":
+            return "L"
+        return normalized
 
 
 # Legacy alias — old routers referenced ``ProductCreate``. Keep a subclass so

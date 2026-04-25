@@ -70,6 +70,15 @@ def _validate_quantities(uom: str, total: Decimal, count: int, per: Decimal) -> 
                     f"but total = {total} (tolerance ±{_QTY_TOLERANCE_KG} kg)"
                 ),
             )
+    elif uom == "L":
+        if abs(expected - total) > _QTY_TOLERANCE_KG:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"Quantity mismatch: {count} × {per} = {expected}, "
+                    f"but total = {total} (tolerance ±{_QTY_TOLERANCE_KG} L)"
+                ),
+            )
     elif uom == "COUNT":
         if per != per.to_integral_value() or total != total.to_integral_value():
             raise HTTPException(
