@@ -11,6 +11,7 @@ class FGBatchCreate(BaseModel):
     manufacture_date: date
     expiry_date: date
     pack_size: Optional[str] = None
+    unit_of_measure: Optional[str] = "KG"
     net_weight: Optional[Decimal] = None
     gross_weight: Optional[Decimal] = None
     quantity: Decimal

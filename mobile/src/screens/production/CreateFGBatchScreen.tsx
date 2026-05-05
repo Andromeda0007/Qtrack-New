@@ -9,11 +9,19 @@ import { Ionicons } from '@expo/vector-icons';
 import { productionApi } from '../../api/production';
 import { Input } from '../../components/common/Input';
 import { Button } from '../../components/common/Button';
-import { Colors, FontSize, Spacing } from '../../utils/theme';
+import { Colors, FontSize, Spacing, BorderRadius, Shadow } from '../../utils/theme';
 import { extractError } from '../../api/client';
-import { parseDMYToISO, formatDate } from '../../utils/formatters';
+import { parseDMYToISO, formatDate, formatQuantity } from '../../utils/formatters';
 import { resetToDashboardHome } from '../../navigation/goHome';
 import { OperationResultModal } from '../../components/common/OperationResultModal';
+
+type UOM = 'KG' | 'COUNT' | 'L';
+
+const UOM_OPTIONS: { value: UOM; label: string }[] = [
+  { value: 'KG', label: 'KG' },
+  { value: 'COUNT', label: 'COUNT' },
+  { value: 'L', label: 'L' },
+];
 
 export const CreateFGBatchScreen: React.FC = () => {
   const navigation = useNavigation<any>();
@@ -23,9 +31,12 @@ export const CreateFGBatchScreen: React.FC = () => {
   const [batchNumber, setBatchNumber] = useState('');
   const [expiryDate, setExpiryDate] = useState('');
   const [packSize, setPackSize] = useState('');
+  const [unit, setUnit] = useState<UOM>('KG');
   const [quantity, setQuantity] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [flowDone, setFlowDone] = useState<{ title: string; message: string } | null>(null);
+
+  const unitLabel = unit === 'KG' ? 'kg' : unit === 'L' ? 'L' : 'count';
 
   const onSubmit = async () => {
     if (!productName.trim()) { Alert.alert('Validation', 'Product name is required.'); return; }
@@ -45,6 +56,7 @@ export const CreateFGBatchScreen: React.FC = () => {
         manufacture_date: today,
         expiry_date: expISO,
         pack_size: packSize.trim() || undefined,
+        unit_of_measure: unit,
         quantity: qty,
       });
       setFlowDone({
@@ -54,7 +66,7 @@ export const CreateFGBatchScreen: React.FC = () => {
           `Product: ${productName.trim()}`,
           `Batch: ${res.batch_number ?? batchNumber.trim()}`,
           packSize.trim() ? `Pack Size: ${packSize.trim()}` : null,
-          `Qty: ${qty} units`,
+          `Qty: ${formatQuantity(qty)} ${unitLabel}`,
           `Expiry: ${formatDate(expISO)}`,
           '',
           'Sent to QA for inspection.',
@@ -106,7 +118,7 @@ export const CreateFGBatchScreen: React.FC = () => {
             placeholder="e.g. 01-05-2027"
             value={expiryDate}
             onChangeText={setExpiryDate}
-            keyboardType="numeric"
+            keyboardType="numbers-and-punctuation"
           />
           <Input
             label="Pack Size"
@@ -114,12 +126,28 @@ export const CreateFGBatchScreen: React.FC = () => {
             value={packSize}
             onChangeText={setPackSize}
           />
+
+          {/* Unit selector */}
+          <Text style={styles.fieldLabel}>Unit *</Text>
+          <View style={styles.unitRow}>
+            {UOM_OPTIONS.map((o) => (
+              <TouchableOpacity
+                key={o.value}
+                style={[styles.unitChip, unit === o.value && styles.unitChipActive]}
+                onPress={() => { setUnit(o.value); setQuantity(''); }}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.unitText, unit === o.value && styles.unitTextActive]}>{o.label}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
           <Input
-            label="Quantity (units) *"
-            placeholder="e.g. 500"
+            label={`Quantity (${unitLabel}) *`}
+            placeholder={unit === 'COUNT' ? 'e.g. 500' : 'e.g. 250.000'}
             value={quantity}
             onChangeText={setQuantity}
-            keyboardType="decimal-pad"
+            keyboardType={unit === 'COUNT' ? 'number-pad' : 'decimal-pad'}
           />
 
           <Button
@@ -152,4 +180,18 @@ const styles = StyleSheet.create({
   headerTitle: { fontSize: FontSize.lg, fontWeight: '800', color: '#fff' },
   scroll: { flex: 1, backgroundColor: Colors.background },
   content: { padding: Spacing.md, paddingBottom: 40 },
+
+  fieldLabel: {
+    fontSize: FontSize.sm, fontWeight: '600',
+    color: Colors.textPrimary, marginBottom: 8, marginTop: 4,
+  },
+  unitRow: { flexDirection: 'row', gap: 10, marginBottom: 14 },
+  unitChip: {
+    flex: 1, borderWidth: 1.5, borderColor: Colors.border,
+    borderRadius: BorderRadius.md, paddingVertical: 12, alignItems: 'center',
+    backgroundColor: '#fafafa',
+  },
+  unitChipActive: { borderColor: Colors.primary, backgroundColor: Colors.primary + '10' },
+  unitText: { fontSize: FontSize.md, fontWeight: '800', color: Colors.textSecondary },
+  unitTextActive: { color: Colors.primary },
 });

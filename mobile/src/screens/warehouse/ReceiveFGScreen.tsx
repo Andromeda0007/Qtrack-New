@@ -42,7 +42,7 @@ export const ReceiveFGScreen: React.FC = () => {
   const onConfirm = async () => {
     Alert.alert(
       'Confirm Receipt',
-      `Receive ${formatQuantity(batch.quantity)} units of "${batch.product_name}" into warehouse?`,
+      `Receive ${formatQuantity(batch.quantity)} ${batch.unit_of_measure ?? 'KG'} of "${batch.product_name}" into warehouse?`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -57,7 +57,7 @@ export const ReceiveFGScreen: React.FC = () => {
                   batch.fgtn_no ? `FGTN: ${batch.fgtn_no}` : null,
                   `Product: ${batch.product_name}`,
                   `Batch: ${batch.batch_number}`,
-                  `Qty: ${formatQuantity(batch.quantity)} units`,
+                  `Qty: ${formatQuantity(batch.quantity)} ${batch.unit_of_measure ?? 'KG'}`,
                   '',
                   'Received into warehouse inventory.',
                 ].filter(Boolean).join('\n'),
@@ -109,7 +109,7 @@ export const ReceiveFGScreen: React.FC = () => {
             </>
           ) : null}
           <Divider />
-          <Row label="Quantity" value={`${formatQuantity(batch.quantity)} units`} />
+          <Row label="Quantity" value={`${formatQuantity(batch.quantity)} ${batch.unit_of_measure ?? 'KG'}`} />
         </View>
 
         <Button

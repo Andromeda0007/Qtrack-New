@@ -35,7 +35,7 @@ const FGCard: React.FC<{ item: FGBatchListItem; onPress: () => void }> = ({ item
     <View style={styles.metaRow}>
       <View style={styles.metaItem}>
         <Ionicons name="layers-outline" size={13} color={Colors.textMuted} />
-        <Text style={styles.metaText}>{formatQuantity(item.quantity)} units</Text>
+        <Text style={styles.metaText}>{formatQuantity(item.quantity)} {item.unit_of_measure ?? 'KG'}</Text>
       </View>
       {item.pack_size ? (
         <View style={styles.metaItem}>

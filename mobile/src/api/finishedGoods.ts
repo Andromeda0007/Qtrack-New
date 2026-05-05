@@ -6,6 +6,7 @@ export interface FGBatchListItem {
   product_name: string;
   batch_number: string;
   pack_size?: string;
+  unit_of_measure?: string;
   expiry_date: string;
   quantity: number;
   status: string;

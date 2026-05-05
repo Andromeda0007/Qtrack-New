@@ -33,6 +33,7 @@ async def list_fg_batches_for_warehouse(
             "product_name": b.product_name,
             "batch_number": b.batch_number,
             "pack_size": b.pack_size,
+            "unit_of_measure": b.unit_of_measure or "KG",
             "expiry_date": b.expiry_date,
             "quantity": b.quantity,
             "status": b.status,

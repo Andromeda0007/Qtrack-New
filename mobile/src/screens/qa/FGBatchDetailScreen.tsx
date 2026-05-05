@@ -100,11 +100,13 @@ export const FGBatchDetailScreen: React.FC = () => {
 
         <Text style={styles.sectionTitle}>Batch Info</Text>
         <View style={styles.card}>
+          {b.fgtn_no ? <><Row label="FGTN No" value={b.fgtn_no} /><Divider /></> : null}
           <Row label="Batch Number" value={fgBatchNumber ?? String(fgBatchId)} />
           <Divider />
           <Row label="Product Name" value={b.product_name ?? '—'} />
           <Divider />
-          <Row label="Quantity" value={b.quantity ? `${b.quantity} units` : '—'} />
+          <Row label="Quantity" value={b.quantity ? `${b.quantity} ${b.unit_of_measure ?? 'KG'}` : '—'} />
+          {b.pack_size ? <><Divider /><Row label="Pack Size" value={String(b.pack_size)} /></> : null}
           <Divider />
           <Row label="Carton Count" value={b.carton_count != null ? String(b.carton_count) : '—'} />
           <Divider />

@@ -78,7 +78,7 @@ export const DispatchFGScreen: React.FC = () => {
           `Product: ${batch.product_name}`,
           `Batch: ${batch.batch_number}`,
           `Customer: ${res.customer ?? customerName.trim()}`,
-          `Qty dispatched: ${formatQuantity(qty)} units`,
+          `Qty dispatched: ${formatQuantity(qty)} ${batch.unit_of_measure ?? 'KG'}`,
           invoiceNumber.trim() ? `Invoice: ${invoiceNumber.trim()}` : null,
         ].filter(Boolean).join('\n'),
       });
@@ -115,7 +115,7 @@ export const DispatchFGScreen: React.FC = () => {
             <Divider />
             <Row label="Batch No." value={batch.batch_number} />
             <Divider />
-            <Row label="Available Qty" value={`${formatQuantity(batch.quantity)} units`} />
+            <Row label="Available Qty" value={`${formatQuantity(batch.quantity)} ${batch.unit_of_measure ?? 'KG'}`} />
             <Divider />
             <Row label="Expiry" value={formatDate(batch.expiry_date)} />
           </View>
@@ -130,7 +130,7 @@ export const DispatchFGScreen: React.FC = () => {
           />
           <Input
             label="Quantity to Dispatch *"
-            placeholder={`Max: ${formatQuantity(batch.quantity)}`}
+            placeholder={`Max: ${formatQuantity(batch.quantity)} ${batch.unit_of_measure ?? 'KG'}`}
             value={quantity}
             onChangeText={setQuantity}
             keyboardType="decimal-pad"

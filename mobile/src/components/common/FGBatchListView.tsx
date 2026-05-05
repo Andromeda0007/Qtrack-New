@@ -97,7 +97,7 @@ export const FGBatchListView: React.FC<Props> = ({
                 <View style={styles.meta}>
                   <View style={styles.metaItem}>
                     <Ionicons name="layers-outline" size={12} color={Colors.textMuted} />
-                    <Text style={styles.metaText}>{item.quantity} units</Text>
+                    <Text style={styles.metaText}>{item.quantity} {item.unit_of_measure ?? 'KG'}</Text>
                   </View>
                   {item.expiry_date && (
                     <View style={styles.metaItem}>

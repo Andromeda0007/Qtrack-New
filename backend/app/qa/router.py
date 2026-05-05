@@ -27,10 +27,13 @@ async def list_fg_batches(
     return [
         {
             "id": b.id,
+            "fgtn_no": b.fgtn_no,
             "product_name": b.product_name,
             "batch_number": b.batch_number,
             "manufacture_date": b.manufacture_date,
             "expiry_date": b.expiry_date,
+            "pack_size": b.pack_size,
+            "unit_of_measure": b.unit_of_measure or "KG",
             "quantity": str(b.quantity),
             "carton_count": b.carton_count,
             "net_weight": str(b.net_weight) if b.net_weight else None,

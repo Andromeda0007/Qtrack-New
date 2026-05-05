@@ -24,6 +24,7 @@ async def create_fg_batch(db: AsyncSession, data: dict, created_by: User) -> Fin
         manufacture_date=data["manufacture_date"],
         expiry_date=data["expiry_date"],
         pack_size=data.get("pack_size"),
+        unit_of_measure=data.get("unit_of_measure", "KG"),
         net_weight=data.get("net_weight"),
         gross_weight=data.get("gross_weight"),
         quantity=data["quantity"],

@@ -9,6 +9,7 @@ export const productionApi = {
     manufacture_date: string;
     expiry_date: string;
     pack_size?: string;
+    unit_of_measure?: string;
     net_weight?: number;
     gross_weight?: number;
     quantity: number;

@@ -124,6 +124,7 @@ export const WorkflowHubScreen: React.FC = () => {
         fgBatchId: batch.id,
         fgBatchNumber: batch.batch_number,
         mode,
+        batch,
       });
     } else {
       navigation.navigate('BatchDetail', { batchId: batch.id });
