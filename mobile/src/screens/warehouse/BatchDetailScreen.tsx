@@ -11,7 +11,7 @@ import { inventoryApi } from '../../api/inventory';
 import { useAuthStore } from '../../store/authStore';
 import { BASE_URL } from '../../api/client';
 import { Colors, FontSize, Spacing, BorderRadius, Shadow } from '../../utils/theme';
-import { formatDate } from '../../utils/formatters';
+import { formatDate, formatQuantity } from '../../utils/formatters';
 
 const toImageUrl = (path: string | null | undefined): string => {
   if (!path) return '';
@@ -248,11 +248,11 @@ export const BatchDetailScreen: React.FC = () => {
           ) : null}
 
           {/* Quantities */}
-          <SectionTitle title="Quantity" />
+          <SectionTitle title={`Quantity (${batch.unit_of_measure ?? 'KG'})`} />
           <View style={styles.card}>
             <View style={styles.qtyRow}>
               <View style={styles.qtyBox}>
-                <Text style={styles.qtyNumSm}>{batch.total_quantity}</Text>
+                <Text style={styles.qtyNumSm}>{formatQuantity(batch.total_quantity)}</Text>
                 <Text style={styles.qtyLbl}>Received</Text>
               </View>
               <View style={styles.qtyDivider} />
@@ -263,7 +263,7 @@ export const BatchDetailScreen: React.FC = () => {
                     if (remRaw == null || remRaw === '') return '—';
                     const t = parseFloat(String(batch.total_quantity ?? 0)) || 0;
                     const r = parseFloat(String(remRaw)) || 0;
-                    return String(Math.max(0, t - r));
+                    return formatQuantity(Math.max(0, t - r));
                   })()}
                 </Text>
                 <Text style={styles.qtyLbl}>Dispensed</Text>
@@ -272,7 +272,7 @@ export const BatchDetailScreen: React.FC = () => {
               <View style={styles.qtyBox}>
                 <Text style={[styles.qtyNumSm, { color: Colors.success }]}>
                   {batch.remaining_quantity != null && batch.remaining_quantity !== ''
-                    ? batch.remaining_quantity
+                    ? formatQuantity(batch.remaining_quantity)
                     : '—'}
                 </Text>
                 <Text style={styles.qtyLbl}>Balance</Text>

@@ -198,7 +198,7 @@ const ROLE_QUICK_ACTIONS: Record<RoleName, QuickAction[]> = {
       label: "Create FG Batch",
       icon: "construct",
       color: Colors.primary,
-      screen: "Scanner",
+      screen: "CreateFGBatch",
     },
     CHECK_STATUS_ACTION,
     {

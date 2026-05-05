@@ -18,6 +18,7 @@ import { Button } from '../../components/common/Button';
 import { Colors, FontSize, Spacing, BorderRadius } from '../../utils/theme';
 import { extractError } from '../../api/client';
 import { resetToDashboardHome } from '../../navigation/goHome';
+import { formatQuantity } from '../../utils/formatters';
 import { OperationResultModal } from '../../components/common/OperationResultModal';
 
 export const IssueStockScreen: React.FC = () => {
@@ -98,7 +99,7 @@ export const IssueStockScreen: React.FC = () => {
           {availableQty != null && (
             <View style={styles.balanceBanner}>
               <Ionicons name="cube-outline" size={16} color={Colors.success} />
-              <Text style={styles.balanceText}>Available: <Text style={styles.balanceBold}>{availableQty}</Text></Text>
+              <Text style={styles.balanceText}>Available: <Text style={styles.balanceBold}>{formatQuantity(availableQty)}</Text></Text>
             </View>
           )}
 
