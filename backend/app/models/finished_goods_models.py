@@ -26,10 +26,12 @@ class FinishedGoodsBatch(Base):
     __tablename__ = "finished_goods_batches"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    fgtn_no: Mapped[str | None] = mapped_column(String(100), nullable=True)
     product_name: Mapped[str] = mapped_column(String(150), nullable=False)
     batch_number: Mapped[str] = mapped_column(String(100), unique=True, nullable=False, index=True)
     manufacture_date: Mapped[date] = mapped_column(Date, nullable=False)
     expiry_date: Mapped[date] = mapped_column(Date, nullable=False)
+    pack_size: Mapped[str | None] = mapped_column(String(100), nullable=True)
     net_weight: Mapped[Decimal | None] = mapped_column(Numeric(10, 3))
     gross_weight: Mapped[Decimal | None] = mapped_column(Numeric(10, 3))
     quantity: Mapped[Decimal] = mapped_column(Numeric(12, 3), nullable=False)

@@ -1,6 +1,23 @@
 import apiClient from './client';
 
+export interface FGBatchListItem {
+  id: number;
+  fgtn_no?: string;
+  product_name: string;
+  batch_number: string;
+  pack_size?: string;
+  expiry_date: string;
+  quantity: number;
+  status: string;
+  created_at: string;
+}
+
 export const finishedGoodsApi = {
+  listByStatus: async (status: string): Promise<FGBatchListItem[]> => {
+    const res = await apiClient.get('/finished-goods/batches', { params: { status } });
+    return res.data;
+  },
+
   receiveFG: async (fg_batch_id: number, location_id?: number) => {
     const res = await apiClient.post('/finished-goods/receive', { fg_batch_id, location_id });
     return res.data;

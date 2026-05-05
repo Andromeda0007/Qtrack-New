@@ -5,10 +5,12 @@ from datetime import date
 
 
 class FGBatchCreate(BaseModel):
+    fgtn_no: Optional[str] = None
     product_name: str
     batch_number: str
     manufacture_date: date
     expiry_date: date
+    pack_size: Optional[str] = None
     net_weight: Optional[Decimal] = None
     gross_weight: Optional[Decimal] = None
     quantity: Decimal

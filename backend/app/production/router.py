@@ -24,7 +24,11 @@ async def create_fg_batch(
     return {
         "message": "FG batch created successfully",
         "fg_batch_id": fg.id,
+        "fgtn_no": fg.fgtn_no,
         "batch_number": fg.batch_number,
+        "product_name": fg.product_name,
+        "pack_size": fg.pack_size,
+        "quantity": fg.quantity,
         "status": fg.status,
         "qr_code_path": fg.qr_code_path,
         "shipper_label_path": fg.shipper_label_path,
@@ -45,8 +49,10 @@ async def list_fg_batches(
     return [
         {
             "id": b.id,
+            "fgtn_no": b.fgtn_no,
             "product_name": b.product_name,
             "batch_number": b.batch_number,
+            "pack_size": b.pack_size,
             "manufacture_date": b.manufacture_date,
             "expiry_date": b.expiry_date,
             "quantity": b.quantity,
@@ -74,8 +80,10 @@ async def get_fg_batch(
             )
     return {
         "id": fg.id,
+        "fgtn_no": fg.fgtn_no,
         "product_name": fg.product_name,
         "batch_number": fg.batch_number,
+        "pack_size": fg.pack_size,
         "manufacture_date": fg.manufacture_date,
         "expiry_date": fg.expiry_date,
         "net_weight": fg.net_weight,

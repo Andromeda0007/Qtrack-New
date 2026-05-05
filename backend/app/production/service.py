@@ -18,10 +18,12 @@ async def create_fg_batch(db: AsyncSession, data: dict, created_by: User) -> Fin
         raise HTTPException(status_code=400, detail="FG batch number already exists")
 
     fg_batch = FinishedGoodsBatch(
+        fgtn_no=data.get("fgtn_no"),
         product_name=data["product_name"],
         batch_number=data["batch_number"],
         manufacture_date=data["manufacture_date"],
         expiry_date=data["expiry_date"],
+        pack_size=data.get("pack_size"),
         net_weight=data.get("net_weight"),
         gross_weight=data.get("gross_weight"),
         quantity=data["quantity"],

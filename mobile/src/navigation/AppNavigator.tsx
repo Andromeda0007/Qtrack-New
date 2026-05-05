@@ -38,6 +38,10 @@ import { WorkflowHubScreen } from '../screens/workflow/WorkflowHubScreen';
 import { FGBatchDetailScreen } from '../screens/qa/FGBatchDetailScreen';
 import { PrintLabelsScreen } from '../screens/labels/PrintLabelsScreen';
 import { CreateFGBatchScreen } from '../screens/production/CreateFGBatchScreen';
+import { FGReceiveListScreen } from '../screens/warehouse/FGReceiveListScreen';
+import { ReceiveFGScreen } from '../screens/warehouse/ReceiveFGScreen';
+import { FGDispatchListScreen } from '../screens/warehouse/FGDispatchListScreen';
+import { DispatchFGScreen } from '../screens/warehouse/DispatchFGScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -115,7 +119,11 @@ export const AppNavigator: React.FC = () => {
             <Stack.Screen name="WorkflowHub"  component={WorkflowHubScreen}  options={{ headerShown: false }} />
             <Stack.Screen name="FGBatchDetail" component={FGBatchDetailScreen} options={{ headerShown: false }} />
             <Stack.Screen name="PrintLabels"    component={PrintLabelsScreen}    options={{ headerShown: false }} />
-            <Stack.Screen name="CreateFGBatch" component={CreateFGBatchScreen}  options={{ headerShown: false }} />
+            <Stack.Screen name="CreateFGBatch"   component={CreateFGBatchScreen}   options={{ headerShown: false }} />
+            <Stack.Screen name="FGReceiveList"   component={FGReceiveListScreen}   options={{ headerShown: false }} />
+            <Stack.Screen name="ReceiveFG"        component={ReceiveFGScreen}        options={{ headerShown: false }} />
+            <Stack.Screen name="FGDispatchList"  component={FGDispatchListScreen}  options={{ headerShown: false }} />
+            <Stack.Screen name="DispatchFG"       component={DispatchFGScreen}       options={{ headerShown: false }} />
           </>
         )}
       </Stack.Navigator>

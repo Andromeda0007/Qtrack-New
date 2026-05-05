@@ -107,7 +107,7 @@ interface ProductStats {
  * Scanner tile **labels** differ by role (same `Scanner` screen / `RoleActions` unless you add params).
  */
 const ROLE_QUICK_ACTIONS: Record<RoleName, QuickAction[]> = {
-  /** R1: Create | Check Status — R2: Move to Production (hub) */
+  /** R1: Create GRN | Check Status — R2: Move to Production | Receive FG | Dispatch FG */
   WAREHOUSE_USER: [
     {
       label: "Create GRN",
@@ -122,6 +122,18 @@ const ROLE_QUICK_ACTIONS: Record<RoleName, QuickAction[]> = {
       color: Colors.info,
       screen: "WorkflowHub",
       params: { mode: "warehouse_issue" },
+    },
+    {
+      label: "Receive FG",
+      icon: "arrow-down-circle-outline",
+      color: Colors.success,
+      screen: "FGReceiveList",
+    },
+    {
+      label: "Dispatch FG",
+      icon: "arrow-forward-circle",
+      color: "#7c3aed",
+      screen: "FGDispatchList",
     },
   ],
   /** R1: Manage Users | Check Status — R2: Manage Items | Audit Logs */

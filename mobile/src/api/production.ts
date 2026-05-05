@@ -3,10 +3,12 @@ import { FGBatch } from '../types';
 
 export const productionApi = {
   createFGBatch: async (data: {
+    fgtn_no?: string;
     product_name: string;
     batch_number: string;
     manufacture_date: string;
     expiry_date: string;
+    pack_size?: string;
     net_weight?: number;
     gross_weight?: number;
     quantity: number;
