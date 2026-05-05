@@ -53,6 +53,10 @@ type GRNResult = {
   date_of_receipt: string;
   manufacture_date: string;
   expiry_date: string;
+  invoice_challan_no?: string;
+  po_number?: string;
+  po_date?: string;
+  remarks?: string;
   status: string;
   created_at: string;
   qr_base64?: string;
@@ -104,12 +108,17 @@ export const CreateCardScreen: React.FC = () => {
   const [packType, setPackType] = useState('BAG');
 
   const [form, setForm] = useState({
+    grn_number: '',
     batch_number: '',
     supplier_name: '',
     manufacturer_name: '',
     date_of_receipt: todayDisplay,
     manufacture_date: '',
     expiry_date: '',
+    invoice_challan_no: '',
+    po_number: '',
+    po_date: '',
+    remarks: '',
   });
 
   const set = (key: string, value: string) => setForm((f) => ({ ...f, [key]: value }));
@@ -167,6 +176,10 @@ export const CreateCardScreen: React.FC = () => {
       Alert.alert('Required', 'Please select an item.');
       return false;
     }
+    if (!form.grn_number.trim()) {
+      Alert.alert('Required', 'GRN number is required.');
+      return false;
+    }
     if (!form.batch_number.trim()) {
       Alert.alert('Required', 'Batch / Lot number is required.');
       return false;
@@ -209,6 +222,7 @@ export const CreateCardScreen: React.FC = () => {
     setSubmitting(true);
     try {
       const res = await inventoryApi.createGRN({
+        grn_number: form.grn_number.trim(),
         material_id: selectedItem.id,
         batch_number: form.batch_number.trim(),
         supplier_name: form.supplier_name.trim(),
@@ -221,6 +235,10 @@ export const CreateCardScreen: React.FC = () => {
         container_count: parseInt(containers, 10),
         container_quantity: parseFloat(perContainer),
         total_quantity: parseFloat(totalQty),
+        invoice_challan_no: form.invoice_challan_no.trim() || undefined,
+        po_number: form.po_number.trim() || undefined,
+        po_date: parseDMYToISO(form.po_date) || undefined,
+        remarks: form.remarks.trim() || undefined,
       });
       setResult(res);
     } catch (error) {
@@ -283,11 +301,43 @@ export const CreateCardScreen: React.FC = () => {
           <SectionTitle title="Batch Reference" />
           <View style={styles.card}>
             <Input
+              label="GRN Number *"
+              placeholder="e.g. GRN-2026-001"
+              value={form.grn_number}
+              onChangeText={(v) => set('grn_number', v)}
+              autoCapitalize="characters"
+            />
+            <Input
               label="Batch / Lot Number *"
               placeholder="e.g. BTH-2026-001"
               value={form.batch_number}
               onChangeText={(v) => set('batch_number', v)}
               autoCapitalize="characters"
+            />
+          </View>
+
+          <SectionTitle title="Purchase / Invoice Reference" />
+          <View style={styles.card}>
+            <Input
+              label="Invoice No. / Challan No."
+              placeholder="e.g. INV-2026-001"
+              value={form.invoice_challan_no}
+              onChangeText={(v) => set('invoice_challan_no', v)}
+              autoCapitalize="characters"
+            />
+            <Input
+              label="PO No."
+              placeholder="e.g. PO-2026-042"
+              value={form.po_number}
+              onChangeText={(v) => set('po_number', v)}
+              autoCapitalize="characters"
+            />
+            <Input
+              label="PO Date"
+              placeholder="DD-MM-YYYY"
+              value={form.po_date}
+              onChangeText={(v) => set('po_date', v)}
+              keyboardType="numbers-and-punctuation"
             />
           </View>
 
@@ -370,12 +420,15 @@ export const CreateCardScreen: React.FC = () => {
             />
           </View>
 
-          <View style={styles.infoNote}>
-            <Ionicons name="information-circle-outline" size={16} color={Colors.info} />
-            <Text style={styles.infoNoteText}>
-              GRN number and container IDs are auto-generated. Each of the {containers || 'N'}
-              {' '}containers gets its own unique QR label for tracking.
-            </Text>
+          <SectionTitle title="Remarks" />
+          <View style={styles.card}>
+            <Input
+              label="Remarks (discrepancies / notes)"
+              placeholder="e.g. 2 bags received with damaged packaging"
+              value={form.remarks}
+              onChangeText={(v) => set('remarks', v)}
+              multiline
+            />
           </View>
 
           <Button
@@ -422,7 +475,7 @@ export const CreateCardScreen: React.FC = () => {
             <View style={styles.detailCard}>
               <Text style={styles.detailCardTitle}>GRN Details</Text>
 
-              <CardRow label="GRN" value={result?.grn_number ?? ''} />
+              <CardRow label="GRN No." value={result?.grn_number ?? ''} />
               <View style={styles.divider} />
               <CardRow label="Item Code" value={result?.item_code ?? ''} />
               <View style={styles.divider} />
@@ -450,6 +503,12 @@ export const CreateCardScreen: React.FC = () => {
                 }
               />
               <View style={styles.divider} />
+              <CardRow label="Invoice / Challan No." value={result?.invoice_challan_no ?? '—'} />
+              <View style={styles.divider} />
+              <CardRow label="PO No." value={result?.po_number ?? '—'} />
+              <View style={styles.divider} />
+              <CardRow label="PO Date" value={result?.po_date ? formatDate(result.po_date) : '—'} />
+              <View style={styles.divider} />
               <CardRow label="Supplier" value={result?.supplier_name ?? ''} />
               <View style={styles.divider} />
               <CardRow label="Manufacturer" value={result?.manufacturer_name ?? ''} />
@@ -466,6 +525,12 @@ export const CreateCardScreen: React.FC = () => {
                   <Text style={styles.quarantineBadgeText}>QUARANTINE</Text>
                 </View>
               </View>
+              {result?.remarks ? (
+                <>
+                  <View style={styles.divider} />
+                  <CardRow label="Remarks" value={result.remarks} />
+                </>
+              ) : null}
               <View style={styles.divider} />
               <CardRow
                 label="Created At"

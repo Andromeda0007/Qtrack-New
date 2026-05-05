@@ -126,8 +126,13 @@ async def create_product(db: AsyncSession, data: dict, created_by: User) -> dict
     q_loc = await db.execute(select(Location).where(Location.location_type == "QUARANTINE"))
     quarantine = q_loc.scalar_one_or_none()
 
-    # 6. Backend-generated identifiers
-    grn_number = await _allocate_next_grn_number(db)
+    # 6. Validate user-supplied GRN number uniqueness + generate public code
+    grn_number = str(data["grn_number"]).strip()
+    if not grn_number:
+        raise HTTPException(status_code=400, detail="GRN number is required")
+    existing_grn = await db.execute(select(GRN).where(GRN.grn_number == grn_number))
+    if existing_grn.scalar_one_or_none():
+        raise HTTPException(status_code=400, detail=f"GRN number '{grn_number}' already exists")
     public_code = await generate_unique_public_code(db)  # kept for legacy-scanner fallback
 
     # 7. Create Batch
@@ -161,6 +166,10 @@ async def create_product(db: AsyncSession, data: dict, created_by: User) -> dict
         grn_number=grn_number,
         received_by=created_by.id,
         received_date=data.get("date_of_receipt"),
+        invoice_number=data.get("invoice_challan_no"),
+        po_number=data.get("po_number"),
+        po_date=data.get("po_date"),
+        remarks=data.get("remarks"),
     )
     db.add(grn)
 
@@ -527,15 +536,6 @@ async def issue_stock(
             detail=(
                 f"Cannot issue stock — batch status is {batch.status}. "
                 "Only approved material (or partial dispense in progress) can be issued."
-            ),
-        )
-
-    if not (batch.rack_number or "").strip():
-        raise HTTPException(
-            status_code=400,
-            detail=(
-                "Rack number must be recorded before issuing to production. "
-                "Set or confirm the rack location, then issue again."
             ),
         )
 

@@ -168,7 +168,7 @@ async def get_batch(
         "container_count": getattr(batch, "container_count", None),
         "container_quantity": getattr(batch, "container_quantity", None),
         "total_quantity": batch.total_quantity,
-        "remaining_quantity": service.remaining_quantity_for_api(batch),
+        "remaining_quantity": str(batch.remaining_quantity),
         "status": batch.status,
         "retest_date": batch.retest_date,
         "retest_cycle": batch.retest_cycle,

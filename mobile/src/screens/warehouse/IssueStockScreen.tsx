@@ -23,50 +23,31 @@ import { OperationResultModal } from '../../components/common/OperationResultMod
 export const IssueStockScreen: React.FC = () => {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
-  const { batchId, batchNumber, initialRack } = route.params || {};
+  const { batchId, batchNumber } = route.params || {};
 
-  const [rack, setRack] = useState(
-    typeof initialRack === 'string' ? initialRack : '',
-  );
   const [qty, setQty] = useState('');
   const [productName, setProductName] = useState('');
   const [mfgBatchRef, setMfgBatchRef] = useState('');
   const [remarks, setRemarks] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const [loadingBatch, setLoadingBatch] = useState(true);
+  const [availableQty, setAvailableQty] = useState<string | null>(null);
   const [flowDone, setFlowDone] = useState<{ title: string; message: string } | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      if (!batchId) {
-        setLoadingBatch(false);
-        return;
-      }
+      if (!batchId) return;
       try {
         const b = await inventoryApi.getBatchById(batchId);
-        if (cancelled) return;
-        const r = b?.rack_number != null && String(b.rack_number).trim() !== ''
-          ? String(b.rack_number).trim()
-          : '';
-        setRack((prev) => (prev.trim() ? prev : r));
-      } catch {
-        /* keep initialRack / empty */
-      } finally {
-        if (!cancelled) setLoadingBatch(false);
-      }
+        if (!cancelled && b?.remaining_quantity != null) {
+          setAvailableQty(String(b.remaining_quantity));
+        }
+      } catch { /* ignore */ }
     })();
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [batchId]);
 
   const onSubmit = async () => {
-    const rackTrim = rack.trim();
-    if (!rackTrim) {
-      Alert.alert('Rack required', 'Enter the rack / storage location before issuing to production.');
-      return;
-    }
     const q = parseFloat(qty.replace(/,/g, ''));
     if (Number.isNaN(q) || q <= 0) {
       Alert.alert('Validation', 'Enter a valid issue quantity.');
@@ -78,14 +59,14 @@ export const IssueStockScreen: React.FC = () => {
     }
     setSubmitting(true);
     try {
-      await inventoryApi.updateBatchRack(batchId, rackTrim);
       const res = await inventoryApi.issueStock(batchId, q, remarks.trim() || undefined, {
         issued_to_product_name: productName.trim(),
         issued_to_batch_ref: mfgBatchRef.trim(),
       });
+      const balance = res.remaining != null ? String(res.remaining) : '—';
       setFlowDone({
         title: 'Issued to production',
-        message: `Quantity issued. Remaining balance: ${res.remaining ?? '—'}. Status: ${res.status ?? '—'}. You can continue from Home.`,
+        message: `Issued: ${q}\nBalance remaining: ${balance}\nStatus: ${res.status ?? '—'}`,
       });
     } catch (e) {
       Alert.alert('Issue failed', extractError(e));
@@ -114,21 +95,12 @@ export const IssueStockScreen: React.FC = () => {
           keyboardShouldPersistTaps="handled"
         >
           <Text style={styles.sub}>Batch {batchNumber ?? batchId}</Text>
-          <Text style={styles.rackNote}>
-            Rack / storage location is required before stock can be issued (same value is saved on the batch).
-          </Text>
-
-          {loadingBatch ? (
-            <Text style={styles.loadingHint}>Loading batch…</Text>
-          ) : null}
-
-          <Input
-            label="Rack / storage location *"
-            placeholder="Enter rack / bin location"
-            value={rack}
-            onChangeText={setRack}
-            autoCapitalize="characters"
-          />
+          {availableQty != null && (
+            <View style={styles.balanceBanner}>
+              <Ionicons name="cube-outline" size={16} color={Colors.success} />
+              <Text style={styles.balanceText}>Available: <Text style={styles.balanceBold}>{availableQty}</Text></Text>
+            </View>
+          )}
 
           <Input
             label="Quantity to issue *"
@@ -161,7 +133,6 @@ export const IssueStockScreen: React.FC = () => {
             title="Confirm issue"
             onPress={onSubmit}
             loading={submitting}
-            disabled={loadingBatch}
             fullWidth
             style={{ marginTop: Spacing.md }}
           />
@@ -195,11 +166,11 @@ const styles = StyleSheet.create({
   scroll: { flex: 1, backgroundColor: Colors.background },
   content: { padding: Spacing.md, paddingBottom: 40 },
   sub: { fontSize: FontSize.sm, color: Colors.textMuted, marginBottom: Spacing.xs },
-  rackNote: {
-    fontSize: FontSize.xs,
-    color: Colors.textSecondary,
-    marginBottom: Spacing.md,
-    lineHeight: 18,
+  balanceBanner: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    backgroundColor: Colors.success + '15', borderRadius: 8,
+    padding: 10, marginBottom: Spacing.md,
   },
-  loadingHint: { fontSize: FontSize.sm, color: Colors.textMuted, marginBottom: Spacing.sm },
+  balanceText: { fontSize: FontSize.sm, color: Colors.textPrimary },
+  balanceBold: { fontWeight: '800', color: Colors.success },
 });

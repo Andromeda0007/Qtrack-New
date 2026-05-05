@@ -2,6 +2,7 @@ import apiClient from './client';
 import { Batch, Material, Supplier, StockMovement, UnitOfMeasure } from '../types';
 
 export interface CreateGRNPayload {
+  grn_number: string;
   material_id: number;
   batch_number: string;
   supplier_name: string;
@@ -14,6 +15,10 @@ export interface CreateGRNPayload {
   container_count: number;
   container_quantity: number;
   total_quantity: number;
+  invoice_challan_no?: string;
+  po_number?: string;
+  po_date?: string;
+  remarks?: string;
 }
 
 export const inventoryApi = {
