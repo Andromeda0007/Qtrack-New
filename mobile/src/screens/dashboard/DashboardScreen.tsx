@@ -6,14 +6,13 @@ import {
   ScrollView,
   TouchableOpacity,
   RefreshControl,
-  Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuthStore } from "../../store/authStore";
 import { inventoryApi } from "../../api/inventory";
-import { Card } from "../../components/common/Card";
+import { productionApi } from "../../api/production";
 import {
   Colors,
   RoleLabels,
@@ -39,58 +38,6 @@ const CHECK_STATUS_ACTION: QuickAction = {
   screen: "CheckStatus",
 };
 
-/** Six tiles + routes for every role (2 columns × 3 rows): Quarantine → … → Production last. */
-const PRODUCT_STAT_TILES: Array<{
-  label: string;
-  color: string;
-  icon: string;
-  screen: string;
-  getValue: (s: ProductStats) => number;
-}> = [
-  {
-    label: "Quarantine",
-    color: Colors.warning,
-    icon: "hourglass-outline",
-    screen: "QuarantineList",
-    getValue: (s) => s.quarantine,
-  },
-  {
-    label: "Under Test",
-    color: Colors.info,
-    icon: "flask",
-    screen: "UnderTestList",
-    getValue: (s) => s.underTest,
-  },
-  {
-    label: "Approved",
-    color: Colors.success,
-    icon: "checkmark-circle",
-    screen: "ApprovedList",
-    getValue: (s) => s.approved,
-  },
-  {
-    label: "Rejected",
-    color: Colors.danger,
-    icon: "close-circle",
-    screen: "RejectedList",
-    getValue: (s) => s.rejected,
-  },
-  {
-    label: "Retest",
-    color: Colors.statusQuarantine,
-    icon: "refresh-circle-outline",
-    screen: "RetestList",
-    getValue: (s) => s.retest,
-  },
-  {
-    label: "Production",
-    color: Colors.primary,
-    icon: "layers-outline",
-    screen: "ProductionList",
-    getValue: (s) => s.production,
-  },
-];
-
 interface ProductStats {
   quarantine: number;
   underTest: number;
@@ -99,6 +46,56 @@ interface ProductStats {
   retest: number;
   production: number;
 }
+
+interface FGStats {
+  qa_pending: number;
+  qa_approved: number;
+  qa_rejected: number;
+  warehouse_received: number;
+  dispatched: number;
+}
+
+type StatTile = {
+  label: string;
+  color: string;
+  icon: string;
+  screen: string;
+  params?: Record<string, any>;
+  getValue: (s: ProductStats, fg: FGStats) => number;
+};
+
+const RAW_STAT_TILES: StatTile[] = [
+  { label: "Quarantine",  color: Colors.warning,          icon: "hourglass-outline",    screen: "QuarantineList", getValue: (s) => s.quarantine },
+  { label: "Under Test",  color: Colors.info,             icon: "flask",                screen: "UnderTestList",  getValue: (s) => s.underTest },
+  { label: "Approved",    color: Colors.success,          icon: "checkmark-circle",     screen: "ApprovedList",   getValue: (s) => s.approved },
+  { label: "Rejected",    color: Colors.danger,           icon: "close-circle",         screen: "RejectedList",   getValue: (s) => s.rejected },
+  { label: "Retest",      color: Colors.statusQuarantine, icon: "refresh-circle-outline", screen: "RetestList",   getValue: (s) => s.retest },
+  { label: "Production",  color: Colors.primary,          icon: "layers-outline",       screen: "ProductionList", getValue: (s) => s.production },
+];
+
+const PRODUCTION_USER_TILES: StatTile[] = [
+  { label: "In Production", color: Colors.primary, icon: "layers-outline",    screen: "ProductionList", getValue: (s) => s.production },
+  { label: "QA Pending FG", color: Colors.warning, icon: "hourglass-outline", screen: "FGBatchList",   params: { status: "QA_PENDING", title: "QA Pending FG" }, getValue: (_, fg) => fg.qa_pending },
+  { label: "Approved FG",   color: Colors.success, icon: "checkmark-circle",  screen: "FGBatchList",   params: { status: "QA_APPROVED", title: "Approved FG" }, getValue: (_, fg) => fg.qa_approved },
+];
+
+const QA_STAT_TILES: StatTile[] = [
+  { label: "QA Pending",  color: Colors.warning, icon: "hourglass-outline", screen: "WorkflowHub", params: { mode: "qa_decision" }, getValue: (_, fg) => fg.qa_pending },
+  { label: "Approved FG", color: Colors.success, icon: "ribbon-outline",    screen: "FGBatchList", params: { status: "QA_APPROVED", title: "Approved FG" }, getValue: (_, fg) => fg.qa_approved },
+  { label: "Rejected FG", color: Colors.danger,  icon: "close-circle",      screen: "FGBatchList", params: { status: "QA_REJECTED", title: "Rejected FG" }, getValue: (_, fg) => fg.qa_rejected },
+];
+
+const QA_EXEC_TILES: StatTile[] = [
+  { label: "QA Pending",  color: Colors.warning, icon: "hourglass-outline", screen: "WorkflowHub", params: { mode: "qa_inspect" }, getValue: (_, fg) => fg.qa_pending },
+  { label: "Approved FG", color: Colors.success, icon: "ribbon-outline",    screen: "FGBatchList", params: { status: "QA_APPROVED", title: "Approved FG" }, getValue: (_, fg) => fg.qa_approved },
+  { label: "Rejected FG", color: Colors.danger,  icon: "close-circle",      screen: "FGBatchList", params: { status: "QA_REJECTED", title: "Rejected FG" }, getValue: (_, fg) => fg.qa_rejected },
+];
+
+const ROLE_STAT_TILES: Partial<Record<RoleName, StatTile[]>> = {
+  PRODUCTION_USER: PRODUCTION_USER_TILES,
+  QA_HEAD: QA_STAT_TILES,
+  QA_EXECUTIVE: QA_EXEC_TILES,
+};
 
 /**
  * Quick actions render in a 2-column grid (row-major). **Check Status is at index 1** when there
@@ -204,7 +201,7 @@ const ROLE_QUICK_ACTIONS: Record<RoleName, QuickAction[]> = {
     },
     CHECK_STATUS_ACTION,
   ],
-  /** R1: Create FG | Check Status — R2: Consume Material (hub) */
+  /** R1: Create FG | Check Status — R2: Consume Material | My FG Batches */
   PRODUCTION_USER: [
     {
       label: "Create FG Batch",
@@ -219,6 +216,13 @@ const ROLE_QUICK_ACTIONS: Record<RoleName, QuickAction[]> = {
       color: Colors.accent,
       screen: "WorkflowHub",
       params: { mode: "production_consume" },
+    },
+    {
+      label: "My FG Batches",
+      icon: "cube-outline",
+      color: Colors.info,
+      screen: "FGBatchList",
+      params: { title: "My FG Batches" },
     },
   ],
   /** R1: Approved | Check Status — R2: All Products */
@@ -239,35 +243,52 @@ const ROLE_QUICK_ACTIONS: Record<RoleName, QuickAction[]> = {
   ],
 };
 
+const FG_ROLES: RoleName[] = ["PRODUCTION_USER", "QA_HEAD", "QA_EXECUTIVE"];
+
 export const DashboardScreen: React.FC = () => {
-  const { user, clearAuth } = useAuthStore();
+  const { user } = useAuthStore();
   const navigation = useNavigation<any>();
+  const role = (user?.role || "PURCHASE_USER") as RoleName;
+
   const [stats, setStats] = useState<ProductStats>({
-    quarantine: 0,
-    underTest: 0,
-    approved: 0,
-    rejected: 0,
-    retest: 0,
-    production: 0,
+    quarantine: 0, underTest: 0, approved: 0, rejected: 0, retest: 0, production: 0,
+  });
+  const [fgStats, setFgStats] = useState<FGStats>({
+    qa_pending: 0, qa_approved: 0, qa_rejected: 0, warehouse_received: 0, dispatched: 0,
   });
   const [refreshing, setRefreshing] = useState(false);
 
   const loadData = useCallback(async () => {
     try {
-      const batches = await inventoryApi.getBatches();
-      setStats({
-        quarantine: batches.filter((b) => b.status === "QUARANTINE").length,
-        underTest: batches.filter((b) => b.status === "UNDER_TEST").length,
-        approved: batches.filter((b) => b.status === "APPROVED").length,
-        rejected: batches.filter((b) => b.status === "REJECTED").length,
-        retest: batches.filter((b) => b.status === "QUARANTINE_RETEST").length,
-        production: batches.filter((b) => b.status === "ISSUED_TO_PRODUCTION")
-          .length,
-      });
+      if (FG_ROLES.includes(role)) {
+        const [batches, fg] = await Promise.all([
+          inventoryApi.getBatches(),
+          productionApi.getFGBatchStats(),
+        ]);
+        setStats({
+          quarantine: batches.filter((b) => b.status === "QUARANTINE").length,
+          underTest: batches.filter((b) => b.status === "UNDER_TEST").length,
+          approved: batches.filter((b) => b.status === "APPROVED").length,
+          rejected: batches.filter((b) => b.status === "REJECTED").length,
+          retest: batches.filter((b) => b.status === "QUARANTINE_RETEST").length,
+          production: batches.filter((b) => b.status === "ISSUED_TO_PRODUCTION").length,
+        });
+        setFgStats(fg);
+      } else {
+        const batches = await inventoryApi.getBatches();
+        setStats({
+          quarantine: batches.filter((b) => b.status === "QUARANTINE").length,
+          underTest: batches.filter((b) => b.status === "UNDER_TEST").length,
+          approved: batches.filter((b) => b.status === "APPROVED").length,
+          rejected: batches.filter((b) => b.status === "REJECTED").length,
+          retest: batches.filter((b) => b.status === "QUARANTINE_RETEST").length,
+          production: batches.filter((b) => b.status === "ISSUED_TO_PRODUCTION").length,
+        });
+      }
     } catch {
       // Silent fail on dashboard stats
     }
-  }, []);
+  }, [role]);
 
   useEffect(() => {
     loadData();
@@ -285,9 +306,9 @@ export const DashboardScreen: React.FC = () => {
     setRefreshing(false);
   };
 
-  const role = (user?.role || "PURCHASE_USER") as RoleName;
   const quickActions = ROLE_QUICK_ACTIONS[role] || [];
   const roleLabel = RoleLabels[role] || role;
+  const statTiles = ROLE_STAT_TILES[role] ?? RAW_STAT_TILES;
 
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
@@ -333,27 +354,18 @@ export const DashboardScreen: React.FC = () => {
           {/* Product Stats — compact vertical footprint so Quick Actions fit above the fold */}
           <Text style={[styles.sectionTitle, styles.statsSectionTitle]}>Product Stats</Text>
           <View style={styles.statsGrid}>
-            {PRODUCT_STAT_TILES.map((tile) => (
+            {statTiles.map((tile) => (
               <TouchableOpacity
                 key={tile.label}
                 style={styles.statCard}
-                onPress={() => navigation.navigate(tile.screen)}
+                onPress={() => navigation.navigate(tile.screen, tile.params)}
                 activeOpacity={0.8}
               >
-                <View
-                  style={[
-                    styles.statIconWrap,
-                    { backgroundColor: tile.color + "18" },
-                  ]}
-                >
-                  <Ionicons
-                    name={tile.icon as any}
-                    size={18}
-                    color={tile.color}
-                  />
+                <View style={[styles.statIconWrap, { backgroundColor: tile.color + "18" }]}>
+                  <Ionicons name={tile.icon as any} size={18} color={tile.color} />
                 </View>
                 <Text style={[styles.statValue, { color: tile.color }]}>
-                  {tile.getValue(stats)}
+                  {tile.getValue(stats, fgStats)}
                 </Text>
                 <Text style={styles.statLabel}>{tile.label}</Text>
               </TouchableOpacity>

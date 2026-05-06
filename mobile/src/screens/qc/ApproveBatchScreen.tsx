@@ -14,6 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { Input } from '../../components/common/Input';
+import { DatePickerInput } from '../../components/common/DatePickerInput';
 import { Button } from '../../components/common/Button';
 import { qcApi } from '../../api/qc';
 import { extractError } from '../../api/client';
@@ -34,8 +35,8 @@ export const ApproveBatchScreen: React.FC = () => {
 
   const submit = async () => {
     const iso = parseDMYToISO(retestDate);
-    if (!iso) {
-      Alert.alert('Required', 'Enter next retest date as DD-MM-YYYY (required for approval).');
+    if (!retestDate || !iso) {
+      Alert.alert('Required', 'Please select a next retest date.');
       return;
     }
     setSubmitting(true);
@@ -64,15 +65,12 @@ export const ApproveBatchScreen: React.FC = () => {
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
           <Text style={styles.batchHint}>Batch {batchNumber ?? `#${batchId}`}</Text>
-          <Text style={styles.help}>
-            Next retest date is mandatory. Use format <Text style={{ fontWeight: '700' }}>DD-MM-YYYY</Text>.
-          </Text>
           <View style={styles.card}>
-            <Input
+            <DatePickerInput
               label="Next retest date *"
               value={retestDate}
-              onChangeText={setRetestDate}
-              placeholder="31-12-2026"
+              onChange={setRetestDate}
+              minimumDate={new Date()}
             />
             <Input
               label="Remarks (optional)"

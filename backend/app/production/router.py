@@ -65,6 +65,30 @@ async def list_fg_batches(
     ]
 
 
+@router.get("/fg-batch/stats")
+async def get_fg_batch_stats(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    from sqlalchemy import func, select as sa_select
+    from app.models.finished_goods_models import FinishedGoodsBatch
+    result = await db.execute(
+        sa_select(FinishedGoodsBatch.status, func.count().label("cnt"))
+        .group_by(FinishedGoodsBatch.status)
+    )
+    counts = {
+        (row.status.value if hasattr(row.status, 'value') else str(row.status)): row.cnt
+        for row in result
+    }
+    return {
+        "qa_pending": counts.get("QA_PENDING", 0),
+        "qa_approved": counts.get("QA_APPROVED", 0),
+        "qa_rejected": counts.get("QA_REJECTED", 0),
+        "warehouse_received": counts.get("WAREHOUSE_RECEIVED", 0),
+        "dispatched": counts.get("DISPATCHED", 0),
+    }
+
+
 @router.get("/fg-batch/{fg_batch_id}")
 async def get_fg_batch(
     fg_batch_id: int,

@@ -8,6 +8,7 @@ import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { inventoryApi } from '../../api/inventory';
 import { Input } from '../../components/common/Input';
+import { DatePickerInput } from '../../components/common/DatePickerInput';
 import { Button } from '../../components/common/Button';
 import { ItemPicker } from '../../components/common/ItemPicker';
 import { Colors, FontSize, Spacing, BorderRadius, Shadow } from '../../utils/theme';
@@ -332,12 +333,10 @@ export const CreateCardScreen: React.FC = () => {
               onChangeText={(v) => set('po_number', v)}
               autoCapitalize="characters"
             />
-            <Input
+            <DatePickerInput
               label="PO Date"
-              placeholder="DD-MM-YYYY"
-              value={form.po_date}
-              onChangeText={(v) => set('po_date', v)}
-              keyboardType="numbers-and-punctuation"
+              value={form.po_date ?? ''}
+              onChange={(v) => set('po_date', v)}
             />
           </View>
 
@@ -397,26 +396,20 @@ export const CreateCardScreen: React.FC = () => {
 
           <SectionTitle title="Dates" />
           <View style={styles.card}>
-            <Input
+            <DatePickerInput
               label="Date of Receipt *"
-              placeholder="DD-MM-YYYY"
               value={form.date_of_receipt}
-              onChangeText={(v) => set('date_of_receipt', v)}
-              keyboardType="numbers-and-punctuation"
+              onChange={(v) => set('date_of_receipt', v)}
             />
-            <Input
+            <DatePickerInput
               label="Manufacture Date *"
-              placeholder="DD-MM-YYYY"
               value={form.manufacture_date}
-              onChangeText={(v) => set('manufacture_date', v)}
-              keyboardType="numbers-and-punctuation"
+              onChange={(v) => set('manufacture_date', v)}
             />
-            <Input
+            <DatePickerInput
               label="Expiry Date *"
-              placeholder="DD-MM-YYYY"
               value={form.expiry_date}
-              onChangeText={(v) => set('expiry_date', v)}
-              keyboardType="numbers-and-punctuation"
+              onChange={(v) => set('expiry_date', v)}
             />
           </View>
 

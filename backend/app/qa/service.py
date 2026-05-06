@@ -61,13 +61,19 @@ async def approve_fg(db: AsyncSession, fg_batch_id: int, remarks: str | None, ap
     if fg.status != FGStatus.QA_PENDING:
         raise HTTPException(status_code=400, detail=f"FG batch must be QA_PENDING to approve. Current: {fg.status}")
 
-    old_status = fg.status
-    fg.status = FGStatus.QA_APPROVED
-
     inspection_result = await db.execute(
         select(QAInspection).where(QAInspection.fg_batch_id == fg_batch_id).order_by(QAInspection.created_at.desc())
     )
     inspection = inspection_result.scalar_one_or_none()
+    if not inspection:
+        raise HTTPException(
+            status_code=400,
+            detail="QA Executive must complete inspection before this batch can be approved.",
+        )
+
+    old_status = fg.status
+    fg.status = FGStatus.QA_APPROVED
+
     if inspection:
         inspection.status = QAInspectionStatus.PASSED
         inspection.approved_rejected_by = approved_by.id
@@ -109,13 +115,19 @@ async def reject_fg(db: AsyncSession, fg_batch_id: int, remarks: str, rejected_b
     if fg.status != FGStatus.QA_PENDING:
         raise HTTPException(status_code=400, detail=f"FG batch must be QA_PENDING to reject. Current: {fg.status}")
 
-    old_status = fg.status
-    fg.status = FGStatus.QA_REJECTED
-
     inspection_result = await db.execute(
         select(QAInspection).where(QAInspection.fg_batch_id == fg_batch_id).order_by(QAInspection.created_at.desc())
     )
     inspection = inspection_result.scalar_one_or_none()
+    if not inspection:
+        raise HTTPException(
+            status_code=400,
+            detail="QA Executive must complete inspection before this batch can be rejected.",
+        )
+
+    old_status = fg.status
+    fg.status = FGStatus.QA_REJECTED
+
     if inspection:
         inspection.status = QAInspectionStatus.FAILED
         inspection.approved_rejected_by = rejected_by.id

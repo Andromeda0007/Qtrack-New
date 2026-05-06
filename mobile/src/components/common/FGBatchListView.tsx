@@ -8,6 +8,28 @@ import { qaApi } from '../../api/qa';
 import { formatDate } from '../../utils/formatters';
 import { Colors, FontSize, Spacing, Shadow, BorderRadius } from '../../utils/theme';
 
+type SortMode = 'last_created' | 'first_created' | 'expiry_soon';
+
+const SORT_OPTIONS: { label: string; value: SortMode; icon: string }[] = [
+  { label: 'First Created', value: 'first_created', icon: 'arrow-up-outline' },
+  { label: 'Last Created',  value: 'last_created',  icon: 'time-outline' },
+  { label: 'Expiry Soon',   value: 'expiry_soon',   icon: 'alert-circle-outline' },
+];
+
+function applySort(data: any[], mode: SortMode): any[] {
+  const copy = [...data];
+  if (mode === 'last_created') return copy.sort((a, b) => b.id - a.id);
+  if (mode === 'first_created') return copy.sort((a, b) => a.id - b.id);
+  if (mode === 'expiry_soon') {
+    return copy.sort((a, b) => {
+      if (!a.expiry_date) return 1;
+      if (!b.expiry_date) return -1;
+      return new Date(a.expiry_date).getTime() - new Date(b.expiry_date).getTime();
+    });
+  }
+  return copy;
+}
+
 interface Props {
   status?: string;
   onRowPress: (fgBatch: any) => void;
@@ -22,6 +44,7 @@ export const FGBatchListView: React.FC<Props> = ({
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [search, setSearch] = useState('');
+  const [sort, setSort] = useState<SortMode>('last_created');
 
   const load = useCallback(async () => {
     try {
@@ -36,12 +59,15 @@ export const FGBatchListView: React.FC<Props> = ({
 
   useEffect(() => { load(); }, [load]);
 
-  const displayed = search.trim()
-    ? batches.filter(b =>
-        (b.product_name || '').toLowerCase().includes(search.toLowerCase()) ||
-        (b.batch_number || '').toLowerCase().includes(search.toLowerCase()),
-      )
-    : batches;
+  const displayed = applySort(
+    search.trim()
+      ? batches.filter(b =>
+          (b.product_name || '').toLowerCase().includes(search.toLowerCase()) ||
+          (b.batch_number || '').toLowerCase().includes(search.toLowerCase()),
+        )
+      : batches,
+    sort,
+  );
 
   if (loading) {
     return (
@@ -68,6 +94,19 @@ export const FGBatchListView: React.FC<Props> = ({
             <Ionicons name="close-circle" size={16} color={Colors.textMuted} />
           </TouchableOpacity>
         )}
+      </View>
+
+      <View style={styles.sortRow}>
+        {SORT_OPTIONS.map(opt => (
+          <TouchableOpacity
+            key={opt.value}
+            style={[styles.sortChip, sort === opt.value && { backgroundColor: accentColor + '18', borderColor: accentColor }]}
+            onPress={() => setSort(opt.value)}
+          >
+            <Ionicons name={opt.icon as any} size={12} color={sort === opt.value ? accentColor : Colors.textSecondary} />
+            <Text style={[styles.sortLabel, sort === opt.value && { color: accentColor }]}>{opt.label}</Text>
+          </TouchableOpacity>
+        ))}
       </View>
 
       <FlatList
@@ -131,6 +170,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12, paddingVertical: 9, ...Shadow.sm,
   },
   searchInput: { flex: 1, fontSize: FontSize.sm, color: Colors.textPrimary },
+  sortRow: {
+    flexDirection: 'row', gap: 8,
+    marginHorizontal: Spacing.md, marginBottom: Spacing.sm,
+  },
+  sortChip: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    borderWidth: 1, borderColor: Colors.borderLight,
+    borderRadius: 20, paddingHorizontal: 10, paddingVertical: 5,
+    backgroundColor: Colors.surface,
+  },
+  sortLabel: { fontSize: FontSize.xs, fontWeight: '600', color: Colors.textSecondary },
   list: { paddingHorizontal: Spacing.md, paddingBottom: 24 },
   countLabel: { fontSize: FontSize.xs, color: Colors.textMuted, fontWeight: '600', marginBottom: Spacing.sm },
   card: {

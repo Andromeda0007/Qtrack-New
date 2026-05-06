@@ -8,6 +8,7 @@ import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { productionApi } from '../../api/production';
 import { Input } from '../../components/common/Input';
+import { DatePickerInput } from '../../components/common/DatePickerInput';
 import { Button } from '../../components/common/Button';
 import { Colors, FontSize, Spacing, BorderRadius, Shadow } from '../../utils/theme';
 import { extractError } from '../../api/client';
@@ -42,7 +43,7 @@ export const CreateFGBatchScreen: React.FC = () => {
     if (!productName.trim()) { Alert.alert('Validation', 'Product name is required.'); return; }
     if (!batchNumber.trim()) { Alert.alert('Validation', 'Batch number is required.'); return; }
     const expISO = parseDMYToISO(expiryDate);
-    if (!expISO) { Alert.alert('Validation', 'Enter expiry date as DD-MM-YYYY.'); return; }
+    if (!expiryDate || !expISO) { Alert.alert('Validation', 'Please select an expiry date.'); return; }
     const qty = parseFloat(quantity.replace(/,/g, ''));
     if (Number.isNaN(qty) || qty <= 0) { Alert.alert('Validation', 'Enter a valid quantity.'); return; }
 
@@ -113,12 +114,11 @@ export const CreateFGBatchScreen: React.FC = () => {
             value={batchNumber}
             onChangeText={setBatchNumber}
           />
-          <Input
-            label="Expiry Date * (DD-MM-YYYY)"
-            placeholder="e.g. 01-05-2027"
+          <DatePickerInput
+            label="Expiry Date *"
             value={expiryDate}
-            onChangeText={setExpiryDate}
-            keyboardType="numbers-and-punctuation"
+            onChange={setExpiryDate}
+            minimumDate={new Date()}
           />
           <Input
             label="Pack Size"

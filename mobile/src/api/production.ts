@@ -31,4 +31,12 @@ export const productionApi = {
     const res = await apiClient.get(`/production/fg-batch/${id}`);
     return res.data;
   },
+
+  getFGBatchStats: async (): Promise<{
+    qa_pending: number; qa_approved: number; qa_rejected: number;
+    warehouse_received: number; dispatched: number;
+  }> => {
+    const res = await apiClient.get('/production/fg-batch/stats');
+    return res.data;
+  },
 };
