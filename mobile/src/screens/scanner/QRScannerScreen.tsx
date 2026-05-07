@@ -734,7 +734,7 @@ export const QCScanScreen: React.FC = () => {
                 />
                 <View style={scanCardStyles.detailDivider} />
                 <DetailRow
-                  label="Dispensed"
+                  label="Sampled"
                   value={
                     batchData.quantity_issued != null &&
                     batchData.quantity_issued !== ""
