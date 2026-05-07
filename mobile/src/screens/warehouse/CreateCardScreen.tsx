@@ -55,6 +55,7 @@ type GRNResult = {
   manufacture_date: string;
   expiry_date: string;
   invoice_challan_no?: string;
+  invoice_date?: string;
   po_number?: string;
   po_date?: string;
   remarks?: string;
@@ -117,6 +118,7 @@ export const CreateCardScreen: React.FC = () => {
     manufacture_date: '',
     expiry_date: '',
     invoice_challan_no: '',
+    invoice_date: '',
     po_number: '',
     po_date: '',
     remarks: '',
@@ -237,6 +239,7 @@ export const CreateCardScreen: React.FC = () => {
         container_quantity: parseFloat(perContainer),
         total_quantity: parseFloat(totalQty),
         invoice_challan_no: form.invoice_challan_no.trim() || undefined,
+        invoice_date: parseDMYToISO(form.invoice_date) || undefined,
         po_number: form.po_number.trim() || undefined,
         po_date: parseDMYToISO(form.po_date) || undefined,
         remarks: form.remarks.trim() || undefined,
@@ -325,6 +328,11 @@ export const CreateCardScreen: React.FC = () => {
               value={form.invoice_challan_no}
               onChangeText={(v) => set('invoice_challan_no', v)}
               autoCapitalize="characters"
+            />
+            <DatePickerInput
+              label="Invoice Date"
+              value={form.invoice_date ?? ''}
+              onChange={(v) => set('invoice_date', v)}
             />
             <Input
               label="PO No."
@@ -497,6 +505,8 @@ export const CreateCardScreen: React.FC = () => {
               />
               <View style={styles.divider} />
               <CardRow label="Invoice / Challan No." value={result?.invoice_challan_no ?? '—'} />
+              <View style={styles.divider} />
+              <CardRow label="Invoice Date" value={result?.invoice_date ? formatDate(result.invoice_date) : '—'} />
               <View style={styles.divider} />
               <CardRow label="PO No." value={result?.po_number ?? '—'} />
               <View style={styles.divider} />

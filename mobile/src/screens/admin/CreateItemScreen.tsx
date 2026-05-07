@@ -17,7 +17,6 @@ export const CreateItemScreen: React.FC = () => {
   const navigation = useNavigation<any>();
   const [name, setName] = useState('');
   const [code, setCode] = useState('');
-  const [description, setDescription] = useState('');
   const [confirming, setConfirming] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
@@ -40,7 +39,6 @@ export const CreateItemScreen: React.FC = () => {
       const created = await materialsApi.create({
         material_name: name.trim(),
         material_code: code.trim().toUpperCase(),
-        description: description.trim() || undefined,
       });
       Toast.show({
         type: 'success',
@@ -87,13 +85,6 @@ export const CreateItemScreen: React.FC = () => {
               onChangeText={setCode}
               autoCapitalize="characters"
             />
-            <Input
-              label="Description"
-              placeholder="Optional — e.g. Analgesic API, 25 kg bags"
-              value={description}
-              onChangeText={setDescription}
-              multiline
-            />
           </View>
 
           <Button
@@ -125,15 +116,6 @@ export const CreateItemScreen: React.FC = () => {
                 <Text style={styles.detailLabel}>Item Code</Text>
                 <Text style={[styles.detailValue, styles.codeText]}>{code.trim().toUpperCase()}</Text>
               </View>
-              {description.trim() ? (
-                <>
-                  <View style={styles.detailDivider} />
-                  <View style={styles.detailRow}>
-                    <Text style={styles.detailLabel}>Description</Text>
-                    <Text style={styles.detailValue}>{description.trim()}</Text>
-                  </View>
-                </>
-              ) : null}
             </View>
 
             <View style={styles.btnRow}>

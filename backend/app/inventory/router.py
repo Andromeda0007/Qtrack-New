@@ -84,6 +84,7 @@ async def create_product(
         "supplier_name": supplier.supplier_name,
         "manufacturer_name": result["manufacturer_name"],
         "date_of_receipt": result["date_of_receipt"],
+        "invoice_date": str(result["grn"].invoice_date) if result.get("grn") and result["grn"].invoice_date else None,
         "manufacture_date": str(batch.manufacture_date) if batch.manufacture_date else "",
         "expiry_date": str(batch.expiry_date) if batch.expiry_date else "",
         "status": batch.status,

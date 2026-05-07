@@ -6,7 +6,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { inventoryApi } from '../../api/inventory';
 import { SearchInput } from './SearchInput';
-import { formatDate } from '../../utils/formatters';
+import { formatDate, formatQuantity } from '../../utils/formatters';
 import { Colors, FontSize, Spacing, BorderRadius, Shadow } from '../../utils/theme';
 
 type SortMode = 'last_created' | 'first_created' | 'expiry_soon';
@@ -136,7 +136,7 @@ export const BatchListView: React.FC<Props> = ({
                 <View style={styles.cardMeta}>
                   <View style={styles.metaItem}>
                     <Ionicons name="layers-outline" size={13} color={Colors.textMuted} />
-                    <Text style={styles.metaText}>{item.remaining_quantity} / {item.total_quantity}</Text>
+                    <Text style={styles.metaText}>Balance: {formatQuantity(item.remaining_quantity ?? item.total_quantity)} {item.unit_of_measure ?? 'KG'}</Text>
                   </View>
                   {item.expiry_date ? (
                     <View style={styles.metaItem}>

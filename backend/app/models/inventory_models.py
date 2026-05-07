@@ -188,6 +188,7 @@ class GRN(Base):
     received_by: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False)
     received_date: Mapped[date] = mapped_column(Date, default=datetime.utcnow)
     invoice_number: Mapped[str | None] = mapped_column(String(100))
+    invoice_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     po_number: Mapped[str | None] = mapped_column(String(100), nullable=True)
     po_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     remarks: Mapped[str | None] = mapped_column(Text)

@@ -167,6 +167,7 @@ async def create_product(db: AsyncSession, data: dict, created_by: User) -> dict
         received_by=created_by.id,
         received_date=data.get("date_of_receipt"),
         invoice_number=data.get("invoice_challan_no"),
+        invoice_date=data.get("invoice_date"),
         po_number=data.get("po_number"),
         po_date=data.get("po_date"),
         remarks=data.get("remarks"),
@@ -276,6 +277,7 @@ async def create_product(db: AsyncSession, data: dict, created_by: User) -> dict
         "qr_data": f"QTRACK|BATCH|{batch.id}|{batch.batch_number}|{batch.public_code}",
         "public_code": batch.public_code,
         "containers": container_payload,
+        "grn": grn,
     }
 
 

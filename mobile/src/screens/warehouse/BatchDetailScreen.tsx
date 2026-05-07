@@ -266,7 +266,7 @@ export const BatchDetailScreen: React.FC = () => {
                     return formatQuantity(Math.max(0, t - r));
                   })()}
                 </Text>
-                <Text style={styles.qtyLbl}>Dispensed</Text>
+                <Text style={styles.qtyLbl}>Sampled</Text>
               </View>
               <View style={styles.qtyDivider} />
               <View style={styles.qtyBox}>
