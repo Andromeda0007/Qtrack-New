@@ -21,7 +21,6 @@ export const EditItemScreen: React.FC = () => {
 
   const [item, setItem] = useState<Material | null>(null);
   const [name, setName] = useState('');
-  const [description, setDescription] = useState('');
   const [isActive, setIsActive] = useState(true);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -33,7 +32,6 @@ export const EditItemScreen: React.FC = () => {
         const m = await materialsApi.get(id);
         setItem(m);
         setName(m.material_name);
-        setDescription(m.description ?? '');
         setIsActive(m.is_active);
       } catch (e) {
         Alert.alert('Error', extractError(e));
@@ -45,8 +43,7 @@ export const EditItemScreen: React.FC = () => {
 
   const dirty =
     item &&
-    (name !== item.material_name ||
-      description !== (item.description ?? ''));
+    name !== item.material_name;
 
   const handleSave = async () => {
     if (!item) return;
@@ -58,7 +55,6 @@ export const EditItemScreen: React.FC = () => {
     try {
       const updated = await materialsApi.update(item.id, {
         material_name: name.trim(),
-        description: description.trim() || undefined,
       });
       setItem(updated);
       Toast.show({ type: 'success', text1: 'Item updated' });
@@ -164,13 +160,6 @@ export const EditItemScreen: React.FC = () => {
               value={name}
               onChangeText={setName}
               placeholder="e.g. Paracetamol Powder"
-            />
-            <Input
-              label="Description"
-              value={description}
-              onChangeText={setDescription}
-              placeholder="Optional description"
-              multiline
             />
 
             {!isActive ? (
