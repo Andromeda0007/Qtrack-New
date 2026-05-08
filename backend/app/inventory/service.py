@@ -127,7 +127,7 @@ async def create_product(db: AsyncSession, data: dict, created_by: User) -> dict
     quarantine = q_loc.scalar_one_or_none()
 
     # 6. Validate user-supplied GRN number uniqueness + generate public code
-    grn_number = str(data["grn_number"]).strip()
+    grn_number = (data.get("grn_number") or "").strip()
     if not grn_number:
         raise HTTPException(status_code=400, detail="GRN number is required")
     existing_grn = await db.execute(select(GRN).where(GRN.grn_number == grn_number))
