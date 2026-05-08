@@ -26,6 +26,7 @@ class GRNCreate(BaseModel):
     container_count: int
     container_quantity: Decimal
     total_quantity: Decimal
+    grn_number: Optional[str] = None
     invoice_challan_no: Optional[str] = None
     invoice_date: Optional[date] = None
     po_number: Optional[str] = None
