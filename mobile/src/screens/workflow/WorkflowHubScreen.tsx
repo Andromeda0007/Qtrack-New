@@ -162,6 +162,7 @@ export const WorkflowHubScreen: React.FC = () => {
             <FGBatchListView
               status={cfg.statuses[0]}
               needsInspection={mode === 'qa_inspect'}
+              hasInspection={mode === 'qa_decision'}
               onRowPress={handleRowPress}
               accentColor={cfg.accentColor}
             />

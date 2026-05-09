@@ -34,13 +34,14 @@ function applySort(data: any[], mode: SortMode): any[] {
 interface Props {
   status?: string;
   needsInspection?: boolean;
+  hasInspection?: boolean;
   onRowPress: (fgBatch: any) => void;
   accentColor?: string;
   emptyMessage?: string;
 }
 
 export const FGBatchListView: React.FC<Props> = ({
-  status, needsInspection, onRowPress, accentColor = Colors.accent, emptyMessage,
+  status, needsInspection, hasInspection, onRowPress, accentColor = Colors.accent, emptyMessage,
 }) => {
   const [batches, setBatches] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -50,14 +51,14 @@ export const FGBatchListView: React.FC<Props> = ({
 
   const load = useCallback(async () => {
     try {
-      const data = await qaApi.listFgBatches(status, needsInspection);
+      const data = await qaApi.listFgBatches(status, needsInspection, hasInspection);
       setBatches(data);
     } catch {
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [status, needsInspection]);
+  }, [status, needsInspection, hasInspection]);
 
   useFocusEffect(useCallback(() => { setLoading(true); load(); }, [load]));
 

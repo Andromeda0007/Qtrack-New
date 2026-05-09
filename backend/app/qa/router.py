@@ -17,6 +17,7 @@ router = APIRouter()
 async def list_fg_batches(
     status: Optional[str] = Query(None),
     needs_inspection: bool = Query(False),
+    has_inspection: bool = Query(False),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -26,6 +27,10 @@ async def list_fg_batches(
     if needs_inspection:
         query = query.where(
             ~exists().where(QAInspection.fg_batch_id == FinishedGoodsBatch.id)
+        )
+    if has_inspection:
+        query = query.where(
+            exists().where(QAInspection.fg_batch_id == FinishedGoodsBatch.id)
         )
     result = await db.execute(query)
     batches = result.scalars().all()

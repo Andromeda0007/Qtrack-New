@@ -1,10 +1,11 @@
 import apiClient from './client';
 
 export const qaApi = {
-  listFgBatches: async (status?: string, needsInspection?: boolean): Promise<any[]> => {
+  listFgBatches: async (status?: string, needsInspection?: boolean, hasInspection?: boolean): Promise<any[]> => {
     const params: any = {};
     if (status) params.status = status;
     if (needsInspection) params.needs_inspection = 'true';
+    if (hasInspection) params.has_inspection = 'true';
     const res = await apiClient.get('/qa/fg-batches', { params });
     return res.data;
   },
