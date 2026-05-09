@@ -45,9 +45,19 @@ export const CreateFGBatchScreen: React.FC = () => {
     const mfgISO = manufactureDate ? parseDMYToISO(manufactureDate) : new Date().toISOString().split('T')[0];
     if (!mfgISO) { Alert.alert('Validation', 'Enter a valid manufacture date.'); return; }
 
+    const shippersRaw = numShippers.trim();
+    let shippers: number | undefined;
+    if (shippersRaw) {
+      const parsed = parseInt(shippersRaw, 10);
+      if (isNaN(parsed) || parsed <= 0) {
+        Alert.alert('Validation', 'No. of Shippers must be a positive number.');
+        return;
+      }
+      shippers = parsed;
+    }
+
     setSubmitting(true);
     try {
-      const shippers = numShippers.trim() ? parseInt(numShippers.trim(), 10) : undefined;
       const res = await productionApi.createFGBatch({
         fgtn_no: fgtnNo.trim() || undefined,
         product_name: productName.trim(),

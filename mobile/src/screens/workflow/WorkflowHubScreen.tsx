@@ -75,7 +75,7 @@ const MODE_CONFIG: Record<WorkflowMode, ModeConfig> = {
   },
   qa_decision: {
     title: 'Approve / Reject FG',
-    subtitle: 'Select a QA-pending FG batch or scan its QR',
+    subtitle: 'Select an inspected FG batch awaiting your decision',
     scanFlow: null,
     statuses: ['QA_PENDING'],
     isFG: true,
