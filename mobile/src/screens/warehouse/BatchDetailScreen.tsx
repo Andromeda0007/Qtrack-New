@@ -76,7 +76,7 @@ export const BatchDetailScreen: React.FC = () => {
     if (!batch) return [];
     const acts: { label: string; color: string; icon: string; onPress: () => void }[] = [];
     const batchNum = batch.batch_number;
-    if (role === 'WAREHOUSE_USER' && batch.status === 'APPROVED') {
+    if (role === 'WAREHOUSE_USER' && (batch.status === 'APPROVED' || batch.status === 'ISSUED_TO_PRODUCTION')) {
       acts.push({
         label: 'Issue to Production',
         color: Colors.success,
@@ -122,7 +122,7 @@ export const BatchDetailScreen: React.FC = () => {
         },
       );
     }
-    if (role === 'PRODUCTION_USER' && batch.status === 'APPROVED') {
+    if (role === 'PRODUCTION_USER' && (batch.status === 'APPROVED' || batch.status === 'ISSUED_TO_PRODUCTION')) {
       acts.push({
         label: 'Issue to Production',
         color: Colors.info,
