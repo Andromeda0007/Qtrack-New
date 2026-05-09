@@ -30,6 +30,7 @@ export const CreateFGBatchScreen: React.FC = () => {
   const [fgtnNo, setFgtnNo] = useState('');
   const [productName, setProductName] = useState('');
   const [batchNumber, setBatchNumber] = useState('');
+  const [manufactureDate, setManufactureDate] = useState('');
   const [expiryDate, setExpiryDate] = useState('');
   const [packSize, setPackSize] = useState('');
   const [unit, setUnit] = useState<UOM>('KG');
@@ -47,14 +48,16 @@ export const CreateFGBatchScreen: React.FC = () => {
     const qty = parseFloat(quantity.replace(/,/g, ''));
     if (Number.isNaN(qty) || qty <= 0) { Alert.alert('Validation', 'Enter a valid quantity.'); return; }
 
+    const mfgISO = manufactureDate ? parseDMYToISO(manufactureDate) : new Date().toISOString().split('T')[0];
+    if (!mfgISO) { Alert.alert('Validation', 'Enter a valid manufacture date.'); return; }
+
     setSubmitting(true);
     try {
-      const today = new Date().toISOString().split('T')[0];
       const res = await productionApi.createFGBatch({
         fgtn_no: fgtnNo.trim() || undefined,
         product_name: productName.trim(),
         batch_number: batchNumber.trim(),
-        manufacture_date: today,
+        manufacture_date: mfgISO,
         expiry_date: expISO,
         pack_size: packSize.trim() || undefined,
         unit_of_measure: unit,
@@ -113,6 +116,12 @@ export const CreateFGBatchScreen: React.FC = () => {
             placeholder="e.g. FG-2025-001"
             value={batchNumber}
             onChangeText={setBatchNumber}
+          />
+          <DatePickerInput
+            label="Manufacture Date (optional)"
+            value={manufactureDate}
+            onChange={setManufactureDate}
+            maximumDate={new Date()}
           />
           <DatePickerInput
             label="Expiry Date *"

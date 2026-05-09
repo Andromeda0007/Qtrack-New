@@ -8,6 +8,7 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { finishedGoodsApi, FGBatchListItem } from '../../api/finishedGoods';
 import { Input } from '../../components/common/Input';
+import { DatePickerInput } from '../../components/common/DatePickerInput';
 import { Button } from '../../components/common/Button';
 import { Colors, FontSize, Spacing, BorderRadius, Shadow } from '../../utils/theme';
 import { extractError } from '../../api/client';
@@ -141,12 +142,10 @@ export const DispatchFGScreen: React.FC = () => {
             value={invoiceNumber}
             onChangeText={setInvoiceNumber}
           />
-          <Input
-            label="Dispatch Date (DD-MM-YYYY)"
-            placeholder="Leave blank for today"
+          <DatePickerInput
+            label="Dispatch Date (optional)"
             value={dispatchDate}
-            onChangeText={setDispatchDate}
-            keyboardType="numeric"
+            onChange={setDispatchDate}
           />
           <Input
             label="Remarks"

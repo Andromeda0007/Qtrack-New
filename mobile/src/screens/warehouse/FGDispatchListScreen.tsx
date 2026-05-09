@@ -60,12 +60,15 @@ export const FGDispatchListScreen: React.FC = () => {
   const [batches, setBatches] = useState<FGBatchListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [fetchError, setFetchError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
+    setFetchError(null);
     try {
       const data = await finishedGoodsApi.listByStatus('WAREHOUSE_RECEIVED');
       setBatches(data);
-    } catch {
+    } catch (e: any) {
+      setFetchError(e?.message ?? 'Failed to load batches. Pull down to retry.');
       setBatches([]);
     } finally {
       setLoading(false);
@@ -90,6 +93,11 @@ export const FGDispatchListScreen: React.FC = () => {
       {loading ? (
         <View style={styles.centered}>
           <ActivityIndicator size="large" color={Colors.primary} />
+        </View>
+      ) : fetchError ? (
+        <View style={styles.centered}>
+          <Ionicons name="cloud-offline-outline" size={48} color={Colors.danger} />
+          <Text style={styles.errorText}>{fetchError}</Text>
         </View>
       ) : (
         <FlatList
@@ -149,4 +157,5 @@ const styles = StyleSheet.create({
   empty: { alignItems: 'center', gap: 10, padding: Spacing.xl },
   emptyTitle: { fontSize: FontSize.md, fontWeight: '700', color: Colors.textPrimary, textAlign: 'center' },
   emptySub: { fontSize: FontSize.sm, color: Colors.textMuted, textAlign: 'center' },
+  errorText: { fontSize: FontSize.sm, color: Colors.danger, textAlign: 'center', marginTop: 12, paddingHorizontal: Spacing.lg },
 });
