@@ -66,7 +66,7 @@ export const InspectFGScreen: React.FC = () => {
             FG {fgBatchNumber ?? `#${fgBatchId}`}
           </Text>
           <Text style={styles.help}>
-            Record verified quantity and optional remarks for this QA inspection.
+            Add any inspection remarks and submit to record QA inspection.
           </Text>
           <View style={styles.card}>
             <Input
