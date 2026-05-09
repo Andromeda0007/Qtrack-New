@@ -278,6 +278,10 @@ async def create_product(db: AsyncSession, data: dict, created_by: User) -> dict
         "public_code": batch.public_code,
         "containers": container_payload,
         "invoice_date": str(data["invoice_date"]) if data.get("invoice_date") else None,
+        "invoice_challan_no": data.get("invoice_challan_no"),
+        "po_number": data.get("po_number"),
+        "po_date": str(data["po_date"]) if data.get("po_date") else None,
+        "remarks": data.get("remarks"),
     }
 
 
