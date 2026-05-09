@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import {
   View, Text, FlatList, TouchableOpacity,
   RefreshControl, ActivityIndicator, StyleSheet, TextInput,
@@ -32,13 +33,14 @@ function applySort(data: any[], mode: SortMode): any[] {
 
 interface Props {
   status?: string;
+  needsInspection?: boolean;
   onRowPress: (fgBatch: any) => void;
   accentColor?: string;
   emptyMessage?: string;
 }
 
 export const FGBatchListView: React.FC<Props> = ({
-  status, onRowPress, accentColor = Colors.accent, emptyMessage,
+  status, needsInspection, onRowPress, accentColor = Colors.accent, emptyMessage,
 }) => {
   const [batches, setBatches] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -48,16 +50,16 @@ export const FGBatchListView: React.FC<Props> = ({
 
   const load = useCallback(async () => {
     try {
-      const data = await qaApi.listFgBatches(status);
+      const data = await qaApi.listFgBatches(status, needsInspection);
       setBatches(data);
     } catch {
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [status]);
+  }, [status, needsInspection]);
 
-  useEffect(() => { load(); }, [load]);
+  useFocusEffect(useCallback(() => { setLoading(true); load(); }, [load]));
 
   const displayed = applySort(
     search.trim()
@@ -144,12 +146,12 @@ export const FGBatchListView: React.FC<Props> = ({
                       <Text style={styles.metaText}>Exp: {formatDate(item.expiry_date)}</Text>
                     </View>
                   )}
-                  {item.carton_count && (
+                  {item.carton_count ? (
                     <View style={styles.metaItem}>
                       <Ionicons name="cube-outline" size={12} color={Colors.textMuted} />
-                      <Text style={styles.metaText}>{item.carton_count} cartons</Text>
+                      <Text style={styles.metaText}>{item.carton_count} shippers</Text>
                     </View>
-                  )}
+                  ) : null}
                 </View>
               </View>
               <Ionicons name="chevron-forward" size={18} color={accentColor} />

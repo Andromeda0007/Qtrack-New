@@ -29,24 +29,14 @@ export const InspectFGScreen: React.FC = () => {
     fgBatchNumber?: string;
   };
 
-  const [quantityVerified, setQuantityVerified] = useState("");
   const [remarks, setRemarks] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [flowDone, setFlowDone] = useState<{ title: string; message: string } | null>(null);
 
   const submit = async () => {
-    let qty: number | undefined;
-    if (quantityVerified.trim()) {
-      const n = parseFloat(quantityVerified.replace(",", "."));
-      if (Number.isNaN(n)) {
-        Alert.alert("Invalid", "Enter a valid quantity or leave it blank.");
-        return;
-      }
-      qty = n;
-    }
     setSubmitting(true);
     try {
-      await qaApi.inspectFG(fgBatchId, qty, remarks.trim() || undefined);
+      await qaApi.inspectFG(fgBatchId, undefined, remarks.trim() || undefined);
       setFlowDone({
         title: "Inspection recorded",
         message: "QA inspection has been saved. You can continue from Home.",
@@ -79,13 +69,6 @@ export const InspectFGScreen: React.FC = () => {
             Record verified quantity and optional remarks for this QA inspection.
           </Text>
           <View style={styles.card}>
-            <Input
-              label="Quantity verified (optional)"
-              value={quantityVerified}
-              onChangeText={setQuantityVerified}
-              placeholder="e.g. 1200"
-              keyboardType="decimal-pad"
-            />
             <Input
               label="Inspection remarks (optional)"
               value={remarks}

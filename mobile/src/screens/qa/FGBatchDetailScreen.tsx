@@ -107,7 +107,7 @@ export const FGBatchDetailScreen: React.FC = () => {
           <Divider />
           <Row label="Quantity" value={b.quantity ? `${b.quantity} ${b.unit_of_measure ?? 'KG'}` : '—'} />
           {b.pack_size ? <><Divider /><Row label="Pack Size" value={String(b.pack_size)} /></> : null}
-          {b.carton_count != null && b.carton_count !== 0 ? <><Divider /><Row label="Carton Count" value={String(b.carton_count)} /></> : null}
+          {b.carton_count != null && b.carton_count !== 0 ? <><Divider /><Row label="No. of Shippers" value={String(b.carton_count)} /></> : null}
           {b.net_weight ? <><Divider /><Row label="Net Weight" value={`${b.net_weight} kg`} /></> : null}
         </View>
 

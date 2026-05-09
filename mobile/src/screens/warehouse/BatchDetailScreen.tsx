@@ -8,6 +8,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { inventoryApi } from '../../api/inventory';
+import { formatQuantity as fmtQ } from '../../utils/formatters';
 import { useAuthStore } from '../../store/authStore';
 import { BASE_URL } from '../../api/client';
 import { Colors, FontSize, Spacing, BorderRadius, Shadow } from '../../utils/theme';
@@ -59,6 +60,7 @@ export const BatchDetailScreen: React.FC = () => {
   const { user } = useAuthStore();
 
   const [batch, setBatch] = useState<any>(null);
+  const [movements, setMovements] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [rackModal, setRackModal] = useState(false);
@@ -150,8 +152,12 @@ export const BatchDetailScreen: React.FC = () => {
 
   useFocusEffect(
     useCallback(() => {
-      inventoryApi.getBatchById(batchId)
-        .then(data => { setBatch(data); setLoading(false); })
+      setLoading(true);
+      Promise.all([
+        inventoryApi.getBatchById(batchId),
+        inventoryApi.getBatchMovements(batchId),
+      ])
+        .then(([data, mvts]) => { setBatch(data); setMovements(mvts); setLoading(false); })
         .catch(() => { setError('Failed to load batch details.'); setLoading(false); });
     }, [batchId])
   );
@@ -248,37 +254,51 @@ export const BatchDetailScreen: React.FC = () => {
           ) : null}
 
           {/* Quantities */}
-          <SectionTitle title={`Quantity (${batch.unit_of_measure ?? 'KG'})`} />
-          <View style={styles.card}>
-            <View style={styles.qtyRow}>
-              <View style={styles.qtyBox}>
-                <Text style={styles.qtyNumSm}>{formatQuantity(batch.total_quantity)}</Text>
-                <Text style={styles.qtyLbl}>Received</Text>
-              </View>
-              <View style={styles.qtyDivider} />
-              <View style={styles.qtyBox}>
-                <Text style={[styles.qtyNumSm, { color: Colors.info }]}>
-                  {(() => {
-                    const remRaw = batch.remaining_quantity;
-                    if (remRaw == null || remRaw === '') return '—';
-                    const t = parseFloat(String(batch.total_quantity ?? 0)) || 0;
-                    const r = parseFloat(String(remRaw)) || 0;
-                    return formatQuantity(Math.max(0, t - r));
-                  })()}
-                </Text>
-                <Text style={styles.qtyLbl}>Sampled</Text>
-              </View>
-              <View style={styles.qtyDivider} />
-              <View style={styles.qtyBox}>
-                <Text style={[styles.qtyNumSm, { color: Colors.success }]}>
-                  {batch.remaining_quantity != null && batch.remaining_quantity !== ''
-                    ? formatQuantity(batch.remaining_quantity)
-                    : '—'}
-                </Text>
-                <Text style={styles.qtyLbl}>Balance</Text>
-              </View>
-            </View>
-          </View>
+          {(() => {
+            const sampledQty = movements
+              .filter(m => m.movement_type === 'ISSUE_TO_PRODUCTION' && !m.issued_to_product_name)
+              .reduce((s, m) => s + parseFloat(String(m.quantity ?? 0)), 0);
+            const dispensedQty = movements
+              .filter(m => m.movement_type === 'ISSUE_TO_PRODUCTION' && m.issued_to_product_name)
+              .reduce((s, m) => s + parseFloat(String(m.quantity ?? 0)), 0);
+            const uom = batch.unit_of_measure ?? 'KG';
+            return (
+              <>
+                <SectionTitle title={`Quantity (${uom})`} />
+                <View style={styles.card}>
+                  <View style={styles.qtyRow}>
+                    <View style={styles.qtyBox}>
+                      <Text style={styles.qtyNumSm}>{formatQuantity(batch.total_quantity)}</Text>
+                      <Text style={styles.qtyLbl}>Received</Text>
+                    </View>
+                    <View style={styles.qtyDivider} />
+                    <View style={styles.qtyBox}>
+                      <Text style={[styles.qtyNumSm, { color: Colors.info }]}>
+                        {fmtQ(sampledQty)}
+                      </Text>
+                      <Text style={styles.qtyLbl}>Sampled</Text>
+                    </View>
+                    <View style={styles.qtyDivider} />
+                    <View style={styles.qtyBox}>
+                      <Text style={[styles.qtyNumSm, { color: Colors.warning }]}>
+                        {fmtQ(dispensedQty)}
+                      </Text>
+                      <Text style={styles.qtyLbl}>Dispensed</Text>
+                    </View>
+                    <View style={styles.qtyDivider} />
+                    <View style={styles.qtyBox}>
+                      <Text style={[styles.qtyNumSm, { color: Colors.success }]}>
+                        {batch.remaining_quantity != null && batch.remaining_quantity !== ''
+                          ? formatQuantity(batch.remaining_quantity)
+                          : '—'}
+                      </Text>
+                      <Text style={styles.qtyLbl}>Balance</Text>
+                    </View>
+                  </View>
+                </View>
+              </>
+            );
+          })()}
 
           {/* Storage */}
           <SectionTitle title="Storage" />
@@ -365,6 +385,41 @@ export const BatchDetailScreen: React.FC = () => {
               </View>
             </>
           ) : null}
+
+          {/* Consumption History */}
+          {movements.filter(m => m.movement_type === 'ISSUE_TO_PRODUCTION').length > 0 && (
+            <>
+              <SectionTitle title="Consumption History" />
+              <View style={styles.card}>
+                {movements
+                  .filter(m => m.movement_type === 'ISSUE_TO_PRODUCTION')
+                  .map((m, idx, arr) => (
+                    <React.Fragment key={m.id}>
+                      <View style={styles.mvtRow}>
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.mvtType}>
+                            {m.issued_to_product_name ? `Dispensed → ${m.issued_to_product_name}` : 'Sampled'}
+                          </Text>
+                          {m.issued_to_batch_ref ? (
+                            <Text style={styles.mvtSub}>Ref: {m.issued_to_batch_ref}</Text>
+                          ) : null}
+                          {m.remarks ? (
+                            <Text style={styles.mvtSub}>{m.remarks}</Text>
+                          ) : null}
+                          <Text style={styles.mvtDate}>
+                            {m.created_at ? new Date(m.created_at).toLocaleDateString('en-IN') : ''}
+                          </Text>
+                        </View>
+                        <Text style={styles.mvtQty}>
+                          −{formatQuantity(m.quantity)} {batch.unit_of_measure ?? 'KG'}
+                        </Text>
+                      </View>
+                      {idx < arr.length - 1 && <Divider />}
+                    </React.Fragment>
+                  ))}
+              </View>
+            </>
+          )}
 
           {/* Labels */}
           <SectionTitle title="Labels" />
@@ -544,6 +599,12 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   viewPdfText: { color: Colors.primary, fontWeight: '700', fontSize: FontSize.sm },
+
+  mvtRow: { flexDirection: 'row', alignItems: 'flex-start', paddingVertical: 9, gap: 8 },
+  mvtType: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.textPrimary },
+  mvtSub: { fontSize: FontSize.xs, color: Colors.textMuted, marginTop: 1 },
+  mvtDate: { fontSize: FontSize.xs, color: Colors.textMuted, marginTop: 2 },
+  mvtQty: { fontSize: FontSize.sm, fontWeight: '800', color: Colors.danger, flexShrink: 0 },
 
   actionsRow: { flexDirection: 'row', gap: 12, marginBottom: 4 },
   actionBtn: {

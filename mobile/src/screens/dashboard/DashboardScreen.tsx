@@ -67,14 +67,13 @@ type StatTile = {
 const RAW_STAT_TILES: StatTile[] = [
   { label: "Quarantine",  color: Colors.warning,          icon: "hourglass-outline",    screen: "QuarantineList", getValue: (s) => s.quarantine },
   { label: "Under Test",  color: Colors.info,             icon: "flask",                screen: "UnderTestList",  getValue: (s) => s.underTest },
-  { label: "Approved",    color: Colors.success,          icon: "checkmark-circle",     screen: "ApprovedList",   getValue: (s) => s.approved },
+  { label: "Approved",    color: Colors.success,          icon: "checkmark-circle",     screen: "ApprovedList",   getValue: (s) => s.approved + s.production },
   { label: "Rejected",    color: Colors.danger,           icon: "close-circle",         screen: "RejectedList",   getValue: (s) => s.rejected },
   { label: "Retest",      color: Colors.statusQuarantine, icon: "refresh-circle-outline", screen: "RetestList",   getValue: (s) => s.retest },
-  { label: "Production",  color: Colors.primary,          icon: "layers-outline",       screen: "ProductionList", getValue: (s) => s.production },
 ];
 
 const PRODUCTION_USER_TILES: StatTile[] = [
-  { label: "In Production", color: Colors.primary, icon: "layers-outline",    screen: "ProductionList", getValue: (s) => s.production },
+  { label: "Approved",      color: Colors.success, icon: "checkmark-circle",  screen: "ApprovedList",  getValue: (s) => s.approved + s.production },
   { label: "QA Pending FG", color: Colors.warning, icon: "hourglass-outline", screen: "FGBatchList",   params: { status: "QA_PENDING", title: "QA Pending FG" }, getValue: (_, fg) => fg.qa_pending },
   { label: "Approved FG",   color: Colors.success, icon: "checkmark-circle",  screen: "FGBatchList",   params: { status: "QA_APPROVED", title: "Approved FG" }, getValue: (_, fg) => fg.qa_approved },
 ];

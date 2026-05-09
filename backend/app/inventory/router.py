@@ -252,6 +252,8 @@ async def batch_movements(
             "movement_type": m.movement_type,
             "quantity": m.quantity,
             "performed_by": m.performed_by,
+            "issued_to_product_name": m.issued_to_product_name,
+            "issued_to_batch_ref": m.issued_to_batch_ref,
             "remarks": m.remarks,
             "created_at": m.created_at,
         }

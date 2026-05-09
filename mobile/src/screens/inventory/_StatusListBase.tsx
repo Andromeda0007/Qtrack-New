@@ -47,8 +47,10 @@ function applySort(data: any[], mode: SortMode): any[] {
 }
 
 interface Props {
-  /** When omitted, loads all batches (any status). */
+  /** Single status filter. Use `statuses` for multiple. */
   status?: string;
+  /** Multiple statuses — takes priority over `status`. */
+  statuses?: string[];
   title: string;
   bgColor: string;
   textColor: string;
@@ -59,6 +61,7 @@ interface Props {
 
 export const StatusListBase: React.FC<Props> = ({
   status,
+  statuses,
   title,
   bgColor,
   textColor,
@@ -74,14 +77,16 @@ export const StatusListBase: React.FC<Props> = ({
 
   const load = useCallback(async () => {
     try {
-      const data = await inventoryApi.getBatches(status);
+      const data = statuses
+        ? await inventoryApi.getBatchesByStatuses(statuses)
+        : await inventoryApi.getBatches(status);
       setBatches(data);
     } catch {
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [status]);
+  }, [status, statuses]);
 
   useEffect(() => {
     load();

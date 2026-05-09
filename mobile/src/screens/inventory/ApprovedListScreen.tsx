@@ -3,7 +3,7 @@ import { StatusListBase } from './_StatusListBase';
 
 export const ApprovedListScreen: React.FC = () => (
   <StatusListBase
-    status="APPROVED"
+    statuses={['APPROVED', 'ISSUED_TO_PRODUCTION']}
     title="Approved"
     bgColor="#D4EDDA"
     textColor="#155724"

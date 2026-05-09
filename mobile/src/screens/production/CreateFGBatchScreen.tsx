@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, TouchableOpacity,
+  View, Text, StyleSheet, ScrollView,
   Alert, KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -10,19 +10,13 @@ import { productionApi } from '../../api/production';
 import { Input } from '../../components/common/Input';
 import { DatePickerInput } from '../../components/common/DatePickerInput';
 import { Button } from '../../components/common/Button';
-import { Colors, FontSize, Spacing, BorderRadius, Shadow } from '../../utils/theme';
+import { Colors, FontSize, Spacing, Shadow } from '../../utils/theme';
 import { extractError } from '../../api/client';
 import { parseDMYToISO, formatDate, formatQuantity } from '../../utils/formatters';
 import { resetToDashboardHome } from '../../navigation/goHome';
 import { OperationResultModal } from '../../components/common/OperationResultModal';
 
-type UOM = 'KG' | 'COUNT' | 'L';
-
-const UOM_OPTIONS: { value: UOM; label: string }[] = [
-  { value: 'KG', label: 'KG' },
-  { value: 'COUNT', label: 'COUNT' },
-  { value: 'L', label: 'L' },
-];
+type UOM = 'COUNT';
 
 export const CreateFGBatchScreen: React.FC = () => {
   const navigation = useNavigation<any>();
@@ -33,12 +27,12 @@ export const CreateFGBatchScreen: React.FC = () => {
   const [manufactureDate, setManufactureDate] = useState('');
   const [expiryDate, setExpiryDate] = useState('');
   const [packSize, setPackSize] = useState('');
-  const [unit, setUnit] = useState<UOM>('KG');
+  const [numShippers, setNumShippers] = useState('');
   const [quantity, setQuantity] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [flowDone, setFlowDone] = useState<{ title: string; message: string } | null>(null);
 
-  const unitLabel = unit === 'KG' ? 'kg' : unit === 'L' ? 'L' : 'count';
+  const unitLabel = 'count';
 
   const onSubmit = async () => {
     if (!productName.trim()) { Alert.alert('Validation', 'Product name is required.'); return; }
@@ -53,6 +47,7 @@ export const CreateFGBatchScreen: React.FC = () => {
 
     setSubmitting(true);
     try {
+      const shippers = numShippers.trim() ? parseInt(numShippers.trim(), 10) : undefined;
       const res = await productionApi.createFGBatch({
         fgtn_no: fgtnNo.trim() || undefined,
         product_name: productName.trim(),
@@ -60,8 +55,9 @@ export const CreateFGBatchScreen: React.FC = () => {
         manufacture_date: mfgISO,
         expiry_date: expISO,
         pack_size: packSize.trim() || undefined,
-        unit_of_measure: unit,
+        unit_of_measure: 'COUNT',
         quantity: qty,
+        carton_count: shippers,
       });
       setFlowDone({
         title: 'FG Batch created',
@@ -70,7 +66,8 @@ export const CreateFGBatchScreen: React.FC = () => {
           `Product: ${productName.trim()}`,
           `Batch: ${res.batch_number ?? batchNumber.trim()}`,
           packSize.trim() ? `Pack Size: ${packSize.trim()}` : null,
-          `Qty: ${formatQuantity(qty)} ${unitLabel}`,
+          numShippers.trim() ? `No. of Shippers: ${numShippers.trim()}` : null,
+          `Qty: ${formatQuantity(qty)} count`,
           `Expiry: ${formatDate(expISO)}`,
           '',
           'Sent to QA for inspection.',
@@ -131,32 +128,23 @@ export const CreateFGBatchScreen: React.FC = () => {
           />
           <Input
             label="Pack Size"
-            placeholder="e.g. 100 units/carton or 500g/pack"
+            placeholder="e.g. 100 units/pack"
             value={packSize}
             onChangeText={setPackSize}
           />
-
-          {/* Unit selector */}
-          <Text style={styles.fieldLabel}>Unit *</Text>
-          <View style={styles.unitRow}>
-            {UOM_OPTIONS.map((o) => (
-              <TouchableOpacity
-                key={o.value}
-                style={[styles.unitChip, unit === o.value && styles.unitChipActive]}
-                onPress={() => { setUnit(o.value); setQuantity(''); }}
-                activeOpacity={0.7}
-              >
-                <Text style={[styles.unitText, unit === o.value && styles.unitTextActive]}>{o.label}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-
           <Input
-            label={`Quantity (${unitLabel}) *`}
-            placeholder={unit === 'COUNT' ? 'e.g. 500' : 'e.g. 250.000'}
+            label="No. of Shippers"
+            placeholder="Number of shipping cartons"
+            value={numShippers}
+            onChangeText={setNumShippers}
+            keyboardType="number-pad"
+          />
+          <Input
+            label="Quantity (count) *"
+            placeholder="e.g. 500"
             value={quantity}
             onChangeText={setQuantity}
-            keyboardType={unit === 'COUNT' ? 'number-pad' : 'decimal-pad'}
+            keyboardType="number-pad"
           />
 
           <Button
@@ -190,17 +178,4 @@ const styles = StyleSheet.create({
   scroll: { flex: 1, backgroundColor: Colors.background },
   content: { padding: Spacing.md, paddingBottom: 40 },
 
-  fieldLabel: {
-    fontSize: FontSize.sm, fontWeight: '600',
-    color: Colors.textPrimary, marginBottom: 8, marginTop: 4,
-  },
-  unitRow: { flexDirection: 'row', gap: 10, marginBottom: 14 },
-  unitChip: {
-    flex: 1, borderWidth: 1.5, borderColor: Colors.border,
-    borderRadius: BorderRadius.md, paddingVertical: 12, alignItems: 'center',
-    backgroundColor: '#fafafa',
-  },
-  unitChipActive: { borderColor: Colors.primary, backgroundColor: Colors.primary + '10' },
-  unitText: { fontSize: FontSize.md, fontWeight: '800', color: Colors.textSecondary },
-  unitTextActive: { color: Colors.primary },
 });
