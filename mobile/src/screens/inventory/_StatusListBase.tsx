@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useCallback } from "react";
 import {
   View,
   Text,
@@ -9,7 +9,7 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 import { inventoryApi } from "../../api/inventory";
 import { SearchInput } from "../../components/common/SearchInput";
@@ -88,9 +88,7 @@ export const StatusListBase: React.FC<Props> = ({
     }
   }, [status, statuses]);
 
-  useEffect(() => {
-    load();
-  }, [load]);
+  useFocusEffect(useCallback(() => { setLoading(true); load(); }, [load]));
 
   const onRefresh = () => {
     setRefreshing(true);

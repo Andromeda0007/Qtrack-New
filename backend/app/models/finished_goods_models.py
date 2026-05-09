@@ -86,7 +86,7 @@ class DispatchRecord(Base):
     fg_batch_id: Mapped[int] = mapped_column(Integer, ForeignKey("finished_goods_batches.id"), nullable=False, index=True)
     customer_name: Mapped[str] = mapped_column(String(150), nullable=False)
     quantity: Mapped[Decimal] = mapped_column(Numeric(12, 3), nullable=False)
-    dispatch_date: Mapped[date] = mapped_column(Date, default=datetime.utcnow)
+    dispatch_date: Mapped[date] = mapped_column(Date, default=date.today)
     invoice_number: Mapped[str | None] = mapped_column(String(100))
     remarks: Mapped[str | None] = mapped_column(Text)
     dispatched_by: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False)

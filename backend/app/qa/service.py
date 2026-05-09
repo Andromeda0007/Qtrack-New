@@ -20,6 +20,12 @@ async def inspect_fg(db: AsyncSession, fg_batch_id: int, quantity_verified, rema
     if fg.status != FGStatus.QA_PENDING:
         raise HTTPException(status_code=400, detail=f"FG batch status is {fg.status}. Must be QA_PENDING for inspection.")
 
+    existing_result = await db.execute(
+        select(QAInspection).where(QAInspection.fg_batch_id == fg_batch_id)
+    )
+    if existing_result.scalar_one_or_none():
+        raise HTTPException(status_code=400, detail="This batch has already been inspected. Awaiting QA Head approval.")
+
     inspection = QAInspection(
         fg_batch_id=fg.id,
         quantity_verified=quantity_verified,

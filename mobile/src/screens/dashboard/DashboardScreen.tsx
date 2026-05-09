@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useState, useCallback } from "react";
 import {
   View,
   Text,
@@ -288,10 +288,6 @@ export const DashboardScreen: React.FC = () => {
       // Silent fail on dashboard stats
     }
   }, [role]);
-
-  useEffect(() => {
-    loadData();
-  }, []);
 
   useFocusEffect(
     useCallback(() => {

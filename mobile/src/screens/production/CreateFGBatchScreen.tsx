@@ -42,7 +42,9 @@ export const CreateFGBatchScreen: React.FC = () => {
     const qty = parseFloat(quantity.replace(/,/g, ''));
     if (Number.isNaN(qty) || qty <= 0) { Alert.alert('Validation', 'Enter a valid quantity.'); return; }
 
-    const mfgISO = manufactureDate ? parseDMYToISO(manufactureDate) : new Date().toISOString().split('T')[0];
+    const today = new Date();
+    const todayISO = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    const mfgISO = manufactureDate ? parseDMYToISO(manufactureDate) : todayISO;
     if (!mfgISO) { Alert.alert('Validation', 'Enter a valid manufacture date.'); return; }
 
     const shippersRaw = numShippers.trim();

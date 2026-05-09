@@ -6,7 +6,6 @@ import {
   ScrollView,
   TouchableOpacity,
   Alert,
-  ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
 } from "react-native";
@@ -78,13 +77,11 @@ export const InspectFGScreen: React.FC = () => {
             />
           </View>
           <Button
-            title={submitting ? "Submitting…" : "Submit inspection"}
+            title="Submit inspection"
             onPress={submit}
+            loading={submitting}
             disabled={submitting}
           />
-          {submitting && (
-            <ActivityIndicator color={Colors.primary} style={{ marginTop: 12 }} />
-          )}
         </ScrollView>
       </KeyboardAvoidingView>
       <OperationResultModal
