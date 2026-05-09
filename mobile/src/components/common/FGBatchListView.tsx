@@ -46,14 +46,18 @@ export const FGBatchListView: React.FC<Props> = ({
   const [batches, setBatches] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [sort, setSort] = useState<SortMode>('last_created');
 
   const load = useCallback(async () => {
+    setFetchError(null);
     try {
       const data = await qaApi.listFgBatches(status, needsInspection, hasInspection);
       setBatches(data);
-    } catch {
+    } catch (e: any) {
+      setFetchError(e?.message ?? 'Failed to load batches. Pull down to retry.');
+      setBatches([]);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -76,6 +80,15 @@ export const FGBatchListView: React.FC<Props> = ({
     return (
       <View style={styles.centered}>
         <ActivityIndicator size="large" color={accentColor} />
+      </View>
+    );
+  }
+
+  if (fetchError) {
+    return (
+      <View style={styles.centered}>
+        <Ionicons name="cloud-offline-outline" size={48} color={Colors.danger} />
+        <Text style={styles.errorText}>{fetchError}</Text>
       </View>
     );
   }
@@ -200,4 +213,5 @@ const styles = StyleSheet.create({
   metaText: { fontSize: FontSize.xs, color: Colors.textMuted },
   empty: { alignItems: 'center', paddingTop: 60, gap: Spacing.md },
   emptyText: { fontSize: FontSize.md, color: Colors.textMuted },
+  errorText: { fontSize: FontSize.sm, color: Colors.danger, textAlign: 'center', marginTop: 12, paddingHorizontal: Spacing.lg },
 });

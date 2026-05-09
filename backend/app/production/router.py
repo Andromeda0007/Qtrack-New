@@ -19,8 +19,8 @@ async def get_fg_batch_stats(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    from sqlalchemy import func, select as sa_select
-    from app.models.finished_goods_models import FinishedGoodsBatch
+    from sqlalchemy import func, select as sa_select, exists
+    from app.models.finished_goods_models import FinishedGoodsBatch, QAInspection
     result = await db.execute(
         sa_select(FinishedGoodsBatch.status, func.count().label("cnt"))
         .group_by(FinishedGoodsBatch.status)
@@ -29,8 +29,24 @@ async def get_fg_batch_stats(
         (row.status.value if hasattr(row.status, 'value') else str(row.status)): row.cnt
         for row in result
     }
+
+    needs_insp = await db.execute(
+        sa_select(func.count()).where(
+            FinishedGoodsBatch.status == FGStatus.QA_PENDING,
+            ~exists().where(QAInspection.fg_batch_id == FinishedGoodsBatch.id),
+        )
+    )
+    awaiting_dec = await db.execute(
+        sa_select(func.count()).where(
+            FinishedGoodsBatch.status == FGStatus.QA_PENDING,
+            exists().where(QAInspection.fg_batch_id == FinishedGoodsBatch.id),
+        )
+    )
+
     return {
         "qa_pending": counts.get("QA_PENDING", 0),
+        "qa_needs_inspection": needs_insp.scalar() or 0,
+        "qa_awaiting_decision": awaiting_dec.scalar() or 0,
         "qa_approved": counts.get("QA_APPROVED", 0),
         "qa_rejected": counts.get("QA_REJECTED", 0),
         "warehouse_received": counts.get("WAREHOUSE_RECEIVED", 0),

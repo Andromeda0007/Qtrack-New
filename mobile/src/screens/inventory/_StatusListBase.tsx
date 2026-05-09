@@ -72,16 +72,20 @@ export const StatusListBase: React.FC<Props> = ({
   const [batches, setBatches] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState<SortMode>("first_created");
 
   const load = useCallback(async () => {
+    setFetchError(null);
     try {
       const data = statuses
         ? await inventoryApi.getBatchesByStatuses(statuses)
         : await inventoryApi.getBatches(status);
       setBatches(data);
-    } catch {
+    } catch (e: any) {
+      setFetchError(e?.message ?? "Failed to load. Pull down to retry.");
+      setBatches([]);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -225,6 +229,11 @@ export const StatusListBase: React.FC<Props> = ({
         <View style={styles.centered}>
           <ActivityIndicator size="large" color={textColor} />
         </View>
+      ) : fetchError ? (
+        <View style={styles.centered}>
+          <Ionicons name="cloud-offline-outline" size={48} color={Colors.danger} />
+          <Text style={styles.errorText}>{fetchError}</Text>
+        </View>
       ) : (
         <FlatList
           data={displayed}
@@ -265,6 +274,7 @@ export const StatusListBase: React.FC<Props> = ({
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.background },
   centered: { flex: 1, justifyContent: "center", alignItems: "center" },
+  errorText: { fontSize: 14, color: Colors.danger, textAlign: "center", marginTop: 12, paddingHorizontal: 24 },
 
   header: {
     flexDirection: "row",

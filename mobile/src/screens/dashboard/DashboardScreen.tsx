@@ -49,6 +49,8 @@ interface ProductStats {
 
 interface FGStats {
   qa_pending: number;
+  qa_needs_inspection: number;
+  qa_awaiting_decision: number;
   qa_approved: number;
   qa_rejected: number;
   warehouse_received: number;
@@ -79,15 +81,15 @@ const PRODUCTION_USER_TILES: StatTile[] = [
 ];
 
 const QA_STAT_TILES: StatTile[] = [
-  { label: "QA Pending",  color: Colors.warning, icon: "hourglass-outline", screen: "WorkflowHub", params: { mode: "qa_decision" }, getValue: (_, fg) => fg.qa_pending },
-  { label: "Approved FG", color: Colors.success, icon: "ribbon-outline",    screen: "FGBatchList", params: { status: "QA_APPROVED", title: "Approved FG" }, getValue: (_, fg) => fg.qa_approved },
-  { label: "Rejected FG", color: Colors.danger,  icon: "close-circle",      screen: "FGBatchList", params: { status: "QA_REJECTED", title: "Rejected FG" }, getValue: (_, fg) => fg.qa_rejected },
+  { label: "Awaiting Decision", color: Colors.warning, icon: "hourglass-outline", screen: "WorkflowHub", params: { mode: "qa_decision" }, getValue: (_, fg) => fg.qa_awaiting_decision },
+  { label: "Approved FG",       color: Colors.success, icon: "ribbon-outline",    screen: "FGBatchList", params: { status: "QA_APPROVED", title: "Approved FG" }, getValue: (_, fg) => fg.qa_approved },
+  { label: "Rejected FG",       color: Colors.danger,  icon: "close-circle",      screen: "FGBatchList", params: { status: "QA_REJECTED", title: "Rejected FG" }, getValue: (_, fg) => fg.qa_rejected },
 ];
 
 const QA_EXEC_TILES: StatTile[] = [
-  { label: "QA Pending",  color: Colors.warning, icon: "hourglass-outline", screen: "WorkflowHub", params: { mode: "qa_inspect" }, getValue: (_, fg) => fg.qa_pending },
-  { label: "Approved FG", color: Colors.success, icon: "ribbon-outline",    screen: "FGBatchList", params: { status: "QA_APPROVED", title: "Approved FG" }, getValue: (_, fg) => fg.qa_approved },
-  { label: "Rejected FG", color: Colors.danger,  icon: "close-circle",      screen: "FGBatchList", params: { status: "QA_REJECTED", title: "Rejected FG" }, getValue: (_, fg) => fg.qa_rejected },
+  { label: "Needs Inspection", color: Colors.warning, icon: "hourglass-outline", screen: "WorkflowHub", params: { mode: "qa_inspect" }, getValue: (_, fg) => fg.qa_needs_inspection },
+  { label: "Approved FG",      color: Colors.success, icon: "ribbon-outline",    screen: "FGBatchList", params: { status: "QA_APPROVED", title: "Approved FG" }, getValue: (_, fg) => fg.qa_approved },
+  { label: "Rejected FG",      color: Colors.danger,  icon: "close-circle",      screen: "FGBatchList", params: { status: "QA_REJECTED", title: "Rejected FG" }, getValue: (_, fg) => fg.qa_rejected },
 ];
 
 const ROLE_STAT_TILES: Partial<Record<RoleName, StatTile[]>> = {
@@ -253,7 +255,8 @@ export const DashboardScreen: React.FC = () => {
     quarantine: 0, underTest: 0, approved: 0, rejected: 0, retest: 0, production: 0,
   });
   const [fgStats, setFgStats] = useState<FGStats>({
-    qa_pending: 0, qa_approved: 0, qa_rejected: 0, warehouse_received: 0, dispatched: 0,
+    qa_pending: 0, qa_needs_inspection: 0, qa_awaiting_decision: 0,
+    qa_approved: 0, qa_rejected: 0, warehouse_received: 0, dispatched: 0,
   });
   const [refreshing, setRefreshing] = useState(false);
 

@@ -1,11 +1,12 @@
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '../../store/authStore';
 import { formatDate } from '../../utils/formatters';
 import { Colors, FontSize, Spacing, BorderRadius, Shadow } from '../../utils/theme';
+import { productionApi } from '../../api/production';
 import type { WorkflowMode } from '../workflow/WorkflowHubScreen';
 
 const Row: React.FC<{ label: string; value: string }> = ({ label, value }) => (
@@ -28,7 +29,19 @@ export const FGBatchDetailScreen: React.FC = () => {
   const { user } = useAuthStore();
   const role = user?.role ?? '';
 
-  const b = batch ?? {};
+  const [freshBatch, setFreshBatch] = useState<any>(batch ?? null);
+  const [loadingBatch, setLoadingBatch] = useState(!batch);
+
+  useEffect(() => {
+    if (!batch) {
+      productionApi.getFGBatch(fgBatchId)
+        .then(setFreshBatch)
+        .catch(() => {})
+        .finally(() => setLoadingBatch(false));
+    }
+  }, [fgBatchId, batch]);
+
+  const b = freshBatch ?? {};
 
   const actions: { label: string; color: string; icon: string; onPress: () => void }[] = [];
 
@@ -68,6 +81,11 @@ export const FGBatchDetailScreen: React.FC = () => {
         <View style={{ width: 38 }} />
       </View>
 
+      {loadingBatch ? (
+        <View style={{ flex: 1, backgroundColor: Colors.background, justifyContent: 'center', alignItems: 'center' }}>
+          <ActivityIndicator size="large" color={Colors.primary} />
+        </View>
+      ) : (
       <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
         <View style={styles.statusBanner}>
           <View style={{ flex: 1 }}>
@@ -120,6 +138,7 @@ export const FGBatchDetailScreen: React.FC = () => {
 
         <View style={{ height: 32 }} />
       </ScrollView>
+      )}
     </SafeAreaView>
   );
 };
