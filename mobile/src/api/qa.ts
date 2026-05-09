@@ -9,8 +9,8 @@ export const qaApi = {
     return res.data;
   },
 
-  inspectFG: async (fg_batch_id: number, quantity_verified?: number, inspection_remarks?: string) => {
-    const res = await apiClient.post('/qa/inspect', { fg_batch_id, quantity_verified, inspection_remarks });
+  inspectFG: async (fg_batch_id: number, inspection_remarks?: string) => {
+    const res = await apiClient.post('/qa/inspect', { fg_batch_id, inspection_remarks });
     return res.data;
   },
 

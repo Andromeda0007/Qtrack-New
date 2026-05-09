@@ -36,7 +36,7 @@ export const InspectFGScreen: React.FC = () => {
   const submit = async () => {
     setSubmitting(true);
     try {
-      await qaApi.inspectFG(fgBatchId, undefined, remarks.trim() || undefined);
+      await qaApi.inspectFG(fgBatchId, remarks.trim() || undefined);
       setFlowDone({
         title: "Inspection recorded",
         message: "QA inspection has been saved. You can continue from Home.",
