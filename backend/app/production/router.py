@@ -48,6 +48,7 @@ async def get_fg_batch_stats(
         "qa_needs_inspection": needs_insp.scalar() or 0,
         "qa_awaiting_decision": awaiting_dec.scalar() or 0,
         "qa_approved": counts.get("QA_APPROVED", 0),
+        "qa_released": counts.get("QA_RELEASED", 0),
         "qa_rejected": counts.get("QA_REJECTED", 0),
         "warehouse_received": counts.get("WAREHOUSE_RECEIVED", 0),
         "dispatched": counts.get("DISPATCHED", 0),
@@ -82,9 +83,10 @@ async def list_fg_batches(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    # QA roles only work on FG awaiting inspection (not warehouse / production wide lists)
+    # QA_HEAD sees only QA_PENDING; QA_EXECUTIVE uses the caller-supplied status
+    # (qa_inspect passes QA_PENDING; qa_release passes QA_APPROVED)
     rname = current_user.role.role_name if current_user.role else ""
-    if rname in ("QA_EXECUTIVE", "QA_HEAD"):
+    if rname == "QA_HEAD":
         status = "QA_PENDING"
     batches = await service.list_fg_batches(db, status)
     return [
@@ -113,13 +115,13 @@ async def get_fg_batch(
 ):
     fg = await service.get_fg_batch_by_id(db, fg_batch_id)
     rname = current_user.role.role_name if current_user.role else ""
-    if rname in ("QA_EXECUTIVE", "QA_HEAD"):
-        st = fg.status.value if hasattr(fg.status, "value") else str(fg.status)
+    st = fg.status.value if hasattr(fg.status, "value") else str(fg.status)
+    if rname == "QA_HEAD":
         if st != FGStatus.QA_PENDING.value:
-            raise HTTPException(
-                status_code=403,
-                detail="QA can only open finished goods that are pending QA inspection.",
-            )
+            raise HTTPException(status_code=403, detail="QA Head can only open QA_PENDING batches.")
+    elif rname == "QA_EXECUTIVE":
+        if st not in (FGStatus.QA_PENDING.value, FGStatus.QA_APPROVED.value):
+            raise HTTPException(status_code=403, detail="QA Executive can only open QA_PENDING or QA_APPROVED batches.")
     return {
         "id": fg.id,
         "fgtn_no": fg.fgtn_no,

@@ -11,6 +11,7 @@ class FGStatus(str, enum.Enum):
     CREATED = "CREATED"
     QA_PENDING = "QA_PENDING"
     QA_APPROVED = "QA_APPROVED"
+    QA_RELEASED = "QA_RELEASED"
     QA_REJECTED = "QA_REJECTED"
     WAREHOUSE_RECEIVED = "WAREHOUSE_RECEIVED"
     DISPATCHED = "DISPATCHED"
@@ -88,6 +89,7 @@ class DispatchRecord(Base):
     quantity: Mapped[Decimal] = mapped_column(Numeric(12, 3), nullable=False)
     dispatch_date: Mapped[date] = mapped_column(Date, default=date.today)
     invoice_number: Mapped[str | None] = mapped_column(String(100))
+    carton_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
     remarks: Mapped[str | None] = mapped_column(Text)
     dispatched_by: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)

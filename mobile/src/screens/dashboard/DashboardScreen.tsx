@@ -52,6 +52,7 @@ interface FGStats {
   qa_needs_inspection: number;
   qa_awaiting_decision: number;
   qa_approved: number;
+  qa_released: number;
   qa_rejected: number;
   warehouse_received: number;
   dispatched: number;
@@ -87,9 +88,9 @@ const QA_STAT_TILES: StatTile[] = [
 ];
 
 const QA_EXEC_TILES: StatTile[] = [
-  { label: "Needs Inspection", color: Colors.warning, icon: "hourglass-outline", screen: "WorkflowHub", params: { mode: "qa_inspect" }, getValue: (_, fg) => fg.qa_needs_inspection },
-  { label: "Approved FG",      color: Colors.success, icon: "ribbon-outline",    screen: "FGBatchList", params: { status: "QA_APPROVED", title: "Approved FG" }, getValue: (_, fg) => fg.qa_approved },
-  { label: "Rejected FG",      color: Colors.danger,  icon: "close-circle",      screen: "FGBatchList", params: { status: "QA_REJECTED", title: "Rejected FG" }, getValue: (_, fg) => fg.qa_rejected },
+  { label: "Needs Inspection", color: Colors.warning, icon: "hourglass-outline",        screen: "WorkflowHub", params: { mode: "qa_inspect" }, getValue: (_, fg) => fg.qa_needs_inspection },
+  { label: "Ready to Release", color: Colors.success, icon: "checkmark-done-outline",  screen: "WorkflowHub", params: { mode: "qa_release" }, getValue: (_, fg) => fg.qa_approved },
+  { label: "Rejected FG",      color: Colors.danger,  icon: "close-circle",             screen: "FGBatchList", params: { status: "QA_REJECTED", title: "Rejected FG" }, getValue: (_, fg) => fg.qa_rejected },
 ];
 
 const ROLE_STAT_TILES: Partial<Record<RoleName, StatTile[]>> = {
@@ -180,7 +181,7 @@ const ROLE_QUICK_ACTIONS: Record<RoleName, QuickAction[]> = {
     },
     CHECK_STATUS_ACTION,
   ],
-  /** R1: Inspect FG | Check Status */
+  /** R1: Inspect FG | Check Status — R2: Release FG */
   QA_EXECUTIVE: [
     {
       label: "Inspect FG",
@@ -190,6 +191,13 @@ const ROLE_QUICK_ACTIONS: Record<RoleName, QuickAction[]> = {
       params: { mode: "qa_inspect" },
     },
     CHECK_STATUS_ACTION,
+    {
+      label: "Release FG",
+      icon: "checkmark-done-circle-outline",
+      color: Colors.success,
+      screen: "WorkflowHub",
+      params: { mode: "qa_release" },
+    },
   ],
   /** R1: Approve / Reject FG | Check Status */
   QA_HEAD: [
@@ -256,7 +264,7 @@ export const DashboardScreen: React.FC = () => {
   });
   const [fgStats, setFgStats] = useState<FGStats>({
     qa_pending: 0, qa_needs_inspection: 0, qa_awaiting_decision: 0,
-    qa_approved: 0, qa_rejected: 0, warehouse_received: 0, dispatched: 0,
+    qa_approved: 0, qa_released: 0, qa_rejected: 0, warehouse_received: 0, dispatched: 0,
   });
   const [refreshing, setRefreshing] = useState(false);
 

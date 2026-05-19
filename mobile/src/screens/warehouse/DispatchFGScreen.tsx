@@ -32,6 +32,7 @@ export const DispatchFGScreen: React.FC = () => {
   const [customerName, setCustomerName] = useState('');
   const [quantity, setQuantity] = useState('');
   const [invoiceNumber, setInvoiceNumber] = useState('');
+  const [numShippers, setNumShippers] = useState('');
   const [dispatchDate, setDispatchDate] = useState('');
   const [remarks, setRemarks] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -63,6 +64,13 @@ export const DispatchFGScreen: React.FC = () => {
       dateISO = parsed;
     }
 
+    let cartonCount: number | undefined;
+    if (numShippers.trim()) {
+      const parsed = parseInt(numShippers.trim(), 10);
+      if (isNaN(parsed) || parsed <= 0) { Alert.alert('Validation', 'No. of Shippers must be a positive number.'); return; }
+      cartonCount = parsed;
+    }
+
     setSubmitting(true);
     try {
       const res = await finishedGoodsApi.dispatchFG({
@@ -72,6 +80,7 @@ export const DispatchFGScreen: React.FC = () => {
         invoice_number: invoiceNumber.trim() || undefined,
         dispatch_date: dateISO,
         remarks: remarks.trim() || undefined,
+        carton_count: cartonCount,
       });
       setFlowDone({
         title: 'Dispatch Recorded',
@@ -141,6 +150,13 @@ export const DispatchFGScreen: React.FC = () => {
             placeholder="Invoice / delivery note number (optional)"
             value={invoiceNumber}
             onChangeText={setInvoiceNumber}
+          />
+          <Input
+            label="No. of Shippers"
+            placeholder="Number of shipper cartons (optional)"
+            value={numShippers}
+            onChangeText={setNumShippers}
+            keyboardType="number-pad"
           />
           <DatePickerInput
             label="Dispatch Date (optional)"

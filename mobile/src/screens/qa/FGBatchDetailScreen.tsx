@@ -71,6 +71,15 @@ export const FGBatchDetailScreen: React.FC = () => {
     );
   }
 
+  if (role === 'QA_EXECUTIVE' && mode === 'qa_release') {
+    actions.push({
+      label: 'Confirm Release',
+      color: Colors.success,
+      icon: 'checkmark-done-circle-outline',
+      onPress: () => navigation.navigate('ReleaseFG', { fgBatchId, fgBatchNumber }),
+    });
+  }
+
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <View style={styles.header}>

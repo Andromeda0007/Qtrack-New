@@ -17,8 +17,8 @@ async def receive_fg(db: AsyncSession, fg_batch_id: int, location_id: int | None
     if not fg:
         raise HTTPException(status_code=404, detail="FG batch not found")
 
-    if fg.status != FGStatus.QA_APPROVED:
-        raise HTTPException(status_code=400, detail=f"FG batch must be QA_APPROVED before warehouse receipt. Current: {fg.status}")
+    if fg.status != FGStatus.QA_RELEASED:
+        raise HTTPException(status_code=400, detail=f"FG batch must be QA_RELEASED (signed off by QA Executive) before warehouse receipt. Current: {fg.status}")
 
     old_status = fg.status
 
@@ -80,6 +80,7 @@ async def dispatch_fg(db: AsyncSession, data: dict, dispatched_by: User) -> Disp
         quantity=data["quantity"],
         dispatch_date=data.get("dispatch_date") or datetime.utcnow().date(),
         invoice_number=data.get("invoice_number"),
+        carton_count=data.get("carton_count"),
         remarks=data.get("remarks"),
         dispatched_by=dispatched_by.id,
     )

@@ -24,4 +24,9 @@ export const qaApi = {
     const res = await apiClient.post('/qa/reject', { fg_batch_id, remarks });
     return res.data;
   },
+
+  releaseFG: async (fg_batch_id: number, remarks?: string) => {
+    const res = await apiClient.post('/qa/release', { fg_batch_id, remarks });
+    return res.data;
+  },
 };

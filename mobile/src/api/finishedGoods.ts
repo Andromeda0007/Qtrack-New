@@ -31,6 +31,7 @@ export const finishedGoodsApi = {
     dispatch_date?: string;
     invoice_number?: string;
     remarks?: string;
+    carton_count?: number;
   }) => {
     const res = await apiClient.post('/finished-goods/dispatch', data);
     return res.data;

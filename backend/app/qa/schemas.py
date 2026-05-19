@@ -17,3 +17,8 @@ class ApproveFGRequest(BaseModel):
 class RejectFGRequest(BaseModel):
     fg_batch_id: int
     remarks: str
+
+
+class ReleaseFGRequest(BaseModel):
+    fg_batch_id: int
+    remarks: Optional[str] = None

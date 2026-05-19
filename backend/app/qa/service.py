@@ -113,6 +113,43 @@ async def approve_fg(db: AsyncSession, fg_batch_id: int, remarks: str | None, ap
     return fg
 
 
+async def release_fg(db: AsyncSession, fg_batch_id: int, remarks: str | None, released_by: User) -> FinishedGoodsBatch:
+    fg = await db.get(FinishedGoodsBatch, fg_batch_id)
+    if not fg:
+        raise HTTPException(status_code=404, detail="FG batch not found")
+
+    if fg.status != FGStatus.QA_APPROVED:
+        raise HTTPException(status_code=400, detail=f"FG batch must be QA_APPROVED to release. Current: {fg.status}")
+
+    old_status = fg.status
+    fg.status = FGStatus.QA_RELEASED
+
+    await log_action(
+        db, "RELEASE_FG", released_by.id, released_by.username,
+        "fg_batch", fg.id,
+        f"FG batch {fg.batch_number} released by QA Executive for warehouse receipt",
+        from_status=audit_status_value(old_status),
+        to_status=audit_status_value(fg.status),
+    )
+
+    try:
+        from app.notifications.service import notify_roles
+        await notify_roles(
+            db,
+            ["WAREHOUSE_USER", "WAREHOUSE_HEAD"],
+            "FG Ready for Receipt",
+            f"{fg.batch_number} · {fg.product_name} — released by QA. Ready for warehouse receipt.",
+            entity_type="fg_batch",
+            entity_id=fg.id,
+        )
+    except Exception as e:
+        logger.warning("FG release notification failed: %s", e)
+
+    await db.commit()
+    await db.refresh(fg)
+    return fg
+
+
 async def reject_fg(db: AsyncSession, fg_batch_id: int, remarks: str, rejected_by: User) -> FinishedGoodsBatch:
     fg = await db.get(FinishedGoodsBatch, fg_batch_id)
     if not fg:

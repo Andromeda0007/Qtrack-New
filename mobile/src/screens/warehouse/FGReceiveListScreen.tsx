@@ -14,7 +14,7 @@ const EmptyState = () => (
   <View style={styles.empty}>
     <Ionicons name="checkmark-done-circle-outline" size={52} color={Colors.textMuted} />
     <Text style={styles.emptyTitle}>No FG batches awaiting receipt</Text>
-    <Text style={styles.emptySub}>QA-approved batches will appear here.</Text>
+    <Text style={styles.emptySub}>QA-released batches will appear here once QA Executive confirms handover.</Text>
   </View>
 );
 
@@ -29,7 +29,7 @@ const FGCard: React.FC<{ item: FGBatchListItem; onPress: () => void }> = ({ item
         <Text style={styles.productName}>{item.product_name}</Text>
       </View>
       <View style={styles.qaBadge}>
-        <Text style={styles.qaBadgeText}>QA Approved</Text>
+        <Text style={styles.qaBadgeText}>QA Released</Text>
       </View>
     </View>
     <View style={styles.metaRow}>
@@ -65,7 +65,7 @@ export const FGReceiveListScreen: React.FC = () => {
   const load = useCallback(async () => {
     setFetchError(null);
     try {
-      const data = await finishedGoodsApi.listByStatus('QA_APPROVED');
+      const data = await finishedGoodsApi.listByStatus('QA_RELEASED');
       setBatches(data);
     } catch (e: any) {
       setFetchError(e?.message ?? 'Failed to load batches. Pull down to retry.');

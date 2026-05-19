@@ -8,7 +8,7 @@ from app.auth.dependencies import require_permission, get_current_user
 from app.models.user_models import User
 from app.models.finished_goods_models import FinishedGoodsBatch, QAInspection
 from app.qa import service
-from app.qa.schemas import InspectFGRequest, ApproveFGRequest, RejectFGRequest
+from app.qa.schemas import InspectFGRequest, ApproveFGRequest, RejectFGRequest, ReleaseFGRequest
 
 router = APIRouter()
 
@@ -84,3 +84,13 @@ async def reject_fg(
 ):
     fg = await service.reject_fg(db, payload.fg_batch_id, payload.remarks, current_user)
     return {"message": "FG batch rejected by QA", "fg_batch_id": fg.id, "status": fg.status}
+
+
+@router.post("/release")
+async def release_fg(
+    payload: ReleaseFGRequest,
+    current_user: User = Depends(require_permission("RELEASE_FG")),
+    db: AsyncSession = Depends(get_db),
+):
+    fg = await service.release_fg(db, payload.fg_batch_id, payload.remarks, current_user)
+    return {"message": "FG batch released for warehouse receipt", "fg_batch_id": fg.id, "status": fg.status}

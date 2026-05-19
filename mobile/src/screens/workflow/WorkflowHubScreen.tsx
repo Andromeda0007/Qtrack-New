@@ -14,6 +14,7 @@ export type WorkflowMode =
   | 'qc_decision'
   | 'qa_inspect'
   | 'qa_decision'
+  | 'qa_release'
   | 'production_consume';
 
 interface ModeConfig {
@@ -83,6 +84,17 @@ const MODE_CONFIG: Record<WorkflowMode, ModeConfig> = {
     bgColor: '#D1ECF1',
     textColor: '#0c5460',
     scanHint: 'Scan the QR label on an inspected FG batch to approve or reject it.',
+  },
+  qa_release: {
+    title: 'Release FG',
+    subtitle: 'Select a QA-approved FG batch to confirm physical handover',
+    scanFlow: null,
+    statuses: ['QA_APPROVED'],
+    isFG: true,
+    accentColor: Colors.success,
+    bgColor: '#D4EDDA',
+    textColor: '#155724',
+    scanHint: '',
   },
   production_consume: {
     title: 'Consume Material',

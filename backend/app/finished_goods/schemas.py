@@ -15,6 +15,7 @@ class DispatchRequest(BaseModel):
     quantity: Decimal
     dispatch_date: Optional[date] = None
     invoice_number: Optional[str] = None
+    carton_count: Optional[int] = None
     remarks: Optional[str] = None
 
     @field_validator("quantity")
