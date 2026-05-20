@@ -104,6 +104,25 @@ export const inventoryApi = {
     return res.data;
   },
 
+  retestToQuarantine: async (batchId: number, data: {
+    grn_number: string;
+    batch_number: string;
+    quantity: number;
+    manufacturer_name?: string;
+    manufacture_date?: string;
+    expiry_date?: string;
+    invoice_number?: string;
+    remarks?: string;
+  }) => {
+    const res = await apiClient.post(`/inventory/batches/${batchId}/retest-to-quarantine`, data);
+    return res.data;
+  },
+
+  getRetestDueAlerts: async (): Promise<{ due_soon_count: number }> => {
+    const res = await apiClient.get('/inventory/retest-due-alerts');
+    return res.data;
+  },
+
   getStockReport: async (): Promise<any[]> => {
     const res = await apiClient.get('/inventory/stock-report');
     return res.data;

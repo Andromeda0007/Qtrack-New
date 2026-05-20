@@ -743,3 +743,177 @@ async def get_batch_movement_history(db: AsyncSession, batch_id: int) -> list:
         .order_by(StockMovement.created_at.asc())
     )
     return result.scalars().all()
+
+
+async def retest_to_quarantine(
+    db: AsyncSession,
+    batch_id: int,
+    payload,
+    performed_by: User,
+) -> dict:
+    result = await db.execute(
+        select(Batch)
+        .where(Batch.id == batch_id)
+        .with_for_update()
+        .options(
+            selectinload(Batch.material),
+            selectinload(Batch.supplier),
+            selectinload(Batch.grn),
+        )
+    )
+    original = result.scalar_one_or_none()
+    if not original:
+        raise HTTPException(status_code=404, detail="Batch not found")
+
+    if original.status != BatchStatus.QUARANTINE_RETEST:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Batch must be QUARANTINE_RETEST to transfer. Current: {original.status}",
+        )
+
+    existing_grn = await db.execute(select(GRN).where(GRN.grn_number == payload.grn_number))
+    if existing_grn.scalar_one_or_none():
+        raise HTTPException(status_code=400, detail=f"GRN number '{payload.grn_number}' already exists")
+
+    existing_batch = await db.execute(select(Batch).where(Batch.batch_number == payload.batch_number))
+    if existing_batch.scalar_one_or_none():
+        raise HTTPException(status_code=400, detail=f"Batch number '{payload.batch_number}' already exists")
+
+    if Decimal(str(payload.quantity)) > original.remaining_quantity:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Quantity {payload.quantity} exceeds available {original.remaining_quantity}",
+        )
+
+    q_loc = await db.execute(select(Location).where(Location.location_type == "QUARANTINE"))
+    quarantine = q_loc.scalar_one_or_none()
+
+    public_code = await generate_unique_public_code(db)
+
+    new_batch = Batch(
+        material_id=original.material_id,
+        supplier_id=original.supplier_id,
+        batch_number=payload.batch_number,
+        public_code=public_code,
+        manufacturer_name=payload.manufacturer_name or original.manufacturer_name,
+        manufacture_date=payload.manufacture_date or original.manufacture_date,
+        expiry_date=payload.expiry_date or original.expiry_date,
+        pack_type=original.pack_type,
+        unit_of_measure=original.unit_of_measure,
+        container_count=1,
+        container_quantity=Decimal(str(payload.quantity)),
+        total_quantity=Decimal(str(payload.quantity)),
+        remaining_quantity=Decimal(str(payload.quantity)),
+        status=BatchStatus.QUARANTINE,
+        location_id=quarantine.id if quarantine else None,
+        created_by=performed_by.id,
+    )
+    db.add(new_batch)
+    await db.flush()
+
+    original_grn_number = original.grn.grn_number if original.grn else original.batch_number
+    grn_remarks = f"Retest transfer from batch {original.batch_number}. Original GRN: {original_grn_number}."
+    if payload.remarks:
+        grn_remarks += f" {payload.remarks}"
+
+    new_grn = GRN(
+        batch_id=new_batch.id,
+        grn_number=payload.grn_number,
+        received_by=performed_by.id,
+        received_date=datetime.utcnow().date(),
+        invoice_number=payload.invoice_number,
+        retest_number=original.retest_cycle,
+        original_batch_id=original.id,
+        is_retest_grn=True,
+        remarks=grn_remarks,
+    )
+    db.add(new_grn)
+
+    db.add(StockMovement(
+        batch_id=new_batch.id,
+        movement_type=MovementType.GRN_RECEIVED,
+        quantity=Decimal(str(payload.quantity)),
+        to_location_id=quarantine.id if quarantine else None,
+        performed_by=performed_by.id,
+        reference_id=payload.grn_number,
+        remarks=f"Retest GRN received — {payload.grn_number}",
+    ))
+
+    db.add(BatchStatusHistory(
+        batch_id=new_batch.id,
+        old_status=None,
+        new_status=BatchStatus.QUARANTINE,
+        changed_by=performed_by.id,
+        remarks="Retest GRN — initial receipt into quarantine",
+    ))
+
+    try:
+        qr_path = generate_batch_qr(new_batch.id, new_batch.batch_number, new_batch.public_code)
+        new_batch.qr_code_path = qr_path
+    except Exception as e:
+        logger.warning("QR generation failed for retest batch: %s", e)
+
+    old_original_status = original.status
+    original.status = BatchStatus.RETEST_TRANSFERRED
+
+    db.add(BatchStatusHistory(
+        batch_id=original.id,
+        old_status=old_original_status,
+        new_status=BatchStatus.RETEST_TRANSFERRED,
+        changed_by=performed_by.id,
+        remarks=f"Transferred to new GRN {payload.grn_number}",
+    ))
+
+    db.add(StockMovement(
+        batch_id=original.id,
+        movement_type=MovementType.RETEST_QUARANTINE,
+        quantity=Decimal(str(payload.quantity)),
+        from_location_id=original.location_id,
+        to_location_id=quarantine.id if quarantine else None,
+        performed_by=performed_by.id,
+        reference_id=payload.grn_number,
+        remarks=f"Retest transfer — new GRN {payload.grn_number}",
+    ))
+
+    material_name = original.material.material_name if original.material else "Unknown"
+    uom = original.unit_of_measure or "KG"
+
+    await log_action(
+        db, "RETEST_TO_QUARANTINE", performed_by.id, performed_by.username,
+        "batch", original.id,
+        f"Batch {original.batch_number} transferred to new GRN {payload.grn_number}. "
+        f"Retest cycle: {original.retest_cycle}.",
+        from_status=audit_status_value(old_original_status),
+        to_status=audit_status_value(original.status),
+    )
+
+    try:
+        from app.notifications.service import notify_roles
+        await notify_roles(
+            db,
+            ["QC_EXECUTIVE", "QC_HEAD"],
+            "New Retest GRN",
+            f"{payload.grn_number} · {material_name} — {payload.quantity} {uom}. "
+            f"Retest cycle {original.retest_cycle}. Ready for QC testing.",
+            entity_type="batch",
+            entity_id=new_batch.id,
+        )
+        await notify_roles(
+            db,
+            ["WAREHOUSE_HEAD"],
+            "Retest transfer completed",
+            f"Batch {original.batch_number} transferred to quarantine with new GRN {payload.grn_number}.",
+            entity_type="batch",
+            entity_id=original.id,
+        )
+    except Exception as e:
+        logger.warning("Retest transfer notification failed: %s", e)
+
+    await db.commit()
+    await db.refresh(new_batch)
+
+    return {
+        "message": "Batch transferred to quarantine with new GRN",
+        "new_grn_number": payload.grn_number,
+        "new_batch_id": new_batch.id,
+    }

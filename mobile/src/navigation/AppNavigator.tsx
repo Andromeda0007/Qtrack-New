@@ -44,6 +44,7 @@ import { FGReceiveListScreen } from '../screens/warehouse/FGReceiveListScreen';
 import { ReceiveFGScreen } from '../screens/warehouse/ReceiveFGScreen';
 import { FGDispatchListScreen } from '../screens/warehouse/FGDispatchListScreen';
 import { DispatchFGScreen } from '../screens/warehouse/DispatchFGScreen';
+import { RetestToQuarantineScreen } from '../screens/inventory/RetestToQuarantineScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -126,8 +127,9 @@ export const AppNavigator: React.FC = () => {
             <Stack.Screen name="FGBatchList"      component={FGBatchListScreen}      options={{ headerShown: false }} />
             <Stack.Screen name="FGReceiveList"   component={FGReceiveListScreen}   options={{ headerShown: false }} />
             <Stack.Screen name="ReceiveFG"        component={ReceiveFGScreen}        options={{ headerShown: false }} />
-            <Stack.Screen name="FGDispatchList"  component={FGDispatchListScreen}  options={{ headerShown: false }} />
-            <Stack.Screen name="DispatchFG"       component={DispatchFGScreen}       options={{ headerShown: false }} />
+            <Stack.Screen name="FGDispatchList"     component={FGDispatchListScreen}     options={{ headerShown: false }} />
+            <Stack.Screen name="DispatchFG"          component={DispatchFGScreen}          options={{ headerShown: false }} />
+            <Stack.Screen name="RetestToQuarantine"  component={RetestToQuarantineScreen}  options={{ headerShown: false }} />
           </>
         )}
       </Stack.Navigator>

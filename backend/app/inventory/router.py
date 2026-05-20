@@ -13,7 +13,7 @@ from app.auth.dependencies import get_current_user, require_permission
 from app.models.user_models import User
 from app.models.inventory_models import BatchStatus
 from app.inventory import service
-from app.inventory.schemas import GRNCreate, ProductCreate, IssueStockRequest, StockAdjustmentRequest, UpdateRackRequest
+from app.inventory.schemas import GRNCreate, ProductCreate, IssueStockRequest, StockAdjustmentRequest, UpdateRackRequest, RetestToQuarantineRequest
 from app.utils.pdf_generator import generate_quarantine_label
 from app.config import settings
 
@@ -425,3 +425,32 @@ async def mark_labels_printed(
     batch.labels_printed = True
     await db.commit()
     return {"ok": True}
+
+
+@router.post("/batches/{batch_id}/retest-to-quarantine")
+async def retest_to_quarantine_endpoint(
+    batch_id: int,
+    payload: RetestToQuarantineRequest,
+    current_user: User = Depends(require_permission("RETEST_TO_QUARANTINE")),
+    db: AsyncSession = Depends(get_db),
+):
+    return await service.retest_to_quarantine(db, batch_id, payload, current_user)
+
+
+@router.get("/retest-due-alerts")
+async def get_retest_due_alerts(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    from datetime import date, timedelta
+    from sqlalchemy import func, select as sa_select
+    from app.models.inventory_models import Batch, BatchStatus
+    cutoff = date.today() + timedelta(days=15)
+    result = await db.execute(
+        sa_select(func.count()).where(
+            Batch.status == BatchStatus.QUARANTINE_RETEST,
+            Batch.retest_date.isnot(None),
+            Batch.retest_date <= cutoff,
+        )
+    )
+    return {"due_soon_count": result.scalar() or 0}

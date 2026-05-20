@@ -138,3 +138,21 @@ class StockReportItem(BaseModel):
     expiry_date: Optional[date]
     retest_date: Optional[date]
     ar_number: Optional[str]
+
+
+class RetestToQuarantineRequest(BaseModel):
+    grn_number: str
+    batch_number: str
+    quantity: Decimal
+    manufacturer_name: Optional[str] = None
+    manufacture_date: Optional[date] = None
+    expiry_date: Optional[date] = None
+    invoice_number: Optional[str] = None
+    remarks: Optional[str] = None
+
+    @field_validator("quantity")
+    @classmethod
+    def qty_must_be_positive(cls, v):
+        if v <= 0:
+            raise ValueError("Quantity must be positive")
+        return v

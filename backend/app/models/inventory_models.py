@@ -23,6 +23,7 @@ class BatchStatus(str, enum.Enum):
     REJECTED = "REJECTED"
     QUARANTINE_RETEST = "QUARANTINE_RETEST"
     ISSUED_TO_PRODUCTION = "ISSUED_TO_PRODUCTION"
+    RETEST_TRANSFERRED = "RETEST_TRANSFERRED"
 
 
 class MovementType(str, enum.Enum):
@@ -192,6 +193,9 @@ class GRN(Base):
     po_number: Mapped[str | None] = mapped_column(String(100), nullable=True)
     po_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     remarks: Mapped[str | None] = mapped_column(Text)
+    retest_number: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    original_batch_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("batches.id"), nullable=True)
+    is_retest_grn: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
     batch: Mapped["Batch"] = relationship("Batch", back_populates="grn")

@@ -28,6 +28,7 @@ const STATUS_CONFIG: Record<string, { label: string; bg: string; text: string; i
   REJECTED:             { label: 'Rejected',             bg: '#F8D7DA', text: '#721c24', icon: 'close-circle-outline' },
   QUARANTINE_RETEST:    { label: 'Quarantine (Retest)',  bg: '#FFF3CD', text: '#856404', icon: 'refresh-outline' },
   ISSUED_TO_PRODUCTION: { label: 'Issued to Production', bg: '#D1ECF1', text: '#0c5460', icon: 'arrow-forward-circle-outline' },
+  RETEST_TRANSFERRED:   { label: 'Retest Transferred',   bg: '#e8f4fd', text: '#1a6ea8', icon: 'checkmark-done-outline' },
 };
 
 const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
@@ -128,6 +129,17 @@ export const BatchDetailScreen: React.FC = () => {
         color: Colors.info,
         icon: 'arrow-forward-circle-outline',
         onPress: () => navigation.navigate('IssueStock', { batchId, batchNumber: batchNum, initialRack: batch.rack_number }),
+      });
+    }
+    if (
+      batch.status === 'QUARANTINE_RETEST' &&
+      (role === 'WAREHOUSE_USER' || role === 'WAREHOUSE_HEAD')
+    ) {
+      acts.push({
+        label: 'Transfer to Quarantine',
+        color: Colors.info,
+        icon: 'arrow-undo-circle-outline',
+        onPress: () => navigation.navigate('RetestToQuarantine', { batchId, batch }),
       });
     }
     return acts;

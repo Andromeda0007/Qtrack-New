@@ -57,6 +57,7 @@ export const BatchStatusColors: Record<string, { bg: string; text: string; label
   REJECTED:             { bg: '#f8d7da', text: '#721c24', label: 'Rejected' },
   QUARANTINE_RETEST:    { bg: '#e2d9f3', text: '#432874', label: 'Quarantine (Retest)' },
   ISSUED_TO_PRODUCTION: { bg: '#d1ecf1', text: '#0c5460', label: 'Issued to Production' },
+  RETEST_TRANSFERRED:   { bg: '#e8f4fd', text: '#1a6ea8', label: 'Retest Transferred' },
 };
 
 // Finished Goods status badge colors

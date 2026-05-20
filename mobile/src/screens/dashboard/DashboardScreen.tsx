@@ -64,6 +64,7 @@ type StatTile = {
   icon: string;
   screen: string;
   params?: Record<string, any>;
+  badge?: number;
   getValue: (s: ProductStats, fg: FGStats) => number;
 };
 
@@ -106,7 +107,7 @@ const ROLE_STAT_TILES: Partial<Record<RoleName, StatTile[]>> = {
  * Scanner tile **labels** differ by role (same `Scanner` screen / `RoleActions` unless you add params).
  */
 const ROLE_QUICK_ACTIONS: Record<RoleName, QuickAction[]> = {
-  /** R1: Create GRN | Check Status — R2: Move to Production | Receive FG | Dispatch FG */
+  /** R1: Create GRN | Check Status — R2: Move to Production | Receive FG | Dispatch FG | Retesting */
   WAREHOUSE_USER: [
     {
       label: "Create GRN",
@@ -134,8 +135,14 @@ const ROLE_QUICK_ACTIONS: Record<RoleName, QuickAction[]> = {
       color: "#7c3aed",
       screen: "FGDispatchList",
     },
+    {
+      label: "Retesting",
+      icon: "refresh-circle-outline",
+      color: Colors.statusQuarantine,
+      screen: "RetestList",
+    },
   ],
-  /** R1: Manage Users | Check Status — R2: Manage Items | Audit Logs */
+  /** R1: Manage Users | Check Status — R2: Manage Items | Audit Logs | Retesting */
   WAREHOUSE_HEAD: [
     {
       label: "Manage Users",
@@ -157,6 +164,12 @@ const ROLE_QUICK_ACTIONS: Record<RoleName, QuickAction[]> = {
       color: Colors.info,
       screen: "Admin",
       params: { tab: "audit" },
+    },
+    {
+      label: "Retesting",
+      icon: "refresh-circle-outline",
+      color: Colors.statusQuarantine,
+      screen: "RetestList",
     },
   ],
   /** R1: Test | Check Status */
@@ -253,6 +266,7 @@ const ROLE_QUICK_ACTIONS: Record<RoleName, QuickAction[]> = {
 };
 
 const FG_ROLES: RoleName[] = ["PRODUCTION_USER", "QA_HEAD", "QA_EXECUTIVE"];
+const RETEST_ALERT_ROLES: RoleName[] = ["WAREHOUSE_HEAD", "WAREHOUSE_USER", "QC_HEAD", "QC_EXECUTIVE"];
 
 export const DashboardScreen: React.FC = () => {
   const { user } = useAuthStore();
@@ -266,10 +280,12 @@ export const DashboardScreen: React.FC = () => {
     qa_pending: 0, qa_needs_inspection: 0, qa_awaiting_decision: 0,
     qa_approved: 0, qa_released: 0, qa_rejected: 0, warehouse_received: 0, dispatched: 0,
   });
+  const [retestDueSoon, setRetestDueSoon] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
 
   const loadData = useCallback(async () => {
     try {
+      const needsAlert = RETEST_ALERT_ROLES.includes(role);
       if (FG_ROLES.includes(role)) {
         const [batches, fg] = await Promise.all([
           inventoryApi.getBatches(),
@@ -285,7 +301,10 @@ export const DashboardScreen: React.FC = () => {
         });
         setFgStats(fg);
       } else {
-        const batches = await inventoryApi.getBatches();
+        const [batches, alertData] = await Promise.all([
+          inventoryApi.getBatches(),
+          needsAlert ? inventoryApi.getRetestDueAlerts() : Promise.resolve({ due_soon_count: 0 }),
+        ]);
         setStats({
           quarantine: batches.filter((b) => b.status === "QUARANTINE").length,
           underTest: batches.filter((b) => b.status === "UNDER_TEST").length,
@@ -294,6 +313,7 @@ export const DashboardScreen: React.FC = () => {
           retest: batches.filter((b) => b.status === "QUARANTINE_RETEST").length,
           production: batches.filter((b) => b.status === "ISSUED_TO_PRODUCTION").length,
         });
+        if (needsAlert) setRetestDueSoon(alertData.due_soon_count ?? 0);
       }
     } catch {
       // Silent fail on dashboard stats
@@ -314,7 +334,10 @@ export const DashboardScreen: React.FC = () => {
 
   const quickActions = ROLE_QUICK_ACTIONS[role] || [];
   const roleLabel = RoleLabels[role] || role;
-  const statTiles = ROLE_STAT_TILES[role] ?? RAW_STAT_TILES;
+  const baseTiles = ROLE_STAT_TILES[role] ?? RAW_STAT_TILES;
+  const statTiles = baseTiles.map((tile) =>
+    tile.label === "Retest" ? { ...tile, badge: retestDueSoon } : tile
+  );
 
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
@@ -374,6 +397,11 @@ export const DashboardScreen: React.FC = () => {
                   {tile.getValue(stats, fgStats)}
                 </Text>
                 <Text style={styles.statLabel}>{tile.label}</Text>
+                {(tile.badge ?? 0) > 0 && (
+                  <View style={styles.tileBadge}>
+                    <Text style={styles.tileBadgeText}>{tile.badge}</Text>
+                  </View>
+                )}
               </TouchableOpacity>
             ))}
           </View>
@@ -547,5 +575,22 @@ const styles = StyleSheet.create({
     textAlign: "center",
     lineHeight: 18,
     maxWidth: "100%",
+  },
+  tileBadge: {
+    position: "absolute",
+    top: 6,
+    right: 6,
+    minWidth: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: Colors.danger,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 3,
+  },
+  tileBadgeText: {
+    color: "#fff",
+    fontSize: 9,
+    fontWeight: "800",
   },
 });
