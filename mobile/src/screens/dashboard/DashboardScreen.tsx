@@ -313,10 +313,10 @@ export const DashboardScreen: React.FC = () => {
           {/* Product Stats — compact vertical footprint so Quick Actions fit above the fold */}
           <Text style={[styles.sectionTitle, styles.statsSectionTitle]}>Product Stats</Text>
           <View style={styles.statsGrid}>
-            {PRODUCT_STAT_TILES.map((tile) => (
+            {PRODUCT_STAT_TILES.filter((t) => !t.fullWidth).map((tile) => (
               <TouchableOpacity
                 key={tile.label}
-                style={[styles.statCard, tile.fullWidth && styles.statCardFull]}
+                style={styles.statCard}
                 onPress={() => navigation.navigate(tile.screen)}
                 activeOpacity={0.8}
               >
@@ -326,11 +326,7 @@ export const DashboardScreen: React.FC = () => {
                     { backgroundColor: tile.color + "18" },
                   ]}
                 >
-                  <Ionicons
-                    name={tile.icon as any}
-                    size={18}
-                    color={tile.color}
-                  />
+                  <Ionicons name={tile.icon as any} size={18} color={tile.color} />
                 </View>
                 <Text style={[styles.statValue, { color: tile.color }]}>
                   {tile.getValue(stats)}
@@ -339,6 +335,28 @@ export const DashboardScreen: React.FC = () => {
               </TouchableOpacity>
             ))}
           </View>
+          {PRODUCT_STAT_TILES.filter((t) => t.fullWidth).map((tile) => (
+            <View key={tile.label} style={styles.statCenterRow}>
+              <TouchableOpacity
+                style={[styles.statCard, { width: "50%" }]}
+                onPress={() => navigation.navigate(tile.screen)}
+                activeOpacity={0.8}
+              >
+                <View
+                  style={[
+                    styles.statIconWrap,
+                    { backgroundColor: tile.color + "18" },
+                  ]}
+                >
+                  <Ionicons name={tile.icon as any} size={18} color={tile.color} />
+                </View>
+                <Text style={[styles.statValue, { color: tile.color }]}>
+                  {tile.getValue(stats)}
+                </Text>
+                <Text style={styles.statLabel}>{tile.label}</Text>
+              </TouchableOpacity>
+            </View>
+          ))}
 
           {/* Quick Actions */}
           {quickActions.length > 0 && (
@@ -436,8 +454,9 @@ const styles = StyleSheet.create({
     marginTop: 0,
     rowGap: 6,
   },
-  statCardFull: {
-    width: "100%",
+  statCenterRow: {
+    alignItems: "center",
+    marginBottom: Spacing.md,
   },
   /** ~12% shorter tiles than previous (padding, icon, type) */
   statCard: {

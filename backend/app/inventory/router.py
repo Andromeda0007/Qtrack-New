@@ -140,7 +140,7 @@ async def get_expiring_soon_batches(
 ):
     """Return APPROVED batches whose retest_date falls within the next 15 days, sorted ascending."""
     from datetime import date, timedelta
-    from sqlalchemy import and_
+    from sqlalchemy import select, and_
     from app.models.inventory_models import Batch
     from sqlalchemy.orm import selectinload
 
