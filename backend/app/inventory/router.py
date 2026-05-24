@@ -259,13 +259,15 @@ async def get_batch(
     orig_id = getattr(batch, "original_batch_id", None)
     if orig_id:
         from sqlalchemy import select as sa_select
+        from sqlalchemy.orm import selectinload as sa_selectinload
+        from app.models.inventory_models import Batch as BatchModel
         orig_row = await db.execute(
-            sa_select(Batch).options(selectinload(Batch.grn)).where(Batch.id == orig_id)
+            sa_select(BatchModel).options(sa_selectinload(BatchModel.grn)).where(BatchModel.id == orig_id)
         )
         orig = orig_row.scalar_one_or_none()
         if orig:
             response["original_batch_number"] = orig.batch_number
-            response["original_grn_number"] = orig.grn.grn_number if orig.grn else None
+            response["original_grn_number"] = orig.grn.grn_number if orig.grn else None  # type: ignore[union-attr]
 
     return response
 
