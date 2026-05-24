@@ -253,9 +253,9 @@ export const BatchDetailScreen: React.FC = () => {
                 activeOpacity={0.65}
               >
                 {transferLoading ? (
-                  <ActivityIndicator size="small" color="#fff" />
+                  <ActivityIndicator size="small" color="#856404" />
                 ) : (
-                  <Ionicons name="swap-horizontal-outline" size={18} color="#fff" />
+                  <Ionicons name="swap-horizontal-outline" size={18} color="#856404" />
                 )}
                 <Text style={styles.transferBtnText}>Transfer to Quarantine</Text>
               </TouchableOpacity>
@@ -520,7 +520,7 @@ export const BatchDetailScreen: React.FC = () => {
                 onPress={confirmTransfer}
                 activeOpacity={0.8}
               >
-                <Ionicons name="swap-horizontal-outline" size={16} color="#fff" />
+                <Ionicons name="swap-horizontal-outline" size={16} color="#856404" />
                 <Text style={styles.transferModalConfirmText}>Transfer</Text>
               </TouchableOpacity>
             </View>
@@ -655,11 +655,11 @@ const styles = StyleSheet.create({
 
   transferBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10,
-    backgroundColor: 'rgba(255, 193, 7, 0.82)', borderRadius: BorderRadius.lg,
+    backgroundColor: '#FFF3CD', borderRadius: BorderRadius.lg,
     paddingVertical: 14, marginTop: 12, marginBottom: 4,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 8, elevation: 6,
+    shadowColor: '#856404', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 8, elevation: 6,
   },
-  transferBtnText: { color: '#fff', fontWeight: '800', fontSize: FontSize.sm },
+  transferBtnText: { color: '#856404', fontWeight: '800', fontSize: FontSize.sm },
   transferTip: {
     backgroundColor: 'rgba(30,30,30,0.88)', borderRadius: 8,
     paddingHorizontal: 12, paddingVertical: 8, marginBottom: 6,
@@ -702,11 +702,11 @@ const styles = StyleSheet.create({
   transferModalConfirm: {
     flex: 1.5, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     gap: 8, paddingVertical: 13, borderRadius: 12,
-    backgroundColor: 'rgba(255, 193, 7, 0.88)',
-    shadowColor: '#ffc107', shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.35, shadowRadius: 8, elevation: 5,
+    backgroundColor: '#FFF3CD',
+    shadowColor: '#856404', shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.2, shadowRadius: 8, elevation: 5,
   },
-  transferModalConfirmText: { color: '#fff', fontWeight: '800', fontSize: FontSize.sm },
+  transferModalConfirmText: { color: '#856404', fontWeight: '800', fontSize: FontSize.sm },
 
   actionsRow: { flexDirection: 'row', gap: 12, marginBottom: 4 },
   actionBtn: {
