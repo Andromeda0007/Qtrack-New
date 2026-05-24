@@ -299,14 +299,13 @@ async def create_product(db: AsyncSession, data: dict, created_by: User) -> dict
     )
 
     try:
-        from app.notifications.service import notify_roles
+        from app.notifications.service import notify_all_active_users
 
-        await notify_roles(
+        await notify_all_active_users(
             db,
-            ["WAREHOUSE_HEAD", "QC_HEAD", "QC_EXECUTIVE"],
-            "New item in Quarantine",
+            "New GRN created",
             f"{grn_number} · {material.material_name} — {container_count} container(s), "
-            f"{total_q} {uom}. Ready for QC testing.",
+            f"{total_q} {uom}. Placed in Quarantine.",
             entity_type="batch",
             entity_id=batch.id,
         )

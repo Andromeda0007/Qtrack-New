@@ -1,12 +1,14 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { AppState } from 'react-native';
 import { notificationsApi } from '../api/notifications';
 import { useAuthStore } from '../store/authStore';
+import { useNotifStore } from '../store/notifStore';
 
-/** Polls notifications list every 20s and counts unread items. */
+/** Polls unread notification count every 5s and syncs to the shared store. */
 export function useNotifUnread(): number {
   const { isAuthenticated } = useAuthStore();
-  const [count, setCount] = useState(0);
+  const setCount = useNotifStore((s) => s.setCount);
+  const count = useNotifStore((s) => s.count);
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -23,7 +25,7 @@ export function useNotifUnread(): number {
     };
 
     fetchOnce();
-    const id = setInterval(fetchOnce, 20000);
+    const id = setInterval(fetchOnce, 5000);
     const sub = AppState.addEventListener('change', (s) => {
       if (s === 'active') fetchOnce();
     });

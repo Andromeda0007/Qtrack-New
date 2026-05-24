@@ -8,6 +8,7 @@ import { Button } from '../../components/common/Button';
 import { Colors, FontSize, Spacing } from '../../utils/theme';
 import { formatDateTime } from '../../utils/formatters';
 import { Notification } from '../../types';
+import { useNotifStore } from '../../store/notifStore';
 
 const TYPE_ICONS: Record<string, { icon: string; color: string }> = {
   RETEST_ALERT:    { icon: 'refresh-circle', color: Colors.warning },
@@ -23,6 +24,7 @@ export const NotificationsScreen: React.FC = () => {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const { decrement, setCount } = useNotifStore();
 
   const loadNotifications = useCallback(async () => {
     try {
@@ -37,13 +39,15 @@ export const NotificationsScreen: React.FC = () => {
   useEffect(() => { loadNotifications(); }, []);
 
   const handleMarkRead = async (id: number) => {
-    await notificationsApi.markRead(id);
     setNotifications((prev) => prev.map((n) => n.id === id ? { ...n, is_read: true } : n));
+    decrement(1);
+    await notificationsApi.markRead(id);
   };
 
   const handleMarkAllRead = async () => {
-    await notificationsApi.markAllRead();
     setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
+    setCount(0);
+    await notificationsApi.markAllRead();
   };
 
   const unreadCount = notifications.filter((n) => !n.is_read).length;

@@ -171,13 +171,12 @@ async def start_testing(db: AsyncSession, batch_id: int, sample_quantity, done_b
     )
 
     try:
-        from app.notifications.service import notify_roles
+        from app.notifications.service import notify_all_active_users
         info = await _batch_display_info(db, batch.id)
-        await notify_roles(
+        await notify_all_active_users(
             db,
-            ["QC_HEAD"],
-            "Item under test",
-            f"{info['grn']} · {info['material_name']} — AR {batch.ar_number}. Awaiting approval/rejection.",
+            "Item moved to Under Test",
+            f"{info['grn']} · {info['material_name']} — AR {batch.ar_number}. Awaiting QC approval/rejection.",
             entity_type="batch",
             entity_id=batch.id,
         )
@@ -276,14 +275,12 @@ async def approve_material(db: AsyncSession, batch_id: int, retest_date: date | 
     )
 
     try:
-        from app.notifications.service import notify_roles
+        from app.notifications.service import notify_all_active_users
         info = await _batch_display_info(db, batch.id)
-        await notify_roles(
+        await notify_all_active_users(
             db,
-            ["WAREHOUSE_USER", "WAREHOUSE_HEAD"],
             "Item approved",
-            f"{info['grn']} · {info['material_name']} — approved. "
-            f"Ready to move to Production.",
+            f"{info['grn']} · {info['material_name']} — approved. Ready to move to Production.",
             entity_type="batch",
             entity_id=batch.id,
         )
@@ -323,11 +320,10 @@ async def reject_material(db: AsyncSession, batch_id: int, remarks: str, rejecte
     )
 
     try:
-        from app.notifications.service import notify_roles
+        from app.notifications.service import notify_all_active_users
         info = await _batch_display_info(db, batch.id)
-        await notify_roles(
+        await notify_all_active_users(
             db,
-            ["WAREHOUSE_USER", "WAREHOUSE_HEAD"],
             "Item rejected",
             f"{info['grn']} · {info['material_name']} — rejected. Remarks: {remarks}",
             entity_type="batch",
@@ -371,13 +367,12 @@ async def initiate_retest(db: AsyncSession, batch_id: int, remarks: str | None, 
     )
 
     try:
-        from app.notifications.service import notify_roles
+        from app.notifications.service import notify_all_active_users
         info = await _batch_display_info(db, batch.id)
-        await notify_roles(
+        await notify_all_active_users(
             db,
-            ["QC_EXECUTIVE", "WAREHOUSE_HEAD"],
-            "Retest requested",
-            f"{info['grn']} · {info['material_name']} — retest cycle {batch.retest_cycle} requested.",
+            "Retest initiated",
+            f"{info['grn']} · {info['material_name']} — retest cycle {batch.retest_cycle} initiated.",
             entity_type="batch",
             entity_id=batch.id,
         )

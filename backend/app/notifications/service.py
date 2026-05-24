@@ -65,6 +65,22 @@ async def notify_roles(
     return count
 
 
+async def notify_all_active_users(
+    db: AsyncSession,
+    title: str,
+    message: str,
+    notification_type: NotificationType = NotificationType.INVENTORY_ALERT,
+    entity_type: str | None = None,
+    entity_id: int | None = None,
+) -> int:
+    """Broadcast a notification to every active user regardless of role."""
+    result = await db.execute(select(User).where(User.is_active == True))
+    users = result.scalars().all()
+    for user in users:
+        await create_notification(db, user.id, title, message, notification_type, entity_type, entity_id)
+    return len(users)
+
+
 async def get_user_notifications(db: AsyncSession, user_id: int, unread_only: bool = False) -> list[Notification]:
     query = select(Notification).where(Notification.user_id == user_id).order_by(Notification.created_at.desc()).limit(100)
     if unread_only:
