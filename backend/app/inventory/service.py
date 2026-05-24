@@ -301,11 +301,12 @@ async def create_product(db: AsyncSession, data: dict, created_by: User) -> dict
     try:
         from app.notifications.service import notify_all_active_users
 
+        _ts = datetime.utcnow().strftime("%d %b %Y, %I:%M %p UTC")
         await notify_all_active_users(
             db,
             "New GRN created",
             f"{grn_number} · {material.material_name} — {container_count} container(s), "
-            f"{total_q} {uom}. Placed in Quarantine.",
+            f"{total_q} {uom}. Placed in Quarantine. By {created_by.username} on {_ts}.",
             entity_type="batch",
             entity_id=batch.id,
         )

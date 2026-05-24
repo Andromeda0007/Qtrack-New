@@ -173,10 +173,11 @@ async def start_testing(db: AsyncSession, batch_id: int, sample_quantity, done_b
     try:
         from app.notifications.service import notify_all_active_users
         info = await _batch_display_info(db, batch.id)
+        _ts = datetime.utcnow().strftime("%d %b %Y, %I:%M %p UTC")
         await notify_all_active_users(
             db,
             "Item moved to Under Test",
-            f"{info['grn']} · {info['material_name']} — AR {batch.ar_number}. Awaiting QC approval/rejection.",
+            f"{info['grn']} · {info['material_name']} — AR {batch.ar_number}. Awaiting QC approval/rejection. By {done_by.username} on {_ts}.",
             entity_type="batch",
             entity_id=batch.id,
         )
@@ -277,10 +278,11 @@ async def approve_material(db: AsyncSession, batch_id: int, retest_date: date | 
     try:
         from app.notifications.service import notify_all_active_users
         info = await _batch_display_info(db, batch.id)
+        _ts = datetime.utcnow().strftime("%d %b %Y, %I:%M %p UTC")
         await notify_all_active_users(
             db,
             "Item approved",
-            f"{info['grn']} · {info['material_name']} — approved. Ready to move to Production.",
+            f"{info['grn']} · {info['material_name']} — approved. Ready to move to Production. By {approved_by.username} on {_ts}.",
             entity_type="batch",
             entity_id=batch.id,
         )
@@ -322,10 +324,11 @@ async def reject_material(db: AsyncSession, batch_id: int, remarks: str, rejecte
     try:
         from app.notifications.service import notify_all_active_users
         info = await _batch_display_info(db, batch.id)
+        _ts = datetime.utcnow().strftime("%d %b %Y, %I:%M %p UTC")
         await notify_all_active_users(
             db,
             "Item rejected",
-            f"{info['grn']} · {info['material_name']} — rejected. Remarks: {remarks}",
+            f"{info['grn']} · {info['material_name']} — rejected. Remarks: {remarks}. By {rejected_by.username} on {_ts}.",
             entity_type="batch",
             entity_id=batch.id,
         )
@@ -369,10 +372,11 @@ async def initiate_retest(db: AsyncSession, batch_id: int, remarks: str | None, 
     try:
         from app.notifications.service import notify_all_active_users
         info = await _batch_display_info(db, batch.id)
+        _ts = datetime.utcnow().strftime("%d %b %Y, %I:%M %p UTC")
         await notify_all_active_users(
             db,
             "Retest initiated",
-            f"{info['grn']} · {info['material_name']} — retest cycle {batch.retest_cycle} initiated.",
+            f"{info['grn']} · {info['material_name']} — retest cycle {batch.retest_cycle} initiated. By {initiated_by.username} on {_ts}.",
             entity_type="batch",
             entity_id=batch.id,
         )
