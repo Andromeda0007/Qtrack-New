@@ -74,6 +74,7 @@ export const BatchDetailScreen: React.FC = () => {
   const [pdfLoading, setPdfLoading] = useState(false);
   const [transferLoading, setTransferLoading] = useState(false);
   const [showTransferTip, setShowTransferTip] = useState(false);
+  const [showTransferModal, setShowTransferModal] = useState(false);
 
   const role = user?.role || '';
 
@@ -86,29 +87,19 @@ export const BatchDetailScreen: React.FC = () => {
   const canTransferToQuarantine =
     isRetest && (role === 'WAREHOUSE_USER' || role === 'WAREHOUSE_HEAD');
 
-  const handleTransferToQuarantine = () => {
-    Alert.alert(
-      'Transfer to Quarantine',
-      'This batch is due for retest. Transfer it to Quarantine to start a new QC cycle?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Transfer',
-          style: 'default',
-          onPress: async () => {
-            setTransferLoading(true);
-            try {
-              const prefill = await inventoryApi.getRetestPrefill(batchId);
-              navigation.navigate('CreateCard', { prefill, originalBatchId: batchId });
-            } catch (e: any) {
-              Alert.alert('Error', e?.response?.data?.detail || 'Could not load batch details.');
-            } finally {
-              setTransferLoading(false);
-            }
-          },
-        },
-      ],
-    );
+  const handleTransferToQuarantine = () => setShowTransferModal(true);
+
+  const confirmTransfer = async () => {
+    setShowTransferModal(false);
+    setTransferLoading(true);
+    try {
+      const prefill = await inventoryApi.getRetestPrefill(batchId);
+      navigation.navigate('CreateCard', { prefill, originalBatchId: batchId });
+    } catch (e: any) {
+      Alert.alert('Error', e?.response?.data?.detail || 'Could not load batch details.');
+    } finally {
+      setTransferLoading(false);
+    }
   };
 
   const batchActions: { label: string; color: string; icon: string; onPress: () => void }[] = (() => {
@@ -505,6 +496,38 @@ export const BatchDetailScreen: React.FC = () => {
         </ScrollView>
       )}
 
+      {/* Transfer to Quarantine confirmation modal */}
+      <Modal visible={showTransferModal} transparent animationType="fade">
+        <View style={styles.transferModalOverlay}>
+          <View style={styles.transferModalCard}>
+            <View style={styles.transferModalIconWrap}>
+              <Ionicons name="swap-horizontal-outline" size={30} color="#856404" />
+            </View>
+            <Text style={styles.transferModalTitle}>Transfer to Quarantine</Text>
+            <Text style={styles.transferModalBody}>
+              This batch is due for retest. Transferring it to Quarantine will start a fresh QC cycle.
+            </Text>
+            <View style={styles.transferModalActions}>
+              <TouchableOpacity
+                style={styles.transferModalCancel}
+                onPress={() => setShowTransferModal(false)}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.transferModalCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.transferModalConfirm}
+                onPress={confirmTransfer}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="swap-horizontal-outline" size={16} color="#fff" />
+                <Text style={styles.transferModalConfirmText}>Transfer</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
     </SafeAreaView>
   );
 };
@@ -643,6 +666,48 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
   },
   transferTipText: { color: '#fff', fontSize: FontSize.xs, textAlign: 'center' },
+  transferModalOverlay: {
+    flex: 1, backgroundColor: 'rgba(0,0,0,0.6)',
+    justifyContent: 'center', alignItems: 'center', padding: 32,
+  },
+  transferModalCard: {
+    backgroundColor: '#fff', borderRadius: 20, padding: 28, width: '100%',
+    alignItems: 'center',
+    shadowColor: '#000', shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.25, shadowRadius: 24, elevation: 16,
+  },
+  transferModalIconWrap: {
+    width: 64, height: 64, borderRadius: 32,
+    backgroundColor: '#FFF3CD', justifyContent: 'center', alignItems: 'center',
+    marginBottom: 16,
+    shadowColor: '#ffc107', shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3, shadowRadius: 8, elevation: 4,
+  },
+  transferModalTitle: {
+    fontSize: FontSize.lg, fontWeight: '800', color: Colors.textPrimary,
+    marginBottom: 10, textAlign: 'center',
+  },
+  transferModalBody: {
+    fontSize: FontSize.sm, color: Colors.textMuted, textAlign: 'center',
+    lineHeight: 22, marginBottom: 28,
+  },
+  transferModalActions: {
+    flexDirection: 'row', gap: 12, width: '100%',
+  },
+  transferModalCancel: {
+    flex: 1, paddingVertical: 13, borderRadius: 12,
+    borderWidth: 1.5, borderColor: Colors.border, alignItems: 'center',
+  },
+  transferModalCancelText: { color: Colors.textMuted, fontWeight: '700', fontSize: FontSize.sm },
+  transferModalConfirm: {
+    flex: 1.5, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 8, paddingVertical: 13, borderRadius: 12,
+    backgroundColor: 'rgba(255, 193, 7, 0.88)',
+    shadowColor: '#ffc107', shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.35, shadowRadius: 8, elevation: 5,
+  },
+  transferModalConfirmText: { color: '#fff', fontWeight: '800', fontSize: FontSize.sm },
+
   actionsRow: { flexDirection: 'row', gap: 12, marginBottom: 4 },
   actionBtn: {
     flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',

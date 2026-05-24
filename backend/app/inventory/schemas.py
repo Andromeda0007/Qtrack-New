@@ -17,6 +17,7 @@ class GRNCreate(BaseModel):
     material_id: int
     grn_number: str
     batch_number: str
+    retesting_number: Optional[str] = None
     supplier_name: str
     manufacturer_name: str
     original_batch_id: Optional[int] = None

@@ -145,20 +145,40 @@ async def create_product(db: AsyncSession, data: dict, created_by: User) -> dict
     q_loc = await db.execute(select(Location).where(Location.location_type == "QUARANTINE"))
     quarantine = q_loc.scalar_one_or_none()
 
-    # 6. Identifiers — GRN number is user-provided; public_code is still generated
-    grn_number = data["grn_number"].strip()
+    # 6. Identifiers — GRN and RTN are user-provided; public_code is still generated
+    batch_number = data["batch_number"].strip()
+    grn_number   = data["grn_number"].strip()
     if not grn_number:
         raise HTTPException(status_code=422, detail="GRN number is required.")
-    existing = await db.execute(select(GRN).where(GRN.grn_number == grn_number))
-    if existing.scalar_one_or_none():
-        raise HTTPException(status_code=409, detail=f"GRN number '{grn_number}' already exists.")
-    public_code = await generate_unique_public_code(db)  # kept for legacy-scanner fallback
 
-    # RTN auto-generation: only when original_batch_id is supplied (retest GRN)
+    # All three identifiers must be distinct from each other
+    provided = {"Batch number": batch_number, "GRN number": grn_number}
     original_batch_id = data.get("original_batch_id")
     retesting_number = None
     if original_batch_id:
-        retesting_number = await _allocate_next_rtn_number(db)
+        retesting_number = (data.get("retesting_number") or "").strip()
+        if not retesting_number:
+            raise HTTPException(status_code=422, detail="Retesting number is required for retest GRNs.")
+        provided["Retesting number"] = retesting_number
+
+    seen: set[str] = set()
+    for label, val in provided.items():
+        if val in seen:
+            raise HTTPException(status_code=422, detail=f"{label} must be different from the other reference numbers.")
+        seen.add(val)
+
+    # DB-level uniqueness checks
+    existing_grn = await db.execute(select(GRN).where(GRN.grn_number == grn_number))
+    if existing_grn.scalar_one_or_none():
+        raise HTTPException(status_code=409, detail=f"GRN number '{grn_number}' already exists.")
+    if retesting_number:
+        existing_rtn = await db.execute(select(Batch).where(Batch.retesting_number == retesting_number))
+        if existing_rtn.scalar_one_or_none():
+            raise HTTPException(status_code=409, detail=f"Retesting number '{retesting_number}' already exists.")
+
+    public_code = await generate_unique_public_code(db)  # kept for legacy-scanner fallback
+
+    if original_batch_id:
         # Move original batch out of APPROVED so it drops off the retest list
         orig_row = await db.execute(select(Batch).where(Batch.id == original_batch_id))
         orig_batch = orig_row.scalar_one_or_none()
@@ -176,7 +196,7 @@ async def create_product(db: AsyncSession, data: dict, created_by: User) -> dict
     batch = Batch(
         material_id=material.id,
         supplier_id=supplier.id,
-        batch_number=data["batch_number"],
+        batch_number=batch_number,
         public_code=public_code,
         manufacturer_name=data.get("manufacturer_name"),
         manufacture_date=data.get("manufacture_date"),

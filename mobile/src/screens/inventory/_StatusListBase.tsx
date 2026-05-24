@@ -125,7 +125,7 @@ export const StatusListBase: React.FC<Props> = ({
                 size={13}
                 color={Colors.textMuted}
               />
-              <Text style={styles.metaText}>
+              <Text style={styles.metaText} numberOfLines={1}>
                 {item.remaining_quantity} / {item.total_quantity}
               </Text>
             </View>
@@ -136,7 +136,7 @@ export const StatusListBase: React.FC<Props> = ({
                   size={13}
                   color={Colors.textMuted}
                 />
-                <Text style={styles.metaText}>
+                <Text style={styles.metaText} numberOfLines={1}>
                   {formatDate(item.expiry_date)}
                 </Text>
               </View>
@@ -147,7 +147,7 @@ export const StatusListBase: React.FC<Props> = ({
                 size={13}
                 color={Colors.textMuted}
               />
-              <Text style={styles.metaText}>{item.batch_number}</Text>
+              <Text style={styles.metaText} numberOfLines={1}>{item.batch_number}</Text>
             </View>
           </View>
         </View>
@@ -347,9 +347,9 @@ const styles = StyleSheet.create({
     marginTop: 2,
     marginBottom: Spacing.sm,
   },
-  cardMeta: { flexDirection: "row", flexWrap: "wrap", gap: Spacing.md },
-  metaItem: { flexDirection: "row", alignItems: "center", gap: 4 },
-  metaText: { fontSize: FontSize.xs, color: Colors.textMuted },
+  cardMeta: { flexDirection: "row", gap: Spacing.sm },
+  metaItem: { flex: 1, flexDirection: "row", alignItems: "center", gap: 3, minWidth: 0 },
+  metaText: { fontSize: FontSize.xs, color: Colors.textMuted, flexShrink: 1 },
 
   empty: { alignItems: "center", paddingTop: 60, gap: Spacing.md },
   emptyText: { fontSize: FontSize.md, color: Colors.textMuted },

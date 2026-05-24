@@ -16,6 +16,7 @@ export interface CreateGRNPayload {
   container_quantity: number;
   total_quantity: number;
   original_batch_id?: number;
+  retesting_number?: string;
 }
 
 export const inventoryApi = {

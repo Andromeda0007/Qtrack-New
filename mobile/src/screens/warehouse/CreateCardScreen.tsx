@@ -110,6 +110,7 @@ export const CreateCardScreen: React.FC = () => {
 
   const [form, setForm] = useState({
     grn_number: '',
+    retesting_number: '',
     batch_number: '',
     supplier_name: '',
     manufacturer_name: '',
@@ -129,6 +130,7 @@ export const CreateCardScreen: React.FC = () => {
     setPackType((prefill.pack_type || 'BAG').toUpperCase());
     setForm({
       grn_number: '',
+      retesting_number: '',
       batch_number: '',
       supplier_name: prefill.supplier_name ?? '',
       manufacturer_name: prefill.manufacturer_name ?? '',
@@ -206,6 +208,10 @@ export const CreateCardScreen: React.FC = () => {
       Alert.alert('Required', 'GRN number is required.');
       return false;
     }
+    if (originalBatchId != null && !form.retesting_number.trim()) {
+      Alert.alert('Required', 'Retesting number is required.');
+      return false;
+    }
     if (!form.batch_number.trim()) {
       Alert.alert('Required', 'Batch / Lot number is required.');
       return false;
@@ -262,6 +268,7 @@ export const CreateCardScreen: React.FC = () => {
         container_quantity: parseFloat(perContainer),
         total_quantity: parseFloat(totalQty),
         ...(originalBatchId != null && { original_batch_id: originalBatchId }),
+        ...(originalBatchId != null && { retesting_number: form.retesting_number.trim() }),
       });
       setResult(res);
     } catch (error) {
@@ -300,16 +307,6 @@ export const CreateCardScreen: React.FC = () => {
           contentContainerStyle={styles.content}
           keyboardShouldPersistTaps="handled"
         >
-          {/* Retest prefill banner */}
-          {originalBatchId != null && (
-            <View style={styles.retestBanner}>
-              <Ionicons name="information-circle-outline" size={16} color={Colors.info} />
-              <Text style={styles.retestBannerText}>
-                Retesting No. will be auto-generated on submission.
-              </Text>
-            </View>
-          )}
-
           <SectionTitle title="Item" />
           <View style={styles.card}>
             <ItemPicker value={selectedItem?.id ?? null} onChange={handleItemChange} />
@@ -420,6 +417,21 @@ export const CreateCardScreen: React.FC = () => {
               keyboardType="numbers-and-punctuation"
             />
           </View>
+
+          {originalBatchId != null && (
+            <>
+              <SectionTitle title="Retesting" />
+              <View style={styles.card}>
+                <Input
+                  label="Retesting Number *"
+                  placeholder="e.g. RTN-2026-001"
+                  value={form.retesting_number}
+                  onChangeText={(v) => set('retesting_number', v)}
+                  autoCapitalize="characters"
+                />
+              </View>
+            </>
+          )}
 
           <SectionTitle title="GRN" />
           <View style={styles.card}>
@@ -596,13 +608,6 @@ const styles = StyleSheet.create({
   chipText: { fontSize: FontSize.sm, color: Colors.textSecondary, fontWeight: '500' },
   chipTextSelected: { color: Colors.primary, fontWeight: '700' },
 
-  retestBanner: {
-    flexDirection: 'row', alignItems: 'center', gap: 8,
-    backgroundColor: '#e8f4fd', borderRadius: BorderRadius.md,
-    padding: 12, marginBottom: 8, marginTop: 8,
-    borderWidth: 1, borderColor: Colors.info + '44',
-  },
-  retestBannerText: { flex: 1, fontSize: FontSize.xs, color: Colors.info, fontWeight: '600' },
   errorText: { color: Colors.danger, fontSize: FontSize.xs, marginTop: 4, marginBottom: 4 },
 
   submitBtn: { marginTop: 16 },
