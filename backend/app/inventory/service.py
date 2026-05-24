@@ -145,8 +145,13 @@ async def create_product(db: AsyncSession, data: dict, created_by: User) -> dict
     q_loc = await db.execute(select(Location).where(Location.location_type == "QUARANTINE"))
     quarantine = q_loc.scalar_one_or_none()
 
-    # 6. Backend-generated identifiers
-    grn_number = await _allocate_next_grn_number(db)
+    # 6. Identifiers — GRN number is user-provided; public_code is still generated
+    grn_number = data["grn_number"].strip()
+    if not grn_number:
+        raise HTTPException(status_code=422, detail="GRN number is required.")
+    existing = await db.execute(select(GRN).where(GRN.grn_number == grn_number))
+    if existing.scalar_one_or_none():
+        raise HTTPException(status_code=409, detail=f"GRN number '{grn_number}' already exists.")
     public_code = await generate_unique_public_code(db)  # kept for legacy-scanner fallback
 
     # RTN auto-generation: only when original_batch_id is supplied (retest GRN)

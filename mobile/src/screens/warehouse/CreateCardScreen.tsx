@@ -109,6 +109,7 @@ export const CreateCardScreen: React.FC = () => {
   const [packType, setPackType] = useState('BAG');
 
   const [form, setForm] = useState({
+    grn_number: '',
     batch_number: '',
     supplier_name: '',
     manufacturer_name: '',
@@ -127,6 +128,7 @@ export const CreateCardScreen: React.FC = () => {
     setPerContainer(String(prefill.container_quantity ?? ''));
     setPackType((prefill.pack_type || 'BAG').toUpperCase());
     setForm({
+      grn_number: '',
       batch_number: '',
       supplier_name: prefill.supplier_name ?? '',
       manufacturer_name: prefill.manufacturer_name ?? '',
@@ -200,6 +202,10 @@ export const CreateCardScreen: React.FC = () => {
       Alert.alert('Required', 'Please select an item.');
       return false;
     }
+    if (!form.grn_number.trim()) {
+      Alert.alert('Required', 'GRN number is required.');
+      return false;
+    }
     if (!form.batch_number.trim()) {
       Alert.alert('Required', 'Batch / Lot number is required.');
       return false;
@@ -243,6 +249,7 @@ export const CreateCardScreen: React.FC = () => {
     try {
       const res = await inventoryApi.createGRN({
         material_id: selectedItem.id,
+        grn_number: form.grn_number.trim(),
         batch_number: form.batch_number.trim(),
         supplier_name: form.supplier_name.trim(),
         manufacturer_name: form.manufacturer_name.trim(),
@@ -414,8 +421,19 @@ export const CreateCardScreen: React.FC = () => {
             />
           </View>
 
+          <SectionTitle title="GRN" />
+          <View style={styles.card}>
+            <Input
+              label="GRN Number *"
+              placeholder="e.g. GRN-2026-042"
+              value={form.grn_number}
+              onChangeText={(v) => set('grn_number', v)}
+              autoCapitalize="characters"
+            />
+          </View>
+
           <Button
-            title="Create GRN"
+            title="Create"
             onPress={handleSubmit}
             loading={submitting}
             style={styles.submitBtn}

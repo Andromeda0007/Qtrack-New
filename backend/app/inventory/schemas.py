@@ -15,6 +15,7 @@ class GRNCreate(BaseModel):
       ``container_quantity`` are the new quantity model
     """
     material_id: int
+    grn_number: str
     batch_number: str
     supplier_name: str
     manufacturer_name: str

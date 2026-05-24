@@ -3,6 +3,7 @@ import { Batch, Material, Supplier, StockMovement, UnitOfMeasure } from '../type
 
 export interface CreateGRNPayload {
   material_id: number;
+  grn_number: string;
   batch_number: string;
   supplier_name: string;
   manufacturer_name: string;
