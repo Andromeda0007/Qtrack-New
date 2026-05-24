@@ -264,6 +264,7 @@ async def get_batch_history(
     db: AsyncSession = Depends(get_db),
 ):
     """Return status-change history for a batch with the actor's name, ordered by time."""
+    from sqlalchemy import select
     from app.models.inventory_models import BatchStatusHistory
     from app.models.user_models import User as UserModel
 
