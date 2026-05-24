@@ -14,6 +14,7 @@ export interface CreateGRNPayload {
   container_count: number;
   container_quantity: number;
   total_quantity: number;
+  original_batch_id?: number;
 }
 
 export const inventoryApi = {
@@ -72,20 +73,18 @@ export const inventoryApi = {
     return res.data;
   },
 
-  // Stock operations
-  issueStock: async (
-    batch_id: number,
-    quantity: number,
-    remarks?: string,
-    opts?: { issued_to_product_name?: string; issued_to_batch_ref?: string },
-  ) => {
-    const res = await apiClient.post('/inventory/issue-stock', {
-      batch_id,
-      quantity,
-      remarks,
-      issued_to_product_name: opts?.issued_to_product_name,
-      issued_to_batch_ref: opts?.issued_to_batch_ref,
-    });
+  getExpiringSoon: async (): Promise<any[]> => {
+    const res = await apiClient.get('/inventory/batches/expiring-soon');
+    return res.data;
+  },
+
+  getBatchHistory: async (batchId: number): Promise<any[]> => {
+    const res = await apiClient.get(`/inventory/batches/${batchId}/history`);
+    return res.data;
+  },
+
+  getRetestPrefill: async (batchId: number): Promise<any> => {
+    const res = await apiClient.get(`/inventory/batches/${batchId}/retest-prefill`);
     return res.data;
   },
 

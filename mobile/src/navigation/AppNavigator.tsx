@@ -14,7 +14,6 @@ import { ChatGroupInfoScreen } from '../screens/chat/ChatGroupInfoScreen';
 import { NewChatScreen } from '../screens/chat/NewChatScreen';
 import { NewGroupScreen } from '../screens/chat/NewGroupScreen';
 import { BatchDetailScreen } from '../screens/warehouse/BatchDetailScreen';
-import { IssueStockScreen } from '../screens/warehouse/IssueStockScreen';
 import { QCScanScreen } from '../screens/scanner/QRScannerScreen';
 import { CheckStatusScreen } from '../screens/scanner/CheckStatusScreen';
 import { QuarantineListScreen } from '../screens/inventory/QuarantineListScreen';
@@ -22,12 +21,10 @@ import { UnderTestListScreen } from '../screens/inventory/UnderTestListScreen';
 import { ApprovedListScreen } from '../screens/inventory/ApprovedListScreen';
 import { RejectedListScreen } from '../screens/inventory/RejectedListScreen';
 import { RetestListScreen } from '../screens/inventory/RetestListScreen';
-import { ProductionListScreen } from '../screens/inventory/ProductionListScreen';
 import { AddARNumberScreen } from '../screens/qc/AddARNumberScreen';
 import { StartTestingScreen } from '../screens/qc/StartTestingScreen';
 import { ApproveBatchScreen } from '../screens/qc/ApproveBatchScreen';
 import { RejectBatchScreen } from '../screens/qc/RejectBatchScreen';
-import { InitiateRetestScreen } from '../screens/qc/InitiateRetestScreen';
 import { InspectFGScreen } from '../screens/qa/InspectFGScreen';
 import { ApproveFGScreen } from '../screens/qa/ApproveFGScreen';
 import { RejectFGScreen } from '../screens/qa/RejectFGScreen';
@@ -75,11 +72,6 @@ export const AppNavigator: React.FC = () => {
               options={{ headerShown: false }}
             />
             <Stack.Screen
-              name="IssueStock"
-              component={IssueStockScreen}
-              options={{ headerShown: false }}
-            />
-            <Stack.Screen
               name="Scanner"
               component={QCScanScreen}
               options={{ headerShown: false }}
@@ -89,7 +81,6 @@ export const AppNavigator: React.FC = () => {
               component={CheckStatusScreen}
               options={{ headerShown: false }}
             />
-            <Stack.Screen name="ProductionList" component={ProductionListScreen} options={{ headerShown: false }} />
             <Stack.Screen name="QuarantineList" component={QuarantineListScreen} options={{ headerShown: false }} />
             <Stack.Screen name="UnderTestList"  component={UnderTestListScreen}  options={{ headerShown: false }} />
             <Stack.Screen name="ApprovedList"   component={ApprovedListScreen}   options={{ headerShown: false }} />
@@ -99,7 +90,6 @@ export const AppNavigator: React.FC = () => {
             <Stack.Screen name="StartTesting"   component={StartTestingScreen}   options={{ headerShown: false }} />
             <Stack.Screen name="ApproveBatch"     component={ApproveBatchScreen}    options={{ headerShown: false }} />
             <Stack.Screen name="RejectBatch"      component={RejectBatchScreen}     options={{ headerShown: false }} />
-            <Stack.Screen name="InitiateRetest"   component={InitiateRetestScreen}  options={{ headerShown: false }} />
             <Stack.Screen name="InspectFG" component={InspectFGScreen} options={{ headerShown: false }} />
             <Stack.Screen name="ApproveFG" component={ApproveFGScreen} options={{ headerShown: false }} />
             <Stack.Screen name="RejectFG"  component={RejectFGScreen}  options={{ headerShown: false }} />

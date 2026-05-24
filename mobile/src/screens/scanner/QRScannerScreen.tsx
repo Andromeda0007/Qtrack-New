@@ -889,7 +889,7 @@ const RoleActions: React.FC<{
     if (isFg) {
       return null;
     }
-    if (status === "QUARANTINE" || status === "QUARANTINE_RETEST") {
+    if (status === "QUARANTINE") {
       return (
         <Button
           title="Add AR Number & Start Testing"
@@ -917,109 +917,6 @@ const RoleActions: React.FC<{
         </View>
       );
     }
-    if (status === "APPROVED" && role === "QC_HEAD") {
-      return (
-        <Button
-          title="Initiate Retest"
-          onPress={() => goToBatch("InitiateRetest")}
-          variant="outline"
-          fullWidth
-          style={{ marginTop: Spacing.sm }}
-        />
-      );
-    }
-  }
-
-  if (
-    !isFg &&
-    (role === "WAREHOUSE_USER" || role === "WAREHOUSE_HEAD") &&
-    (status === "APPROVED" || status === "ISSUED_TO_PRODUCTION")
-  ) {
-    const hasRack = String(batchData.rack_number || "").trim().length > 0;
-
-    const goIssue = () =>
-      goToBatch("IssueStock", {
-        initialRack: String(batchData.rack_number || "").trim(),
-      });
-
-    const onIssuePress = () => {
-      if (hasRack) {
-        goIssue();
-        return;
-      }
-      setRackDraft("");
-      setRackGateOpen(true);
-    };
-
-    const saveRackAndContinue = async () => {
-      const r = rackDraft.trim();
-      if (!r) {
-        Alert.alert("Rack required", "Enter the rack / bin location before issuing to production.");
-        return;
-      }
-      setRackSaving(true);
-      try {
-        await inventoryApi.updateBatchRack(batchData.id, r);
-        onRackSaved?.(r);
-        setRackGateOpen(false);
-        navigation.navigate("IssueStock", {
-          batchId: batchData.id,
-          batchNumber: batchData.batch_number,
-          initialRack: r,
-        });
-      } catch (e) {
-        Alert.alert("Could not save rack", extractError(e));
-      } finally {
-        setRackSaving(false);
-      }
-    };
-
-    return (
-      <View style={{ marginTop: Spacing.sm }}>
-        {!hasRack ? (
-          <Text style={styles.rackHint}>
-            Rack number is required before you can issue this batch to production.
-          </Text>
-        ) : null}
-        <Button title="Issue to Production" onPress={onIssuePress} fullWidth />
-        <Modal visible={rackGateOpen} transparent animationType="fade">
-          <View style={styles.rackModalOverlay}>
-            <View style={styles.rackModalCard}>
-              <Text style={styles.rackModalTitle}>Rack / storage location</Text>
-              <Text style={styles.rackModalSub}>
-                Record where approved material is stored before issuing to production.
-              </Text>
-              <TextInput
-                style={styles.rackModalInput}
-                placeholder="Enter rack / bin location"
-                placeholderTextColor={Colors.textMuted}
-                value={rackDraft}
-                onChangeText={setRackDraft}
-                autoCapitalize="characters"
-              />
-              <View style={styles.rackModalActions}>
-                <TouchableOpacity
-                  style={styles.rackModalCancel}
-                  onPress={() => setRackGateOpen(false)}
-                  disabled={rackSaving}
-                >
-                  <Text style={styles.rackModalCancelText}>Cancel</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.rackModalSave}
-                  onPress={saveRackAndContinue}
-                  disabled={rackSaving}
-                >
-                  <Text style={styles.rackModalSaveText}>
-                    {rackSaving ? "Saving…" : "Save & continue"}
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          </View>
-        </Modal>
-      </View>
-    );
   }
 
   if (

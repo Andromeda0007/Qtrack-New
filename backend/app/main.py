@@ -56,7 +56,6 @@ from app.suppliers.router import router as suppliers_router
 from app.inventory.router import router as inventory_router
 from app.qc.router import router as qc_router
 from app.qa.router import router as qa_router
-from app.production.router import router as production_router
 from app.finished_goods.router import router as fg_router
 from app.notifications.router import router as notifications_router
 from app.chat.router import router as chat_router
@@ -69,7 +68,6 @@ app.include_router(suppliers_router, prefix="/api/v1/suppliers", tags=["Supplier
 app.include_router(inventory_router, prefix="/api/v1/inventory", tags=["Inventory"])
 app.include_router(qc_router, prefix="/api/v1/qc", tags=["Quality Control"])
 app.include_router(qa_router, prefix="/api/v1/qa", tags=["Quality Assurance"])
-app.include_router(production_router, prefix="/api/v1/production", tags=["Production"])
 app.include_router(fg_router, prefix="/api/v1/finished-goods", tags=["Finished Goods"])
 app.include_router(notifications_router, prefix="/api/v1/notifications", tags=["Notifications"])
 app.include_router(chat_router, prefix="/api/v1/chat", tags=["Chat"])

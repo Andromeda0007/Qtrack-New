@@ -114,14 +114,12 @@ async def get_material_batch_counts(
     ut = int(counts.get(BatchStatus.UNDER_TEST.value, 0))
     ap = int(counts.get(BatchStatus.APPROVED.value, 0))
     qr = int(counts.get(BatchStatus.QUARANTINE_RETEST.value, 0))
-    ip = int(counts.get(BatchStatus.ISSUED_TO_PRODUCTION.value, 0))
     return MaterialBatchCounts(
         quarantine=q,
         under_test=ut,
         approved=ap,
         quarantine_retest=qr,
-        issued_to_production=ip,
-        total_active=q + ut + ap + qr + ip,
+        total_active=q + ut + ap + qr,
     )
 
 

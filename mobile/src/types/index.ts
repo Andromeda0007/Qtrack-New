@@ -98,7 +98,6 @@ export interface MaterialBatchCounts {
   under_test: number;
   approved: number;
   quarantine_retest: number;
-  issued_to_production: number;
   total_active: number;
 }
 

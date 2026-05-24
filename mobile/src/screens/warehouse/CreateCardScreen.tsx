@@ -1,10 +1,10 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   Alert, KeyboardAvoidingView, Platform, Modal, Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { inventoryApi } from '../../api/inventory';
 import { Input } from '../../components/common/Input';
@@ -57,6 +57,7 @@ type GRNResult = {
   created_at: string;
   qr_base64?: string;
   containers?: ContainerInfo[];
+  retesting_number?: string;
 };
 
 const SectionTitle: React.FC<{ title: string }> = ({ title }) => (
@@ -93,6 +94,10 @@ const CardRow: React.FC<{ label: string; value: string }> = ({ label, value }) =
 
 export const CreateCardScreen: React.FC = () => {
   const navigation = useNavigation<any>();
+  const route = useRoute<any>();
+  const prefill = route.params?.prefill ?? null;
+  const originalBatchId: number | undefined = route.params?.originalBatchId;
+
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<GRNResult | null>(null);
 
@@ -111,6 +116,34 @@ export const CreateCardScreen: React.FC = () => {
     manufacture_date: '',
     expiry_date: '',
   });
+
+  // Pre-populate form when arriving from "Transfer to Quarantine" flow
+  useEffect(() => {
+    if (!prefill) return;
+    const uom = (prefill.unit_of_measure || 'KG') as UnitOfMeasure;
+    setUnit(uom);
+    setTotalQty(String(prefill.total_quantity ?? ''));
+    setContainers(String(prefill.container_count ?? ''));
+    setPerContainer(String(prefill.container_quantity ?? ''));
+    setPackType((prefill.pack_type || 'BAG').toUpperCase());
+    setForm({
+      batch_number: prefill.batch_number ?? '',
+      supplier_name: prefill.supplier_name ?? '',
+      manufacturer_name: prefill.manufacturer_name ?? '',
+      date_of_receipt: todayDisplay,
+      manufacture_date: prefill.manufacture_date ? formatDate(String(prefill.manufacture_date)) : '',
+      expiry_date: prefill.expiry_date ? formatDate(String(prefill.expiry_date)) : '',
+    });
+    if (prefill.material_id) {
+      setSelectedItem({
+        id: prefill.material_id,
+        material_name: prefill.material_name ?? '',
+        material_code: prefill.material_code ?? '',
+        unit_of_measure: uom,
+        is_active: true,
+      } as Material);
+    }
+  }, []);
 
   const set = (key: string, value: string) => setForm((f) => ({ ...f, [key]: value }));
 
@@ -221,6 +254,7 @@ export const CreateCardScreen: React.FC = () => {
         container_count: parseInt(containers, 10),
         container_quantity: parseFloat(perContainer),
         total_quantity: parseFloat(totalQty),
+        ...(originalBatchId != null && { original_batch_id: originalBatchId }),
       });
       setResult(res);
     } catch (error) {
@@ -259,6 +293,16 @@ export const CreateCardScreen: React.FC = () => {
           contentContainerStyle={styles.content}
           keyboardShouldPersistTaps="handled"
         >
+          {/* Retest prefill banner */}
+          {originalBatchId != null && (
+            <View style={styles.retestBanner}>
+              <Ionicons name="information-circle-outline" size={16} color={Colors.info} />
+              <Text style={styles.retestBannerText}>
+                Retesting No. will be auto-generated on submission.
+              </Text>
+            </View>
+          )}
+
           <SectionTitle title="Item" />
           <View style={styles.card}>
             <ItemPicker value={selectedItem?.id ?? null} onChange={handleItemChange} />
@@ -370,14 +414,6 @@ export const CreateCardScreen: React.FC = () => {
             />
           </View>
 
-          <View style={styles.infoNote}>
-            <Ionicons name="information-circle-outline" size={16} color={Colors.info} />
-            <Text style={styles.infoNoteText}>
-              GRN number and container IDs are auto-generated. Each of the {containers || 'N'}
-              {' '}containers gets its own unique QR label for tracking.
-            </Text>
-          </View>
-
           <Button
             title="Create GRN"
             onPress={handleSubmit}
@@ -423,6 +459,12 @@ export const CreateCardScreen: React.FC = () => {
               <Text style={styles.detailCardTitle}>GRN Details</Text>
 
               <CardRow label="GRN" value={result?.grn_number ?? ''} />
+              {result?.retesting_number ? (
+                <>
+                  <View style={styles.divider} />
+                  <CardRow label="Retesting No." value={result.retesting_number} />
+                </>
+              ) : null}
               <View style={styles.divider} />
               <CardRow label="Item Code" value={result?.item_code ?? ''} />
               <View style={styles.divider} />
@@ -529,14 +571,15 @@ const styles = StyleSheet.create({
   chipText: { fontSize: FontSize.sm, color: Colors.textSecondary, fontWeight: '500' },
   chipTextSelected: { color: Colors.primary, fontWeight: '700' },
 
+  retestBanner: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    backgroundColor: '#e8f4fd', borderRadius: BorderRadius.md,
+    padding: 12, marginBottom: 8, marginTop: 8,
+    borderWidth: 1, borderColor: Colors.info + '44',
+  },
+  retestBannerText: { flex: 1, fontSize: FontSize.xs, color: Colors.info, fontWeight: '600' },
   errorText: { color: Colors.danger, fontSize: FontSize.xs, marginTop: 4, marginBottom: 4 },
 
-  infoNote: {
-    flexDirection: 'row', alignItems: 'flex-start', gap: 8,
-    backgroundColor: Colors.info + '12', borderRadius: BorderRadius.sm,
-    padding: 12, marginTop: 16, marginBottom: 8,
-  },
-  infoNoteText: { flex: 1, fontSize: FontSize.xs, color: Colors.info, lineHeight: 18 },
   submitBtn: { marginTop: 16 },
 
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.65)' },

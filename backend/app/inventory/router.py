@@ -13,7 +13,7 @@ from app.auth.dependencies import get_current_user, require_permission
 from app.models.user_models import User
 from app.models.inventory_models import BatchStatus
 from app.inventory import service
-from app.inventory.schemas import GRNCreate, ProductCreate, IssueStockRequest, StockAdjustmentRequest, UpdateRackRequest
+from app.inventory.schemas import GRNCreate, ProductCreate, StockAdjustmentRequest, UpdateRackRequest
 from app.utils.pdf_generator import generate_quarantine_label
 from app.config import settings
 
@@ -94,6 +94,7 @@ async def create_product(
         # Legacy fields kept so the in-flight mobile app doesn't crash during rollout:
         "public_code": result["public_code"],
         "track_id": f"#{result['public_code']}",
+        "retesting_number": result.get("retesting_number"),
     }
 
 
@@ -130,6 +131,81 @@ async def list_batches(
         }
         for b in batches
     ]
+
+
+@router.get("/batches/expiring-soon")
+async def get_expiring_soon_batches(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Return APPROVED batches whose retest_date falls within the next 15 days, sorted ascending."""
+    from datetime import date, timedelta
+    from sqlalchemy import and_
+    from app.models.inventory_models import Batch
+    from sqlalchemy.orm import selectinload
+
+    today = date.today()
+    cutoff = today + timedelta(days=15)
+
+    result = await db.execute(
+        select(Batch)
+        .options(
+            selectinload(Batch.material),
+            selectinload(Batch.grn),
+        )
+        .where(
+            and_(
+                Batch.status == BatchStatus.APPROVED,
+                Batch.retest_date != None,  # noqa: E711
+                Batch.retest_date >= today,
+                Batch.retest_date <= cutoff,
+            )
+        )
+        .order_by(Batch.retest_date.asc())
+    )
+    batches = result.scalars().all()
+    rows = []
+    for b in batches:
+        days = (b.retest_date - today).days if b.retest_date else None
+        rows.append({
+            "id": b.id,
+            "batch_number": b.batch_number,
+            "grn_number": b.grn.grn_number if b.grn else None,
+            "material_name": b.material.material_name if b.material else None,
+            "material_code": b.material.material_code if b.material else None,
+            "unit_of_measure": getattr(b, "unit_of_measure", "KG"),
+            "retest_date": b.retest_date,
+            "days_until_retest": days,
+            "status": b.status,
+        })
+    return rows
+
+
+@router.get("/batches/{batch_id}/retest-prefill")
+async def get_retest_prefill(
+    batch_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Return prefill data for creating a retest GRN from an APPROVED batch. No DB writes."""
+    batch = await service.get_batch_by_id(db, batch_id)
+    if batch.status != BatchStatus.APPROVED:
+        raise HTTPException(status_code=400, detail="Only APPROVED batches can be transferred to Quarantine for retest")
+    return {
+        "material_id": batch.material_id,
+        "material_name": batch.material.material_name if batch.material else None,
+        "material_code": batch.material.material_code if batch.material else None,
+        "supplier_name": batch.supplier.supplier_name if batch.supplier else None,
+        "manufacturer_name": batch.manufacturer_name,
+        "batch_number": batch.batch_number,
+        "manufacture_date": batch.manufacture_date,
+        "expiry_date": batch.expiry_date,
+        "unit_of_measure": getattr(batch, "unit_of_measure", "KG"),
+        "container_count": getattr(batch, "container_count", 1),
+        "container_quantity": getattr(batch, "container_quantity", batch.remaining_quantity),
+        "total_quantity": batch.remaining_quantity,
+        "pack_type": service.pack_type_display(batch),
+    }
 
 
 @router.get("/batches/{batch_id}")
@@ -176,7 +252,37 @@ async def get_batch(
         "qr_base64": qr_b64,
         "ar_number": getattr(batch, "ar_number", None),
         "rack_number": batch.rack_number,
+        "retesting_number": getattr(batch, "retesting_number", None),
+        "original_batch_id": getattr(batch, "original_batch_id", None),
     }
+
+
+@router.get("/batches/{batch_id}/history")
+async def get_batch_history(
+    batch_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Return status-change history for a batch with the actor's name, ordered by time."""
+    from app.models.inventory_models import BatchStatusHistory
+    from app.models.user_models import User as UserModel
+
+    result = await db.execute(
+        select(BatchStatusHistory, UserModel.name)
+        .join(UserModel, BatchStatusHistory.changed_by == UserModel.id)
+        .where(BatchStatusHistory.batch_id == batch_id)
+        .order_by(BatchStatusHistory.changed_at.asc())
+    )
+    rows = result.all()
+    return [
+        {
+            "new_status": str(h.new_status.value if hasattr(h.new_status, "value") else h.new_status),
+            "changed_by_name": name,
+            "changed_at": h.changed_at.isoformat(),
+            "remarks": h.remarks,
+        }
+        for h, name in rows
+    ]
 
 
 @router.get("/scan/{qr_data}")
@@ -187,23 +293,6 @@ async def scan_qr(
 ):
     """Resolve material batch QR or finished-goods FG QR (`QTRACK|BATCH|…` / `QTRACK|FG|…`)."""
     return await service.resolve_scan_payload(db, qr_data, current_user)
-
-
-@router.post("/issue-stock")
-async def issue_stock(
-    payload: IssueStockRequest,
-    current_user: User = Depends(require_permission("ISSUE_STOCK")),
-    db: AsyncSession = Depends(get_db),
-):
-    return await service.issue_stock(
-        db,
-        payload.batch_id,
-        payload.quantity,
-        payload.remarks,
-        current_user,
-        issued_to_product_name=payload.issued_to_product_name,
-        issued_to_batch_ref=payload.issued_to_batch_ref,
-    )
 
 
 @router.patch("/batches/{batch_id}/rack")

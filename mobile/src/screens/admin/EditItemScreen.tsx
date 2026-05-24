@@ -86,7 +86,6 @@ export const EditItemScreen: React.FC = () => {
         if (counts.under_test) lines.push(`Under Test: ${counts.under_test}`);
         if (counts.approved) lines.push(`Approved: ${counts.approved}`);
         if (counts.quarantine_retest) lines.push(`Retest: ${counts.quarantine_retest}`);
-        if (counts.issued_to_production) lines.push(`Issued: ${counts.issued_to_production}`);
       }
       const msg =
         counts && counts.total_active > 0

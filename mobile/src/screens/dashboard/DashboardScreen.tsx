@@ -39,12 +39,18 @@ const CHECK_STATUS_ACTION: QuickAction = {
   screen: "CheckStatus",
 };
 
-/** Six tiles + routes for every role (2 columns × 3 rows): Quarantine → … → Production last. */
+/**
+ * Five tiles in a 2+2+1 layout:
+ *   Row 1: Quarantine | Under Test
+ *   Row 2: Rejected   | Retest
+ *   Row 3: Approved (full width)
+ */
 const PRODUCT_STAT_TILES: Array<{
   label: string;
   color: string;
   icon: string;
   screen: string;
+  fullWidth?: boolean;
   getValue: (s: ProductStats) => number;
 }> = [
   {
@@ -62,13 +68,6 @@ const PRODUCT_STAT_TILES: Array<{
     getValue: (s) => s.underTest,
   },
   {
-    label: "Approved",
-    color: Colors.success,
-    icon: "checkmark-circle",
-    screen: "ApprovedList",
-    getValue: (s) => s.approved,
-  },
-  {
     label: "Rejected",
     color: Colors.danger,
     icon: "close-circle",
@@ -83,11 +82,12 @@ const PRODUCT_STAT_TILES: Array<{
     getValue: (s) => s.retest,
   },
   {
-    label: "Production",
-    color: Colors.primary,
-    icon: "layers-outline",
-    screen: "ProductionList",
-    getValue: (s) => s.production,
+    label: "Approved",
+    color: Colors.success,
+    icon: "checkmark-circle",
+    screen: "ApprovedList",
+    fullWidth: true,
+    getValue: (s) => s.approved,
   },
 ];
 
@@ -97,7 +97,6 @@ interface ProductStats {
   approved: number;
   rejected: number;
   retest: number;
-  production: number;
 }
 
 /**
@@ -107,7 +106,7 @@ interface ProductStats {
  * Scanner tile **labels** differ by role (same `Scanner` screen / `RoleActions` unless you add params).
  */
 const ROLE_QUICK_ACTIONS: Record<RoleName, QuickAction[]> = {
-  /** R1: Create | Check Status — R2: Move to Production (hub) */
+  /** R1: Create | Check Status */
   WAREHOUSE_USER: [
     {
       label: "Create GRN",
@@ -116,13 +115,6 @@ const ROLE_QUICK_ACTIONS: Record<RoleName, QuickAction[]> = {
       screen: "CreateCard",
     },
     CHECK_STATUS_ACTION,
-    {
-      label: "Move to Production",
-      icon: "arrow-forward-circle-outline",
-      color: Colors.info,
-      screen: "WorkflowHub",
-      params: { mode: "warehouse_issue" },
-    },
   ],
   /** R1: Manage Users | Check Status — R2: Manage Items | Audit Logs */
   WAREHOUSE_HEAD: [
@@ -236,21 +228,21 @@ export const DashboardScreen: React.FC = () => {
     approved: 0,
     rejected: 0,
     retest: 0,
-    production: 0,
   });
   const [refreshing, setRefreshing] = useState(false);
 
   const loadData = useCallback(async () => {
     try {
-      const batches = await inventoryApi.getBatches();
+      const [batches, retestBatches] = await Promise.all([
+        inventoryApi.getBatches(),
+        inventoryApi.getExpiringSoon().catch(() => []),
+      ]);
       setStats({
         quarantine: batches.filter((b) => b.status === "QUARANTINE").length,
         underTest: batches.filter((b) => b.status === "UNDER_TEST").length,
         approved: batches.filter((b) => b.status === "APPROVED").length,
         rejected: batches.filter((b) => b.status === "REJECTED").length,
-        retest: batches.filter((b) => b.status === "QUARANTINE_RETEST").length,
-        production: batches.filter((b) => b.status === "ISSUED_TO_PRODUCTION")
-          .length,
+        retest: retestBatches.length,
       });
     } catch {
       // Silent fail on dashboard stats
@@ -324,7 +316,7 @@ export const DashboardScreen: React.FC = () => {
             {PRODUCT_STAT_TILES.map((tile) => (
               <TouchableOpacity
                 key={tile.label}
-                style={styles.statCard}
+                style={[styles.statCard, tile.fullWidth && styles.statCardFull]}
                 onPress={() => navigation.navigate(tile.screen)}
                 activeOpacity={0.8}
               >
@@ -443,6 +435,9 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     marginTop: 0,
     rowGap: 6,
+  },
+  statCardFull: {
+    width: "100%",
   },
   /** ~12% shorter tiles than previous (padding, icon, type) */
   statCard: {

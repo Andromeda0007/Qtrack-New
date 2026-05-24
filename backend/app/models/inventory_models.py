@@ -113,6 +113,8 @@ class Batch(Base):
     ar_number: Mapped[str | None] = mapped_column(String(100), nullable=True, index=True)
     manufacturer_name: Mapped[str | None] = mapped_column(String(150))
     remarks: Mapped[str | None] = mapped_column(Text)
+    retesting_number: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    original_batch_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("batches.id"), nullable=True)
     created_by: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -160,6 +162,17 @@ class BatchContainer(Base):
 class GRNCounter(Base):
     """Race-safe GRN allocation counter, keyed by year. Year resets yearly."""
     __tablename__ = "grn_counters"
+
+    year: Mapped[int] = mapped_column(Integer, primary_key=True)
+    last_number: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow
+    )
+
+
+class RetestCounter(Base):
+    """Race-safe RTN allocation counter, keyed by year (same pattern as GRNCounter)."""
+    __tablename__ = "retest_counters"
 
     year: Mapped[int] = mapped_column(Integer, primary_key=True)
     last_number: Mapped[int] = mapped_column(Integer, nullable=False, default=0)

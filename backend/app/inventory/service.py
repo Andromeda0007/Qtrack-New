@@ -12,7 +12,7 @@ from sqlalchemy.orm import selectinload
 from app.models.inventory_models import (
     Batch, GRN, BatchStatusHistory, StockMovement,
     BatchStatus, MovementType, PackType, Location, Material, Supplier,
-    BatchContainer, GRNCounter,
+    BatchContainer, GRNCounter, RetestCounter,
 )
 from app.models.user_models import User
 from app.models.finished_goods_models import FGStatus
@@ -56,6 +56,25 @@ async def _allocate_next_grn_number(db: AsyncSession, year: int | None = None) -
         counter = row.scalar_one()
     counter.last_number += 1
     return f"GRN-{year}-{counter.last_number:03d}"
+
+
+async def _allocate_next_rtn_number(db: AsyncSession, year: int | None = None) -> str:
+    """Race-safe RTN-YYYY-NNN allocation (same pattern as GRN counter)."""
+    year = year or datetime.utcnow().year
+    row = await db.execute(
+        select(RetestCounter).where(RetestCounter.year == year).with_for_update()
+    )
+    counter = row.scalar_one_or_none()
+    if counter is None:
+        counter = RetestCounter(year=year, last_number=0)
+        db.add(counter)
+        await db.flush()
+        row = await db.execute(
+            select(RetestCounter).where(RetestCounter.year == year).with_for_update()
+        )
+        counter = row.scalar_one()
+    counter.last_number += 1
+    return f"RTN-{year}-{counter.last_number:03d}"
 
 
 def _validate_quantities(uom: str, total: Decimal, count: int, per: Decimal) -> None:
@@ -130,6 +149,12 @@ async def create_product(db: AsyncSession, data: dict, created_by: User) -> dict
     grn_number = await _allocate_next_grn_number(db)
     public_code = await generate_unique_public_code(db)  # kept for legacy-scanner fallback
 
+    # RTN auto-generation: only when original_batch_id is supplied (retest GRN)
+    original_batch_id = data.get("original_batch_id")
+    retesting_number = None
+    if original_batch_id:
+        retesting_number = await _allocate_next_rtn_number(db)
+
     # 7. Create Batch
     batch = Batch(
         material_id=material.id,
@@ -150,6 +175,8 @@ async def create_product(db: AsyncSession, data: dict, created_by: User) -> dict
         status=BatchStatus.QUARANTINE,
         location_id=quarantine.id if quarantine else None,
         rack_number=None,  # rack is assigned post-approval, not at GRN time
+        retesting_number=retesting_number,
+        original_batch_id=original_batch_id,
         created_by=created_by.id,
     )
     db.add(batch)
@@ -267,6 +294,7 @@ async def create_product(db: AsyncSession, data: dict, created_by: User) -> dict
         "qr_data": f"QTRACK|BATCH|{batch.id}|{batch.batch_number}|{batch.public_code}",
         "public_code": batch.public_code,
         "containers": container_payload,
+        "retesting_number": retesting_number,
     }
 
 
@@ -318,7 +346,7 @@ def _batch_status_str(batch: Batch) -> str:
 def remaining_quantity_for_api(batch: Batch) -> str | None:
     """Client spec: show remaining quantity only for approved / issued-to-production."""
     st = _batch_status_str(batch)
-    if st in ("APPROVED", "ISSUED_TO_PRODUCTION"):
+    if st == "APPROVED":
         return str(batch.remaining_quantity)
     return None
 
@@ -342,7 +370,7 @@ def _batch_scan_payload(
     if qty_issued < 0:
         qty_issued = Decimal(0)
     st = _batch_status_str(b)
-    show_balances = st in ("APPROVED", "ISSUED_TO_PRODUCTION")
+    show_balances = st == "APPROVED"
     rem = str(b.remaining_quantity) if show_balances else None
     qi = str(qty_issued) if show_balances else None
     payload = {
@@ -488,138 +516,17 @@ async def resolve_scan_payload(db: AsyncSession, qr_data: str, current_user: Use
     raise HTTPException(status_code=400, detail="Unsupported QR type")
 
 
-async def issue_stock(
-    db: AsyncSession,
-    batch_id: int,
-    quantity: Decimal,
-    remarks: str | None,
-    issued_by: User,
-    issued_to_product_name: str | None = None,
-    issued_to_batch_ref: str | None = None,
-) -> dict:
-    from app.models.qc_models import GradeTransfer, GradeTransferStatus
-
-    result = await db.execute(
-        select(Batch).where(Batch.id == batch_id).with_for_update()
-    )
-    batch = result.scalar_one_or_none()
-    if not batch:
-        raise HTTPException(status_code=404, detail="Batch not found")
-
-    pending_gt = await db.execute(
-        select(GradeTransfer.id).where(
-            GradeTransfer.batch_id == batch_id,
-            GradeTransfer.status == GradeTransferStatus.PENDING,
-        )
-    )
-    if pending_gt.scalar_one_or_none():
-        raise HTTPException(
-            status_code=400,
-            detail=(
-                "Cannot issue — a code-to-code (grade) transfer is pending QC release. "
-                "Wait for QC to approve the transfer."
-            ),
-        )
-
-    if batch.status not in (BatchStatus.APPROVED, BatchStatus.ISSUED_TO_PRODUCTION):
-        raise HTTPException(
-            status_code=400,
-            detail=(
-                f"Cannot issue stock — batch status is {batch.status}. "
-                "Only approved material (or partial dispense in progress) can be issued."
-            ),
-        )
-
-    if not (batch.rack_number or "").strip():
-        raise HTTPException(
-            status_code=400,
-            detail=(
-                "Rack number must be recorded before issuing to production. "
-                "Set or confirm the rack location, then issue again."
-            ),
-        )
-
-    if batch.remaining_quantity < quantity:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Insufficient stock. Available: {batch.remaining_quantity}, Requested: {quantity}",
-        )
-
-    prod_loc = await db.execute(select(Location).where(Location.location_type == "PRODUCTION"))
-    production = prod_loc.scalar_one_or_none()
-
-    old_status = batch.status
-    batch.remaining_quantity -= quantity
-    if batch.status == BatchStatus.APPROVED:
-        batch.status = BatchStatus.ISSUED_TO_PRODUCTION
-
-    movement = StockMovement(
-        batch_id=batch.id,
-        movement_type=MovementType.ISSUE_TO_PRODUCTION,
-        quantity=quantity,
-        from_location_id=batch.location_id,
-        to_location_id=production.id if production else None,
-        performed_by=issued_by.id,
-        issued_to_product_name=issued_to_product_name,
-        issued_to_batch_ref=issued_to_batch_ref,
-        remarks=remarks,
-    )
-    db.add(movement)
-
-    desc = (
-        f"Issued {quantity} to production from batch {batch.batch_number}. Remaining: {batch.remaining_quantity}"
-    )
-    if issued_to_product_name:
-        desc += f". Product: {issued_to_product_name}"
-    if issued_to_batch_ref:
-        desc += f". Mfg batch ref: {issued_to_batch_ref}"
-
-    await log_action(
-        db,
-        "ISSUE_STOCK",
-        issued_by.id,
-        issued_by.username,
-        "batch",
-        batch.id,
-        desc,
-        from_status=audit_status_value(old_status),
-        to_status=audit_status_value(batch.status),
-    )
-
-    try:
-        from app.notifications.service import notify_roles
-
-        await notify_roles(
-            db,
-            ["WAREHOUSE_HEAD", "QC_HEAD"],
-            "Material outward — issue to production",
-            f"Issued {quantity} from batch {batch.batch_number}. Balance: {batch.remaining_quantity}.",
-            entity_type="batch",
-            entity_id=batch.id,
-        )
-    except Exception as e:
-        logger.warning("Outward notification failed: %s", e)
-
-    await db.commit()
-    return {
-        "batch_id": batch.id,
-        "quantity_issued": quantity,
-        "remaining": batch.remaining_quantity,
-        "status": _batch_status_str(batch),
-    }
-
-
 async def update_batch_rack(
     db: AsyncSession, batch_id: int, rack_number: str, updated_by: User
 ) -> Batch:
     from app.models.qc_models import GradeTransfer, GradeTransferStatus
 
     batch = await get_batch_by_id(db, batch_id)
-    if batch.status not in (BatchStatus.APPROVED, BatchStatus.ISSUED_TO_PRODUCTION):
+    if batch.status != BatchStatus.APPROVED:
         raise HTTPException(
             status_code=400,
             detail=(
-                "Rack can only be set while material is approved or partially issued to production. "
+                "Rack can only be set while material is approved. "
                 f"Current status: {batch.status}"
             ),
         )

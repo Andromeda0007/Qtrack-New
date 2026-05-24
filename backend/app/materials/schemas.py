@@ -36,5 +36,4 @@ class MaterialBatchCounts(BaseModel):
     under_test: int
     approved: int
     quarantine_retest: int
-    issued_to_production: int
     total_active: int

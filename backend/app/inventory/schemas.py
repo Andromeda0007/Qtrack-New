@@ -18,6 +18,7 @@ class GRNCreate(BaseModel):
     batch_number: str
     supplier_name: str
     manufacturer_name: str
+    original_batch_id: Optional[int] = None
     date_of_receipt: date
     manufacture_date: date
     expiry_date: date

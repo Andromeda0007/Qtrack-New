@@ -13,6 +13,14 @@ import { BASE_URL } from '../../api/client';
 import { Colors, FontSize, Spacing, BorderRadius, Shadow } from '../../utils/theme';
 import { formatDate } from '../../utils/formatters';
 
+const HISTORY_LABELS: Record<string, string> = {
+  QUARANTINE: 'Received into Quarantine',
+  UNDER_TEST: 'Testing Started',
+  APPROVED: 'Approved',
+  REJECTED: 'Rejected',
+  QUARANTINE_RETEST: 'Sent for Retest',
+};
+
 const toImageUrl = (path: string | null | undefined): string => {
   if (!path) return '';
   const clean = path.replace(/\\/g, '/');
@@ -59,29 +67,57 @@ export const BatchDetailScreen: React.FC = () => {
   const { user } = useAuthStore();
 
   const [batch, setBatch] = useState<any>(null);
+  const [history, setHistory] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [rackModal, setRackModal] = useState(false);
   const [rackInput, setRackInput] = useState('');
   const [pdfLoading, setPdfLoading] = useState(false);
+  const [transferLoading, setTransferLoading] = useState(false);
 
   const role = user?.role || '';
   const canSetRack =
-    (batch?.status === 'APPROVED' || batch?.status === 'ISSUED_TO_PRODUCTION') &&
+    batch?.status === 'APPROVED' &&
     (role === 'WAREHOUSE_USER' || role === 'WAREHOUSE_HEAD');
+
+  const isRetest = (() => {
+    if (!batch || batch.status !== 'APPROVED' || !batch.retest_date) return false;
+    const days = Math.ceil((new Date(batch.retest_date).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+    return days <= 15;
+  })();
+
+  const canTransferToQuarantine =
+    isRetest && (role === 'WAREHOUSE_USER' || role === 'WAREHOUSE_HEAD');
+
+  const handleTransferToQuarantine = () => {
+    Alert.alert(
+      'Transfer to Quarantine',
+      'This batch is due for retest. Transfer it to Quarantine to start a new QC cycle?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Transfer',
+          style: 'default',
+          onPress: async () => {
+            setTransferLoading(true);
+            try {
+              const prefill = await inventoryApi.getRetestPrefill(batchId);
+              navigation.navigate('CreateCard', { prefill, originalBatchId: batchId });
+            } catch (e: any) {
+              Alert.alert('Error', e?.response?.data?.detail || 'Could not load batch details.');
+            } finally {
+              setTransferLoading(false);
+            }
+          },
+        },
+      ],
+    );
+  };
 
   const batchActions: { label: string; color: string; icon: string; onPress: () => void }[] = (() => {
     if (!batch) return [];
     const acts: { label: string; color: string; icon: string; onPress: () => void }[] = [];
     const batchNum = batch.batch_number;
-    if (role === 'WAREHOUSE_USER' && batch.status === 'APPROVED') {
-      acts.push({
-        label: 'Issue to Production',
-        color: Colors.success,
-        icon: 'arrow-forward-circle-outline',
-        onPress: () => navigation.navigate('IssueStock', { batchId, batchNumber: batchNum, initialRack: batch.rack_number }),
-      });
-    }
     if (role === 'QC_EXECUTIVE' && (batch.status === 'QUARANTINE' || batch.status === 'QUARANTINE_RETEST')) {
       if (!batch.ar_number) {
         acts.push({
@@ -120,14 +156,6 @@ export const BatchDetailScreen: React.FC = () => {
         },
       );
     }
-    if (role === 'PRODUCTION_USER' && batch.status === 'APPROVED') {
-      acts.push({
-        label: 'Issue to Production',
-        color: Colors.info,
-        icon: 'arrow-forward-circle-outline',
-        onPress: () => navigation.navigate('IssueStock', { batchId, batchNumber: batchNum, initialRack: batch.rack_number }),
-      });
-    }
     return acts;
   })();
 
@@ -150,9 +178,17 @@ export const BatchDetailScreen: React.FC = () => {
 
   useFocusEffect(
     useCallback(() => {
-      inventoryApi.getBatchById(batchId)
-        .then(data => { setBatch(data); setLoading(false); })
-        .catch(() => { setError('Failed to load batch details.'); setLoading(false); });
+      Promise.all([
+        inventoryApi.getBatchById(batchId),
+        inventoryApi.getBatchHistory(batchId).catch(() => []),
+      ]).then(([data, hist]) => {
+        setBatch(data);
+        setHistory(hist);
+        setLoading(false);
+      }).catch(() => {
+        setError('Failed to load batch details.');
+        setLoading(false);
+      });
     }, [batchId])
   );
 
@@ -206,6 +242,23 @@ export const BatchDetailScreen: React.FC = () => {
                 ))}
               </View>
             </>
+          )}
+
+          {/* Transfer to Quarantine — shown for WH User/Head when batch is due for retest */}
+          {canTransferToQuarantine && (
+            <TouchableOpacity
+              style={styles.transferBtn}
+              onPress={handleTransferToQuarantine}
+              disabled={transferLoading}
+              activeOpacity={0.8}
+            >
+              {transferLoading ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <Ionicons name="swap-horizontal-outline" size={18} color="#fff" />
+              )}
+              <Text style={styles.transferBtnText}>Transfer to Quarantine</Text>
+            </TouchableOpacity>
           )}
 
           {/* QR Code */}
@@ -365,6 +418,60 @@ export const BatchDetailScreen: React.FC = () => {
               </View>
             </>
           ) : null}
+
+          {/* Retest Info — only visible when this GRN was created as a retest */}
+          {batch.retesting_number ? (
+            <>
+              <SectionTitle title="Retest Info" />
+              <View style={styles.card}>
+                <Row label="Retesting No." value={batch.retesting_number} />
+                {batch.original_batch_id ? (
+                  <>
+                    <Divider />
+                    <Row label="Original Batch ID" value={String(batch.original_batch_id)} />
+                  </>
+                ) : null}
+              </View>
+            </>
+          ) : null}
+
+          {/* History */}
+          {history.length > 0 && (
+            <>
+              <SectionTitle title="History" />
+              <View style={styles.card}>
+                {history.map((h, idx) => (
+                  <React.Fragment key={idx}>
+                    {idx > 0 && <Divider />}
+                    <View style={styles.historyStage}>
+                      <Text style={styles.historyStatus}>
+                        {HISTORY_LABELS[h.new_status] ?? h.new_status.replace(/_/g, ' ')}
+                      </Text>
+                      <View style={styles.row}>
+                        <Text style={styles.rowLabel}>By</Text>
+                        <Text style={styles.rowValue}>{h.changed_by_name}</Text>
+                      </View>
+                      <View style={styles.row}>
+                        <Text style={styles.rowLabel}>At</Text>
+                        <Text style={styles.rowValue}>
+                          {new Date(h.changed_at).toLocaleString('en-IN', {
+                            day: '2-digit', month: 'short', year: 'numeric',
+                            hour: '2-digit', minute: '2-digit', hour12: true,
+                          })}
+                        </Text>
+                      </View>
+                      {h.remarks ? (
+                        <View style={styles.row}>
+                          <Text style={styles.rowLabel}>Remarks</Text>
+                          <Text style={styles.rowValue}>{h.remarks}</Text>
+                        </View>
+                      ) : null}
+                    </View>
+                  </React.Fragment>
+                ))}
+              </View>
+            </>
+          )}
 
           {/* Labels */}
           <SectionTitle title="Labels" />
@@ -545,6 +652,18 @@ const styles = StyleSheet.create({
   },
   viewPdfText: { color: Colors.primary, fontWeight: '700', fontSize: FontSize.sm },
 
+  historyStage: { paddingVertical: 4 },
+  historyStatus: {
+    fontSize: FontSize.sm, fontWeight: '800', color: Colors.primary,
+    marginBottom: 4, textTransform: 'uppercase', letterSpacing: 0.3,
+  },
+
+  transferBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10,
+    backgroundColor: Colors.warning, borderRadius: BorderRadius.lg,
+    paddingVertical: 14, marginBottom: 4, ...Shadow.sm,
+  },
+  transferBtnText: { color: '#fff', fontWeight: '800', fontSize: FontSize.sm },
   actionsRow: { flexDirection: 'row', gap: 12, marginBottom: 4 },
   actionBtn: {
     flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
