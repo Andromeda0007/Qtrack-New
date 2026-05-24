@@ -154,6 +154,18 @@ async def create_product(db: AsyncSession, data: dict, created_by: User) -> dict
     retesting_number = None
     if original_batch_id:
         retesting_number = await _allocate_next_rtn_number(db)
+        # Move original batch out of APPROVED so it drops off the retest list
+        orig_row = await db.execute(select(Batch).where(Batch.id == original_batch_id))
+        orig_batch = orig_row.scalar_one_or_none()
+        if orig_batch and orig_batch.status == BatchStatus.APPROVED:
+            orig_batch.status = BatchStatus.QUARANTINE_RETEST
+            db.add(BatchStatusHistory(
+                batch_id=orig_batch.id,
+                old_status=BatchStatus.APPROVED,
+                new_status=BatchStatus.QUARANTINE_RETEST,
+                changed_by=created_by.id,
+                remarks=f"Transferred for retest — {retesting_number}",
+            ))
 
     # 7. Create Batch
     batch = Batch(

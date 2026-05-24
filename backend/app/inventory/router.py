@@ -13,7 +13,7 @@ from app.auth.dependencies import get_current_user, require_permission
 from app.models.user_models import User
 from app.models.inventory_models import BatchStatus
 from app.inventory import service
-from app.inventory.schemas import GRNCreate, ProductCreate, StockAdjustmentRequest, UpdateRackRequest
+from app.inventory.schemas import GRNCreate, ProductCreate, StockAdjustmentRequest
 from app.utils.pdf_generator import generate_quarantine_label
 from app.config import settings
 
@@ -125,7 +125,6 @@ async def list_batches(
             "expiry_date": b.expiry_date,
             "retest_date": b.retest_date,
             "retest_cycle": b.retest_cycle,
-            "rack_number": b.rack_number,
             "pack_type": service.pack_type_display(b),
             "created_at": b.created_at,
         }
@@ -229,7 +228,7 @@ async def get_batch(
     except Exception:
         pass
 
-    return {
+    response = {
         "id": batch.id,
         "batch_number": batch.batch_number,
         "material": {"id": batch.material.id, "name": batch.material.material_name, "code": batch.material.material_code} if batch.material else None,
@@ -251,10 +250,24 @@ async def get_batch(
         "labels_printed": getattr(batch, "labels_printed", False),
         "qr_base64": qr_b64,
         "ar_number": getattr(batch, "ar_number", None),
-        "rack_number": batch.rack_number,
         "retesting_number": getattr(batch, "retesting_number", None),
         "original_batch_id": getattr(batch, "original_batch_id", None),
+        "original_batch_number": None,
+        "original_grn_number": None,
     }
+
+    orig_id = getattr(batch, "original_batch_id", None)
+    if orig_id:
+        from sqlalchemy import select as sa_select
+        orig_row = await db.execute(
+            sa_select(Batch).options(selectinload(Batch.grn)).where(Batch.id == orig_id)
+        )
+        orig = orig_row.scalar_one_or_none()
+        if orig:
+            response["original_batch_number"] = orig.batch_number
+            response["original_grn_number"] = orig.grn.grn_number if orig.grn else None
+
+    return response
 
 
 @router.get("/batches/{batch_id}/history")
@@ -295,16 +308,6 @@ async def scan_qr(
     """Resolve material batch QR or finished-goods FG QR (`QTRACK|BATCH|…` / `QTRACK|FG|…`)."""
     return await service.resolve_scan_payload(db, qr_data, current_user)
 
-
-@router.patch("/batches/{batch_id}/rack")
-async def update_batch_rack(
-    batch_id: int,
-    payload: UpdateRackRequest,
-    current_user: User = Depends(require_permission("UPDATE_LOCATION")),
-    db: AsyncSession = Depends(get_db),
-):
-    batch = await service.update_batch_rack(db, batch_id, payload.rack_number, current_user)
-    return {"batch_id": batch.id, "rack_number": batch.rack_number}
 
 
 @router.post("/adjust-stock")

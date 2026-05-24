@@ -754,8 +754,6 @@ export const QCScanScreen: React.FC = () => {
                   </Text>
                 ) : null}
                 <View style={scanCardStyles.detailDivider} />
-                <DetailRow label="Rack no." value={batchData.rack_number || "—"} />
-                <View style={scanCardStyles.detailDivider} />
                 <DetailRow
                   label="Retest date"
                   value={formatDate(batchData.retest_date)}
@@ -779,11 +777,6 @@ export const QCScanScreen: React.FC = () => {
           <RoleActions
             batchData={batchData}
             role={user?.role || ""}
-            onRackSaved={(rack: string) =>
-              setBatchData((prev: any) =>
-                prev ? { ...prev, rack_number: rack } : prev,
-              )
-            }
           />
 
           <Button
@@ -854,14 +847,10 @@ const ScanFrameCorners: React.FC = () => (
 const RoleActions: React.FC<{
   batchData: any;
   role: string;
-  onRackSaved?: (rack: string) => void;
-}> = ({ batchData, role, onRackSaved }) => {
+}> = ({ batchData, role }) => {
   const navigation = useNavigation<any>();
   const status = batchData?.status;
   const isFg = batchData?.qr_kind === "fg";
-  const [rackGateOpen, setRackGateOpen] = useState(false);
-  const [rackDraft, setRackDraft] = useState("");
-  const [rackSaving, setRackSaving] = useState(false);
 
   if (
     (role === "QA_EXECUTIVE" || role === "QA_HEAD") &&
@@ -1100,59 +1089,4 @@ const styles = StyleSheet.create({
     marginTop: -4,
     marginBottom: Spacing.xs,
   },
-  rackHint: {
-    fontSize: FontSize.xs,
-    color: "#856404",
-    fontWeight: "600",
-    marginBottom: Spacing.sm,
-    textAlign: "center",
-    lineHeight: 18,
-  },
-  rackModalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.5)",
-    justifyContent: "center",
-    padding: Spacing.lg,
-  },
-  rackModalCard: {
-    backgroundColor: Colors.surface,
-    borderRadius: BorderRadius.lg,
-    padding: Spacing.lg,
-  },
-  rackModalTitle: {
-    fontSize: FontSize.lg,
-    fontWeight: "800",
-    color: Colors.textPrimary,
-  },
-  rackModalSub: {
-    fontSize: FontSize.sm,
-    color: Colors.textSecondary,
-    marginTop: 6,
-    marginBottom: Spacing.md,
-    lineHeight: 20,
-  },
-  rackModalInput: {
-    borderWidth: 1,
-    borderColor: Colors.border,
-    borderRadius: BorderRadius.md,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: 12,
-    fontSize: FontSize.md,
-    color: Colors.textPrimary,
-  },
-  rackModalActions: {
-    flexDirection: "row",
-    justifyContent: "flex-end",
-    gap: Spacing.sm,
-    marginTop: Spacing.lg,
-  },
-  rackModalCancel: { paddingVertical: 10, paddingHorizontal: 14 },
-  rackModalCancelText: { fontSize: FontSize.sm, fontWeight: "600", color: Colors.textSecondary },
-  rackModalSave: {
-    backgroundColor: Colors.primary,
-    paddingVertical: 10,
-    paddingHorizontal: 18,
-    borderRadius: BorderRadius.md,
-  },
-  rackModalSaveText: { fontSize: FontSize.sm, fontWeight: "800", color: "#fff" },
 });

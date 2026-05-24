@@ -127,7 +127,7 @@ export const CreateCardScreen: React.FC = () => {
     setPerContainer(String(prefill.container_quantity ?? ''));
     setPackType((prefill.pack_type || 'BAG').toUpperCase());
     setForm({
-      batch_number: prefill.batch_number ?? '',
+      batch_number: '',
       supplier_name: prefill.supplier_name ?? '',
       manufacturer_name: prefill.manufacturer_name ?? '',
       date_of_receipt: todayDisplay,
@@ -517,7 +517,14 @@ export const CreateCardScreen: React.FC = () => {
 
             <Button
               title="Done"
-              onPress={() => { setResult(null); navigation.goBack(); }}
+              onPress={() => {
+                setResult(null);
+                if (originalBatchId != null) {
+                  navigation.navigate('RetestList');
+                } else {
+                  navigation.goBack();
+                }
+              }}
               style={styles.doneBtn}
             />
             <View style={{ height: 32 }} />

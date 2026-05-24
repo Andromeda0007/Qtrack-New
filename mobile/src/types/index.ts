@@ -68,7 +68,6 @@ export interface Batch {
   container_quantity?: string | null;
   qr_code_path?: string | null;
   ar_number?: string | null;
-  rack_number?: string | null;
   labels_printed?: boolean;
   qr_base64?: string | null;
 }

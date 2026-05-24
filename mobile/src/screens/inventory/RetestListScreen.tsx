@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from "react";
+import React, { useState, useCallback } from "react";
 import {
   View,
   Text,
@@ -11,20 +11,49 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
-import { Colors, FontSize, Spacing, Shadow, BorderRadius } from "../../utils/theme";
 import { inventoryApi } from "../../api/inventory";
+import { SearchInput } from "../../components/common/SearchInput";
+import { formatDate } from "../../utils/formatters";
+import { Colors, FontSize, Spacing, BorderRadius } from "../../utils/theme";
 
-const daysPill = (days: number) => {
+const BG_COLOR = "#fff3cd";
+const TEXT_COLOR = "#856404";
+
+type SortMode = "first_created" | "last_created" | "retest_soon";
+
+const SORT_OPTIONS: { label: string; value: SortMode; icon: string }[] = [
+  { label: "First Created", value: "first_created", icon: "arrow-up-outline" },
+  { label: "Last Created", value: "last_created", icon: "time-outline" },
+  { label: "Retest Soon", value: "retest_soon", icon: "alert-circle-outline" },
+];
+
+function applySort(data: any[], mode: SortMode): any[] {
+  const copy = [...data];
+  if (mode === "last_created") return copy.sort((a, b) => b.id - a.id);
+  if (mode === "first_created") return copy.sort((a, b) => a.id - b.id);
+  if (mode === "retest_soon") {
+    return copy.sort((a, b) => {
+      const da = a.days_until_retest ?? 999;
+      const db = b.days_until_retest ?? 999;
+      return da - db;
+    });
+  }
+  return copy;
+}
+
+function daysPill(days: number) {
   if (days <= 3) return { bg: "#fde8e8", text: "#c0392b" };
   if (days <= 7) return { bg: "#fef3cd", text: "#856404" };
   return { bg: "#e8f5e9", text: "#2e7d32" };
-};
+}
 
 export const RetestListScreen: React.FC = () => {
   const navigation = useNavigation<any>();
   const [batches, setBatches] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [search, setSearch] = useState("");
+  const [sort, setSort] = useState<SortMode>("retest_soon");
 
   const load = useCallback(async () => {
     try {
@@ -34,115 +63,197 @@ export const RetestListScreen: React.FC = () => {
       // silent
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   }, []);
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
-  const onRefresh = async () => {
-    setRefreshing(true);
-    await load();
-    setRefreshing(false);
-  };
+  const onRefresh = () => { setRefreshing(true); load(); };
 
-  if (loading) {
+  const displayed = applySort(
+    search.trim()
+      ? batches.filter((b) =>
+          (b.material_code || "").toLowerCase().includes(search.toLowerCase()) ||
+          (b.material_name || "").toLowerCase().includes(search.toLowerCase()),
+        )
+      : batches,
+    sort,
+  );
+
+  const renderItem = ({ item }: { item: any }) => {
+    const days = item.days_until_retest ?? 0;
+    const pill = daysPill(days);
     return (
-      <SafeAreaView style={styles.safe} edges={["top"]}>
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.iconBtn}>
-            <Ionicons name="chevron-back" size={22} color="#fff" />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Retest Due</Text>
-          <View style={{ width: 40 }} />
+      <TouchableOpacity
+        style={styles.card}
+        onPress={() => navigation.navigate("BatchDetail", { batchId: item.id })}
+        activeOpacity={0.8}
+      >
+        <View style={styles.cardInner}>
+          <View style={styles.cardContent}>
+            <View style={styles.badgeRow}>
+              <View style={[styles.idBadge, { backgroundColor: BG_COLOR }]}>
+                <Text style={[styles.idText, { color: TEXT_COLOR }]}>#{item.id}</Text>
+              </View>
+              <View style={[styles.daysPill, { backgroundColor: pill.bg }]}>
+                <Text style={[styles.daysPillText, { color: pill.text }]}>
+                  {days === 0 ? "Today" : `${days}d`}
+                </Text>
+              </View>
+            </View>
+
+            <Text style={styles.itemCode}>{item.material_code || "—"}</Text>
+            <Text style={styles.itemName}>{item.material_name || "—"}</Text>
+
+            <View style={styles.cardMeta}>
+              <View style={styles.metaItem}>
+                <Ionicons name="layers-outline" size={13} color={Colors.textMuted} />
+                <Text style={styles.metaText}>
+                  {item.remaining_quantity} / {item.total_quantity}
+                </Text>
+              </View>
+              {item.retest_date ? (
+                <View style={styles.metaItem}>
+                  <Ionicons name="refresh-circle-outline" size={13} color={Colors.textMuted} />
+                  <Text style={styles.metaText}>{formatDate(item.retest_date)}</Text>
+                </View>
+              ) : null}
+              <View style={styles.metaItem}>
+                <Ionicons name="barcode-outline" size={13} color={Colors.textMuted} />
+                <Text style={styles.metaText}>{item.batch_number}</Text>
+              </View>
+            </View>
+          </View>
+          <Ionicons name="chevron-forward" size={18} color={TEXT_COLOR} style={styles.chevron} />
         </View>
-        <View style={styles.center}><ActivityIndicator color={Colors.primary} /></View>
-      </SafeAreaView>
+      </TouchableOpacity>
     );
-  }
+  };
 
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.iconBtn}>
-          <Ionicons name="chevron-back" size={22} color="#fff" />
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
+          <Ionicons name="chevron-back" size={22} color="#444" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Retest Due</Text>
-        <View style={{ width: 40 }} />
+        <View style={styles.headerCenter}>
+          <Ionicons name="refresh-circle-outline" size={20} color="#444" />
+          <Text style={styles.headerTitle}>Retest Due</Text>
+        </View>
+        <View style={{ width: 38 }} />
       </View>
 
-      <FlatList
-        data={batches}
-        keyExtractor={(item) => String(item.id)}
-        contentContainerStyle={styles.list}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />
-        }
-        ListEmptyComponent={
-          <View style={styles.empty}>
-            <Ionicons name="checkmark-circle-outline" size={48} color={Colors.success} />
-            <Text style={styles.emptyText}>No batches due for retest in the next 15 days</Text>
-          </View>
-        }
-        renderItem={({ item }) => {
-          const days = item.days_until_retest ?? 0;
-          const pill = daysPill(days);
-          return (
-            <TouchableOpacity
-              style={styles.card}
-              onPress={() => navigation.navigate("BatchDetail", { batchId: item.id })}
-              activeOpacity={0.8}
-            >
-              <View style={styles.cardTop}>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.itemName}>{item.material_name}</Text>
-                  <Text style={styles.itemSub}>{item.material_code} · {item.batch_number}</Text>
-                </View>
-                <View style={[styles.daysPill, { backgroundColor: pill.bg }]}>
-                  <Text style={[styles.daysPillText, { color: pill.text }]}>
-                    {days === 0 ? "Today" : `${days}d`}
-                  </Text>
-                </View>
-              </View>
-              <View style={styles.cardBottom}>
-                <Text style={styles.metaText}>
-                  GRN: {item.grn_number ?? "—"} · {item.unit_of_measure}
-                </Text>
-                <Text style={styles.metaText}>
-                  Retest: {item.retest_date ? String(item.retest_date) : "—"}
-                </Text>
-              </View>
-            </TouchableOpacity>
-          );
-        }}
-      />
+      <View style={styles.searchRow}>
+        <SearchInput value={search} onChangeText={setSearch} placeholder="Search" />
+      </View>
+
+      <View style={styles.sortRow}>
+        {SORT_OPTIONS.map((opt) => (
+          <TouchableOpacity
+            key={opt.value}
+            style={[
+              styles.sortChip,
+              sort === opt.value && { backgroundColor: BG_COLOR, borderColor: TEXT_COLOR },
+            ]}
+            onPress={() => setSort(opt.value)}
+          >
+            <Ionicons
+              name={opt.icon as any}
+              size={12}
+              color={sort === opt.value ? TEXT_COLOR : Colors.textSecondary}
+            />
+            <Text style={[styles.sortLabel, sort === opt.value && { color: TEXT_COLOR }]}>
+              {opt.label}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      {loading ? (
+        <View style={styles.centered}>
+          <ActivityIndicator size="large" color={TEXT_COLOR} />
+        </View>
+      ) : (
+        <FlatList
+          data={displayed}
+          keyExtractor={(b) => b.id.toString()}
+          renderItem={renderItem}
+          contentContainerStyle={styles.list}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={TEXT_COLOR} />
+          }
+          ListHeaderComponent={
+            <Text style={styles.countLabel}>
+              {displayed.length} {displayed.length === 1 ? "product" : "products"}
+            </Text>
+          }
+          ListEmptyComponent={
+            <View style={styles.empty}>
+              <Ionicons name="checkmark-circle-outline" size={48} color={Colors.textMuted} />
+              <Text style={styles.emptyText}>No batches due for retest in the next 15 days</Text>
+            </View>
+          }
+        />
+      )}
     </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: Colors.primary },
+  safe: { flex: 1, backgroundColor: Colors.background },
+  centered: { flex: 1, justifyContent: "center", alignItems: "center" },
+
   header: {
     flexDirection: "row", alignItems: "center", justifyContent: "space-between",
-    paddingHorizontal: Spacing.md, paddingVertical: 10, backgroundColor: Colors.primary,
+    paddingHorizontal: Spacing.md, paddingVertical: 12,
   },
-  iconBtn: { width: 40, height: 40, alignItems: "center", justifyContent: "center" },
-  headerTitle: { color: "#fff", fontSize: FontSize.lg, fontWeight: "800" },
-  list: { padding: Spacing.md, backgroundColor: Colors.background, flexGrow: 1 },
-  center: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: Colors.background },
-  empty: { alignItems: "center", justifyContent: "center", paddingTop: 80, gap: 12 },
-  emptyText: { fontSize: FontSize.sm, color: Colors.textSecondary, textAlign: "center", paddingHorizontal: 32 },
+  backBtn: { width: 38, height: 38, justifyContent: "center", alignItems: "center" },
+  headerCenter: { flexDirection: "row", alignItems: "center", gap: 8 },
+  headerTitle: { fontSize: FontSize.lg, fontWeight: "800", color: "#444" },
+
+  searchRow: {
+    paddingHorizontal: Spacing.md, paddingTop: Spacing.md, paddingBottom: Spacing.sm,
+  },
+
+  sortRow: {
+    flexDirection: "row", gap: Spacing.xs,
+    paddingHorizontal: Spacing.md, paddingBottom: Spacing.sm,
+  },
+  sortChip: {
+    flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center",
+    gap: 4, paddingVertical: 6, borderRadius: 20, borderWidth: 1,
+    borderColor: Colors.border, backgroundColor: Colors.surface,
+  },
+  sortLabel: { fontSize: 11, fontWeight: "600", color: Colors.textSecondary },
+
+  list: { paddingHorizontal: Spacing.md, paddingBottom: 32 },
+  countLabel: {
+    fontSize: FontSize.xs, color: Colors.textMuted, fontWeight: "600",
+    marginBottom: Spacing.sm, marginTop: Spacing.sm,
+  },
+
   card: {
     backgroundColor: Colors.surface, borderRadius: BorderRadius.lg,
-    padding: Spacing.md, marginBottom: Spacing.sm, ...Shadow.sm,
+    padding: Spacing.md, marginBottom: Spacing.sm,
+    shadowColor: "#000", shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.1, shadowRadius: 6, elevation: 4,
   },
-  cardTop: { flexDirection: "row", alignItems: "flex-start", gap: 8 },
-  itemName: { fontSize: FontSize.md, fontWeight: "700", color: Colors.textPrimary },
-  itemSub: { fontSize: FontSize.xs, color: Colors.textSecondary, marginTop: 2 },
-  daysPill: {
-    borderRadius: 20, paddingHorizontal: 10, paddingVertical: 3,
-    alignSelf: "flex-start",
-  },
+  cardInner: { flexDirection: "row", alignItems: "center" },
+  cardContent: { flex: 1 },
+  badgeRow: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 8 },
+  idBadge: { borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3, alignSelf: "flex-start" },
+  idText: { fontSize: FontSize.xs, fontWeight: "700" },
+  daysPill: { borderRadius: 20, paddingHorizontal: 10, paddingVertical: 3 },
   daysPillText: { fontSize: FontSize.xs, fontWeight: "700" },
-  cardBottom: { flexDirection: "row", justifyContent: "space-between", marginTop: 8 },
-  metaText: { fontSize: FontSize.xs, color: Colors.textSecondary },
+  chevron: { marginLeft: Spacing.sm },
+
+  itemCode: { fontSize: FontSize.md, fontWeight: "700", color: Colors.textPrimary },
+  itemName: { fontSize: FontSize.sm, color: Colors.textSecondary, marginTop: 2, marginBottom: Spacing.sm },
+  cardMeta: { flexDirection: "row", flexWrap: "wrap", gap: Spacing.md },
+  metaItem: { flexDirection: "row", alignItems: "center", gap: 4 },
+  metaText: { fontSize: FontSize.xs, color: Colors.textMuted },
+
+  empty: { alignItems: "center", paddingTop: 60, gap: Spacing.md },
+  emptyText: { fontSize: FontSize.md, color: Colors.textMuted },
 });

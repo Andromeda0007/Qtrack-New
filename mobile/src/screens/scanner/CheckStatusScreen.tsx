@@ -401,12 +401,6 @@ export const CheckStatusScreen: React.FC = () => {
                 />
                 <View style={styles.factDivider} />
                 <FactRow
-                  icon="git-branch-outline"
-                  label="Rack location"
-                  value={data.rack_number || "—"}
-                />
-                <View style={styles.factDivider} />
-                <FactRow
                   icon="flask-outline"
                   label="AR number"
                   value={data.ar_number || "—"}

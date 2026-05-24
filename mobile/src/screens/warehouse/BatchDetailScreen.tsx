@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView,
-  TouchableOpacity, ActivityIndicator, Image, Modal, TextInput, Alert, Platform,
+  TouchableOpacity, ActivityIndicator, Image, Modal, Alert, Platform,
 } from 'react-native';
 import * as Sharing from 'expo-sharing';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -13,12 +13,13 @@ import { BASE_URL } from '../../api/client';
 import { Colors, FontSize, Spacing, BorderRadius, Shadow } from '../../utils/theme';
 import { formatDate } from '../../utils/formatters';
 
-const HISTORY_LABELS: Record<string, string> = {
-  QUARANTINE: 'Received into Quarantine',
-  UNDER_TEST: 'Testing Started',
-  APPROVED: 'Approved',
-  REJECTED: 'Rejected',
-  QUARANTINE_RETEST: 'Sent for Retest',
+const HISTORY_CONFIG: Record<string, { label: string; byLabel: string; atLabel: string; dot: string }> = {
+  QUARANTINE:           { label: 'Quarantine',           byLabel: 'Created by',  atLabel: 'Created at',  dot: '#fd7e14' },
+  UNDER_TEST:           { label: 'Under Test',           byLabel: 'Updated by',  atLabel: 'Updated at',  dot: '#007bff' },
+  APPROVED:             { label: 'Approved',             byLabel: 'Approved by', atLabel: 'Approved at', dot: '#28a745' },
+  REJECTED:             { label: 'Rejected',             byLabel: 'Rejected by', atLabel: 'Rejected at', dot: '#dc3545' },
+  QUARANTINE_RETEST:    { label: 'Quarantine',           byLabel: 'Created by',  atLabel: 'Created at',  dot: '#fd7e14' },
+  ISSUED_TO_PRODUCTION: { label: 'Issued to Production', byLabel: 'Issued by',   atLabel: 'Issued at',   dot: '#20c997' },
 };
 
 const toImageUrl = (path: string | null | undefined): string => {
@@ -70,15 +71,11 @@ export const BatchDetailScreen: React.FC = () => {
   const [history, setHistory] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [rackModal, setRackModal] = useState(false);
-  const [rackInput, setRackInput] = useState('');
   const [pdfLoading, setPdfLoading] = useState(false);
   const [transferLoading, setTransferLoading] = useState(false);
+  const [showTransferTip, setShowTransferTip] = useState(false);
 
   const role = user?.role || '';
-  const canSetRack =
-    batch?.status === 'APPROVED' &&
-    (role === 'WAREHOUSE_USER' || role === 'WAREHOUSE_HEAD');
 
   const isRetest = (() => {
     if (!batch || batch.status !== 'APPROVED' || !batch.retest_date) return false;
@@ -246,19 +243,32 @@ export const BatchDetailScreen: React.FC = () => {
 
           {/* Transfer to Quarantine — shown for WH User/Head when batch is due for retest */}
           {canTransferToQuarantine && (
-            <TouchableOpacity
-              style={styles.transferBtn}
-              onPress={handleTransferToQuarantine}
-              disabled={transferLoading}
-              activeOpacity={0.8}
-            >
-              {transferLoading ? (
-                <ActivityIndicator size="small" color="#fff" />
-              ) : (
-                <Ionicons name="swap-horizontal-outline" size={18} color="#fff" />
+            <View>
+              {showTransferTip && (
+                <View style={styles.transferTip}>
+                  <Text style={styles.transferTipText}>
+                    Moves this batch to Quarantine and starts a new QC cycle
+                  </Text>
+                </View>
               )}
-              <Text style={styles.transferBtnText}>Transfer to Quarantine</Text>
-            </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.transferBtn}
+                onPress={handleTransferToQuarantine}
+                onLongPress={() => {
+                  setShowTransferTip(true);
+                  setTimeout(() => setShowTransferTip(false), 2500);
+                }}
+                disabled={transferLoading}
+                activeOpacity={0.65}
+              >
+                {transferLoading ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Ionicons name="swap-horizontal-outline" size={18} color="#fff" />
+                )}
+                <Text style={styles.transferBtnText}>Transfer to Quarantine</Text>
+              </TouchableOpacity>
+            </View>
           )}
 
           {/* QR Code */}
@@ -333,26 +343,6 @@ export const BatchDetailScreen: React.FC = () => {
             </View>
           </View>
 
-          {/* Storage */}
-          <SectionTitle title="Storage" />
-          <View style={styles.card}>
-            <Row label="Rack no." value={batch.rack_number ? String(batch.rack_number) : '—'} />
-            {canSetRack ? (
-              <>
-                <Divider />
-                <TouchableOpacity
-                  style={styles.rackBtn}
-                  onPress={() => {
-                    setRackInput(batch.rack_number ? String(batch.rack_number) : '');
-                    setRackModal(true);
-                  }}
-                >
-                  <Text style={styles.rackBtnText}>Update rack number</Text>
-                  <Ionicons name="chevron-forward" size={18} color={Colors.primary} />
-                </TouchableOpacity>
-              </>
-            ) : null}
-          </View>
 
           {/* Item Info */}
           <SectionTitle title="Item Info" />
@@ -425,50 +415,62 @@ export const BatchDetailScreen: React.FC = () => {
               <SectionTitle title="Retest Info" />
               <View style={styles.card}>
                 <Row label="Retesting No." value={batch.retesting_number} />
-                {batch.original_batch_id ? (
+                {batch.original_batch_number ? (
                   <>
                     <Divider />
-                    <Row label="Original Batch ID" value={String(batch.original_batch_id)} />
+                    <Row label="Original Batch No." value={batch.original_batch_number} />
+                  </>
+                ) : null}
+                {batch.original_grn_number ? (
+                  <>
+                    <Divider />
+                    <Row label="Original GRN" value={batch.original_grn_number} />
                   </>
                 ) : null}
               </View>
             </>
           ) : null}
 
-          {/* History */}
+          {/* History — vertical timeline */}
           {history.length > 0 && (
             <>
               <SectionTitle title="History" />
-              <View style={styles.card}>
-                {history.map((h, idx) => (
-                  <React.Fragment key={idx}>
-                    {idx > 0 && <Divider />}
-                    <View style={styles.historyStage}>
-                      <Text style={styles.historyStatus}>
-                        {HISTORY_LABELS[h.new_status] ?? h.new_status.replace(/_/g, ' ')}
-                      </Text>
-                      <View style={styles.row}>
-                        <Text style={styles.rowLabel}>By</Text>
-                        <Text style={styles.rowValue}>{h.changed_by_name}</Text>
+              <View style={styles.timeline}>
+                {history.map((h, idx) => {
+                  const cfg = HISTORY_CONFIG[h.new_status] ?? {
+                    label: h.new_status.replace(/_/g, ' '),
+                    byLabel: 'By', atLabel: 'At', dot: '#999',
+                  };
+                  const isLast = idx === history.length - 1;
+                  return (
+                    <View key={idx} style={styles.timelineRow}>
+                      {/* Left: dot + connector */}
+                      <View style={styles.timelineLeft}>
+                        <View style={[styles.timelineDot, { backgroundColor: cfg.dot }]} />
+                        {!isLast && <View style={[styles.timelineLine, { backgroundColor: cfg.dot + '40' }]} />}
                       </View>
-                      <View style={styles.row}>
-                        <Text style={styles.rowLabel}>At</Text>
-                        <Text style={styles.rowValue}>
-                          {new Date(h.changed_at).toLocaleString('en-IN', {
-                            day: '2-digit', month: 'short', year: 'numeric',
-                            hour: '2-digit', minute: '2-digit', hour12: true,
-                          })}
-                        </Text>
-                      </View>
-                      {h.remarks ? (
-                        <View style={styles.row}>
-                          <Text style={styles.rowLabel}>Remarks</Text>
-                          <Text style={styles.rowValue}>{h.remarks}</Text>
+                      {/* Right: content */}
+                      <View style={[styles.timelineCard, isLast && { marginBottom: 0 }]}>
+                        <View style={[styles.timelineBadge, { backgroundColor: cfg.dot + '20' }]}>
+                          <Text style={[styles.timelineBadgeText, { color: cfg.dot }]}>{cfg.label}</Text>
                         </View>
-                      ) : null}
+                        <View style={styles.timelineDetail}>
+                          <Text style={styles.timelineLabel}>{cfg.byLabel}</Text>
+                          <Text style={styles.timelineValue}>{h.changed_by_name ?? '—'}</Text>
+                        </View>
+                        <View style={styles.timelineDetail}>
+                          <Text style={styles.timelineLabel}>{cfg.atLabel}</Text>
+                          <Text style={styles.timelineValue}>
+                            {new Date(h.changed_at).toLocaleString('en-IN', {
+                              day: '2-digit', month: 'short', year: 'numeric',
+                              hour: '2-digit', minute: '2-digit', hour12: true,
+                            })}
+                          </Text>
+                        </View>
+                      </View>
                     </View>
-                  </React.Fragment>
-                ))}
+                  );
+                })}
               </View>
             </>
           )}
@@ -503,41 +505,6 @@ export const BatchDetailScreen: React.FC = () => {
         </ScrollView>
       )}
 
-      <Modal visible={rackModal} transparent animationType="fade">
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>Rack number</Text>
-            <TextInput
-              style={styles.modalInput}
-              placeholder="Enter rack / bin location"
-              placeholderTextColor={Colors.textMuted}
-              value={rackInput}
-              onChangeText={setRackInput}
-            />
-            <View style={styles.modalActions}>
-              <TouchableOpacity style={styles.modalCancel} onPress={() => setRackModal(false)}>
-                <Text style={styles.modalCancelText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.modalSave}
-                onPress={async () => {
-                  try {
-                    await inventoryApi.updateBatchRack(batchId, rackInput.trim() || '');
-                    const b = await inventoryApi.getBatchById(batchId);
-                    setBatch(b);
-                    setRackModal(false);
-                    Alert.alert('Saved', 'Rack number updated.');
-                  } catch (e: any) {
-                    Alert.alert('Error', e?.response?.data?.detail || 'Could not update rack.');
-                  }
-                }}
-              >
-                <Text style={styles.modalSaveText}>Save</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
     </SafeAreaView>
   );
 };
@@ -596,13 +563,6 @@ const styles = StyleSheet.create({
   qtyLbl: { fontSize: 10, color: Colors.textMuted, marginTop: 2, textAlign: 'center' },
   qtyDivider: { width: 1, height: 40, backgroundColor: Colors.borderLight },
 
-  rackBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 10,
-  },
-  rackBtnText: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.primary },
 
   modalOverlay: {
     flex: 1,
@@ -652,18 +612,37 @@ const styles = StyleSheet.create({
   },
   viewPdfText: { color: Colors.primary, fontWeight: '700', fontSize: FontSize.sm },
 
-  historyStage: { paddingVertical: 4 },
-  historyStatus: {
-    fontSize: FontSize.sm, fontWeight: '800', color: Colors.primary,
-    marginBottom: 4, textTransform: 'uppercase', letterSpacing: 0.3,
+  timeline: { paddingHorizontal: Spacing.md, marginBottom: Spacing.md },
+  timelineRow: { flexDirection: 'row', alignItems: 'flex-start' },
+  timelineLeft: { alignItems: 'center', width: 20, marginRight: 12 },
+  timelineDot: { width: 12, height: 12, borderRadius: 6, marginTop: 10 },
+  timelineLine: { width: 2, flex: 1, minHeight: 28, marginTop: 4 },
+  timelineCard: {
+    flex: 1, backgroundColor: Colors.surface, borderRadius: BorderRadius.md,
+    padding: Spacing.sm, marginBottom: Spacing.sm, ...Shadow.sm,
   },
+  timelineBadge: {
+    alignSelf: 'flex-start', borderRadius: 6,
+    paddingHorizontal: 10, paddingVertical: 3, marginBottom: 8,
+  },
+  timelineBadgeText: { fontSize: FontSize.xs, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.4 },
+  timelineDetail: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 2 },
+  timelineLabel: { fontSize: FontSize.xs, color: Colors.textMuted, fontWeight: '600' },
+  timelineValue: { fontSize: FontSize.xs, color: Colors.textPrimary, fontWeight: '500', flexShrink: 1, textAlign: 'right' },
 
   transferBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10,
-    backgroundColor: Colors.warning, borderRadius: BorderRadius.lg,
-    paddingVertical: 14, marginBottom: 4, ...Shadow.sm,
+    backgroundColor: 'rgba(255, 193, 7, 0.82)', borderRadius: BorderRadius.lg,
+    paddingVertical: 14, marginTop: 12, marginBottom: 4,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 8, elevation: 6,
   },
   transferBtnText: { color: '#fff', fontWeight: '800', fontSize: FontSize.sm },
+  transferTip: {
+    backgroundColor: 'rgba(30,30,30,0.88)', borderRadius: 8,
+    paddingHorizontal: 12, paddingVertical: 8, marginBottom: 6,
+    alignSelf: 'center',
+  },
+  transferTipText: { color: '#fff', fontSize: FontSize.xs, textAlign: 'center' },
   actionsRow: { flexDirection: 'row', gap: 12, marginBottom: 4 },
   actionBtn: {
     flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',

@@ -88,11 +88,6 @@ export const inventoryApi = {
     return res.data;
   },
 
-  updateBatchRack: async (batch_id: number, rack_number: string) => {
-    const res = await apiClient.patch(`/inventory/batches/${batch_id}/rack`, { rack_number });
-    return res.data;
-  },
-
   adjustStock: async (batch_id: number, quantity: number, reason: string) => {
     const res = await apiClient.post('/inventory/adjust-stock', { batch_id, quantity, reason });
     return res.data;
