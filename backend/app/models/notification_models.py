@@ -14,6 +14,7 @@ class NotificationType(str, enum.Enum):
     INVENTORY_ALERT = "INVENTORY_ALERT"
     APPROVAL_ALERT = "APPROVAL_ALERT"
     REJECTION_ALERT = "REJECTION_ALERT"
+    FG_ALERT = "FG_ALERT"
 
 
 class Notification(Base):

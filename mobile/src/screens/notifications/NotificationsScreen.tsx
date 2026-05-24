@@ -18,6 +18,7 @@ const TYPE_ICONS: Record<string, { icon: string; color: string }> = {
   REJECTION_ALERT: { icon: 'close-circle', color: Colors.danger },
   SYSTEM_ALERT:    { icon: 'notifications', color: Colors.primary },
   INVENTORY_ALERT: { icon: 'cube', color: Colors.accent },
+  FG_ALERT:        { icon: 'construct', color: Colors.success },
 };
 
 export const NotificationsScreen: React.FC = () => {

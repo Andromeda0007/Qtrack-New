@@ -17,6 +17,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import * as Haptics from "expo-haptics";
 import { inventoryApi } from "../../api/inventory";
+import { useAuthStore } from "../../store/authStore";
 import { Button } from "../../components/common/Button";
 import { StatusBadge } from "../../components/common/StatusBadge";
 import {
@@ -129,11 +130,17 @@ const FactRow: React.FC<{ icon: string; label: string; value: string }> = ({
   </View>
 );
 
+const FG_ROLES = ['PRODUCTION_USER', 'QA_EXECUTIVE', 'QA_HEAD'];
+
 export const CheckStatusScreen: React.FC = () => {
   const navigation = useNavigation<any>();
+  const { user } = useAuthStore();
+  const isFGRole = FG_ROLES.includes(user?.role ?? '');
+
   const [permission, requestPermission] = useCameraPermissions();
   const [scanned, setScanned] = useState(false);
   const [data, setData] = useState<any>(null);
+  const [wrongKind, setWrongKind] = useState(false);
   const [loading, setLoading] = useState(false);
   const insets = useSafeAreaInsets();
 
@@ -149,6 +156,15 @@ export const CheckStatusScreen: React.FC = () => {
     setLoading(true);
     try {
       const result = await inventoryApi.scanQR(payload);
+      const isResultFG = result?.qr_kind === 'fg';
+      if (isFGRole && !isResultFG) {
+        setWrongKind(true);
+        return;
+      }
+      if (!isFGRole && isResultFG) {
+        setWrongKind(true);
+        return;
+      }
       setData(result);
       if (Platform.OS !== "web") {
         try {
@@ -177,6 +193,7 @@ export const CheckStatusScreen: React.FC = () => {
   const reset = () => {
     setScanned(false);
     setData(null);
+    setWrongKind(false);
     setLoading(false);
   };
 
@@ -217,6 +234,10 @@ export const CheckStatusScreen: React.FC = () => {
   const isFg = data?.qr_kind === "fg";
   const cfg = data ? statusConfig(data.status, isFg ? "fg" : "batch") : null;
 
+  const wrongKindMessage = isFGRole
+    ? "This QR belongs to a raw material batch — not applicable here."
+    : "This QR belongs to a Finished Good batch — not applicable here.";
+
   return (
     <SafeAreaView style={s.safe} edges={["top"]}>
       <StatusBar style="light" backgroundColor={Colors.primary} />
@@ -235,7 +256,24 @@ export const CheckStatusScreen: React.FC = () => {
         <View style={s.headerSpacer} />
       </View>
 
-      {!data ? (
+      {wrongKind ? (
+        <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
+          <View style={styles.notFoundHero}>
+            <View style={styles.notFoundIconRing}>
+              <Ionicons name="ban-outline" size={36} color={Colors.danger} />
+            </View>
+            <Text style={styles.notFoundTitle}>QR Not Applicable</Text>
+            <Text style={styles.notFoundSub}>{wrongKindMessage}</Text>
+          </View>
+          <Button
+            title="Scan another"
+            onPress={reset}
+            variant="outline"
+            fullWidth
+            style={{ marginTop: Spacing.lg }}
+          />
+        </ScrollView>
+      ) : !data ? (
         <View style={s.scannerContainer}>
           <CameraView
             style={StyleSheet.absoluteFillObject}
@@ -715,6 +753,24 @@ const styles = StyleSheet.create({
   factDivider: {
     height: StyleSheet.hairlineWidth,
     backgroundColor: Colors.borderLight,
+  },
+  notFoundHero: {
+    alignItems: 'center',
+    paddingTop: Spacing.xxl,
+    paddingBottom: Spacing.xl,
+    gap: Spacing.md,
+  },
+  notFoundIconRing: {
+    width: 80, height: 80, borderRadius: 40,
+    backgroundColor: Colors.dangerLight,
+    justifyContent: 'center', alignItems: 'center',
+  },
+  notFoundTitle: {
+    fontSize: FontSize.xl, fontWeight: '800', color: Colors.textPrimary, textAlign: 'center',
+  },
+  notFoundSub: {
+    fontSize: FontSize.sm, color: Colors.textSecondary, textAlign: 'center',
+    lineHeight: 20, paddingHorizontal: Spacing.lg,
   },
   hintMuted: {
     fontSize: FontSize.xs,

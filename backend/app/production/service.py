@@ -1,8 +1,11 @@
+from datetime import datetime
+
 from fastapi import HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from app.models.finished_goods_models import FinishedGoodsBatch, FGStatus
+from app.models.notification_models import NotificationType
 from app.models.user_models import User
 from app.utils.qr_generator import generate_fg_qr
 from app.utils.pdf_generator import generate_shipper_label
@@ -26,7 +29,7 @@ async def create_fg_batch(db: AsyncSession, data: dict, created_by: User) -> Fin
         gross_weight=data.get("gross_weight"),
         quantity=data["quantity"],
         carton_count=data.get("carton_count"),
-        status=FGStatus.QA_PENDING,
+        status=FGStatus.CREATED,
         remarks=data.get("remarks"),
         created_by=created_by.id,
     )
@@ -64,12 +67,14 @@ async def create_fg_batch(db: AsyncSession, data: dict, created_by: User) -> Fin
     try:
         import logging
         from app.notifications.service import notify_roles
+        _ts = datetime.utcnow().strftime("%d %b %Y, %I:%M %p UTC")
         await notify_roles(
             db,
-            ["QA_EXECUTIVE", "QA_HEAD"],
-            "New FG awaiting inspection",
-            f"{fg_batch.batch_number} · {fg_batch.product_name} — {fg_batch.quantity} units. "
-            f"Ready for QA inspection.",
+            ["PRODUCTION_USER", "QA_EXECUTIVE"],
+            "New FG batch created",
+            f"{fg_batch.batch_number} · {fg_batch.product_name} — {fg_batch.quantity} units created. "
+            f"By {created_by.username} on {_ts}.",
+            notification_type=NotificationType.FG_ALERT,
             entity_type="fg_batch",
             entity_id=fg_batch.id,
         )

@@ -33,6 +33,11 @@ import { CreateItemScreen } from '../screens/admin/CreateItemScreen';
 import { EditItemScreen } from '../screens/admin/EditItemScreen';
 import { WorkflowHubScreen } from '../screens/workflow/WorkflowHubScreen';
 import { FGBatchDetailScreen } from '../screens/qa/FGBatchDetailScreen';
+import { CreateFGBatchScreen } from '../screens/fg/CreateFGBatchScreen';
+import { FinishedGoodListScreen } from '../screens/fg/FinishedGoodListScreen';
+import { FGUnderTestListScreen } from '../screens/fg/FGUnderTestListScreen';
+import { FGApprovedListScreen } from '../screens/fg/FGApprovedListScreen';
+import { FGRejectedListScreen } from '../screens/fg/FGRejectedListScreen';
 import { PrintLabelsScreen } from '../screens/labels/PrintLabelsScreen';
 
 const Stack = createNativeStackNavigator();
@@ -102,8 +107,13 @@ export const AppNavigator: React.FC = () => {
             <Stack.Screen name="CreateItem"   component={CreateItemScreen}   options={{ headerShown: false }} />
             <Stack.Screen name="EditItem"     component={EditItemScreen}     options={{ headerShown: false }} />
             <Stack.Screen name="WorkflowHub"  component={WorkflowHubScreen}  options={{ headerShown: false }} />
-            <Stack.Screen name="FGBatchDetail" component={FGBatchDetailScreen} options={{ headerShown: false }} />
-            <Stack.Screen name="PrintLabels"  component={PrintLabelsScreen}  options={{ headerShown: false }} />
+            <Stack.Screen name="FGBatchDetail"       component={FGBatchDetailScreen}     options={{ headerShown: false }} />
+            <Stack.Screen name="CreateFGBatch"        component={CreateFGBatchScreen}      options={{ headerShown: false }} />
+            <Stack.Screen name="FGFinishedGoodList"  component={FinishedGoodListScreen}   options={{ headerShown: false }} />
+            <Stack.Screen name="FGUnderTestList"     component={FGUnderTestListScreen}    options={{ headerShown: false }} />
+            <Stack.Screen name="FGApprovedList"      component={FGApprovedListScreen}     options={{ headerShown: false }} />
+            <Stack.Screen name="FGRejectedList"      component={FGRejectedListScreen}     options={{ headerShown: false }} />
+            <Stack.Screen name="PrintLabels"         component={PrintLabelsScreen}        options={{ headerShown: false }} />
           </>
         )}
       </Stack.Navigator>

@@ -6,14 +6,13 @@ import {
   ScrollView,
   TouchableOpacity,
   RefreshControl,
-  Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuthStore } from "../../store/authStore";
 import { inventoryApi } from "../../api/inventory";
-import { Card } from "../../components/common/Card";
+import { productionApi } from "../../api/production";
 import {
   Colors,
   RoleLabels,
@@ -99,6 +98,26 @@ interface ProductStats {
   retest: number;
 }
 
+interface FGStats {
+  created: number;
+  underTest: number;
+  approved: number;
+  rejected: number;
+}
+
+const FG_STAT_TILES: Array<{
+  label: string;
+  color: string;
+  icon: string;
+  screen: string;
+  getValue: (s: FGStats) => number;
+}> = [
+  { label: 'Finished Good', color: '#856404',      icon: 'cube-outline',             screen: 'FGFinishedGoodList', getValue: (s) => s.created },
+  { label: 'Under Test',    color: Colors.info,    icon: 'flask-outline',            screen: 'FGUnderTestList',    getValue: (s) => s.underTest },
+  { label: 'Rejected',      color: Colors.danger,  icon: 'close-circle-outline',     screen: 'FGRejectedList',     getValue: (s) => s.rejected },
+  { label: 'Approved',      color: Colors.success, icon: 'checkmark-circle-outline', screen: 'FGApprovedList',     getValue: (s) => s.approved },
+];
+
 /**
  * Quick actions render in a 2-column grid (row-major). **Check Status is at index 1** when there
  * are 2+ actions so it sits in **row 1, column 2**.
@@ -162,15 +181,8 @@ const ROLE_QUICK_ACTIONS: Record<RoleName, QuickAction[]> = {
     },
     CHECK_STATUS_ACTION,
   ],
-  /** R1: Inspect FG | Check Status */
+  /** R1: Check Status only — tiles are the dashboard */
   QA_EXECUTIVE: [
-    {
-      label: "Inspect FG",
-      icon: "scan",
-      color: Colors.accent,
-      screen: "WorkflowHub",
-      params: { mode: "qa_inspect" },
-    },
     CHECK_STATUS_ACTION,
   ],
   /** R1: Approve / Reject FG | Check Status */
@@ -184,22 +196,15 @@ const ROLE_QUICK_ACTIONS: Record<RoleName, QuickAction[]> = {
     },
     CHECK_STATUS_ACTION,
   ],
-  /** R1: Create FG | Check Status — R2: Consume Material (hub) */
+  /** R1: Create FG | Check Status */
   PRODUCTION_USER: [
     {
       label: "Create FG Batch",
-      icon: "construct",
+      icon: "add-circle",
       color: Colors.primary,
-      screen: "Scanner",
+      screen: "CreateFGBatch",
     },
     CHECK_STATUS_ACTION,
-    {
-      label: "Consume Material",
-      icon: "layers-outline",
-      color: Colors.accent,
-      screen: "WorkflowHub",
-      params: { mode: "production_consume" },
-    },
   ],
   /** R1: Approved | Check Status — R2: All Products */
   PURCHASE_USER: [
@@ -219,9 +224,14 @@ const ROLE_QUICK_ACTIONS: Record<RoleName, QuickAction[]> = {
   ],
 };
 
+const FG_ROLES: RoleName[] = ['PRODUCTION_USER', 'QA_EXECUTIVE'];
+
 export const DashboardScreen: React.FC = () => {
-  const { user, clearAuth } = useAuthStore();
+  const { user } = useAuthStore();
   const navigation = useNavigation<any>();
+  const role = (user?.role || "PURCHASE_USER") as RoleName;
+  const isFGRole = FG_ROLES.includes(role);
+
   const [stats, setStats] = useState<ProductStats>({
     quarantine: 0,
     underTest: 0,
@@ -229,25 +239,46 @@ export const DashboardScreen: React.FC = () => {
     rejected: 0,
     retest: 0,
   });
+  const [fgStats, setFgStats] = useState<FGStats>({
+    created: 0,
+    underTest: 0,
+    approved: 0,
+    rejected: 0,
+  });
   const [refreshing, setRefreshing] = useState(false);
 
   const loadData = useCallback(async () => {
     try {
-      const [batches, retestBatches] = await Promise.all([
-        inventoryApi.getBatches(),
-        inventoryApi.getExpiringSoon().catch(() => []),
-      ]);
-      setStats({
-        quarantine: batches.filter((b) => b.status === "QUARANTINE").length,
-        underTest: batches.filter((b) => b.status === "UNDER_TEST").length,
-        approved: batches.filter((b) => b.status === "APPROVED").length,
-        rejected: batches.filter((b) => b.status === "REJECTED").length,
-        retest: retestBatches.length,
-      });
+      if (isFGRole) {
+        const [created, underTest, approved, rejected] = await Promise.all([
+          productionApi.listFGBatches('CREATED').catch(() => []),
+          productionApi.listFGBatches('QA_PENDING').catch(() => []),
+          productionApi.listFGBatches('QA_APPROVED').catch(() => []),
+          productionApi.listFGBatches('QA_REJECTED').catch(() => []),
+        ]);
+        setFgStats({
+          created: created.length,
+          underTest: underTest.length,
+          approved: approved.length,
+          rejected: rejected.length,
+        });
+      } else {
+        const [batches, retestBatches] = await Promise.all([
+          inventoryApi.getBatches(),
+          inventoryApi.getExpiringSoon().catch(() => []),
+        ]);
+        setStats({
+          quarantine: batches.filter((b) => b.status === "QUARANTINE").length,
+          underTest: batches.filter((b) => b.status === "UNDER_TEST").length,
+          approved: batches.filter((b) => b.status === "APPROVED").length,
+          rejected: batches.filter((b) => b.status === "REJECTED").length,
+          retest: retestBatches.length,
+        });
+      }
     } catch {
       // Silent fail on dashboard stats
     }
-  }, []);
+  }, [isFGRole]);
 
   useEffect(() => {
     loadData();
@@ -265,7 +296,6 @@ export const DashboardScreen: React.FC = () => {
     setRefreshing(false);
   };
 
-  const role = (user?.role || "PURCHASE_USER") as RoleName;
   const quickActions = ROLE_QUICK_ACTIONS[role] || [];
   const roleLabel = RoleLabels[role] || role;
 
@@ -312,51 +342,67 @@ export const DashboardScreen: React.FC = () => {
         <View style={styles.body}>
           {/* Product Stats — compact vertical footprint so Quick Actions fit above the fold */}
           <Text style={[styles.sectionTitle, styles.statsSectionTitle]}>Product Stats</Text>
-          <View style={styles.statsGrid}>
-            {PRODUCT_STAT_TILES.filter((t) => !t.fullWidth).map((tile) => (
-              <TouchableOpacity
-                key={tile.label}
-                style={styles.statCard}
-                onPress={() => navigation.navigate(tile.screen)}
-                activeOpacity={0.8}
-              >
-                <View
-                  style={[
-                    styles.statIconWrap,
-                    { backgroundColor: tile.color + "18" },
-                  ]}
+
+          {isFGRole ? (
+            /* FG roles: 2×2 grid of FG status tiles */
+            <View style={styles.statsGrid}>
+              {FG_STAT_TILES.map((tile) => (
+                <TouchableOpacity
+                  key={tile.label}
+                  style={styles.statCard}
+                  onPress={() => navigation.navigate(tile.screen)}
+                  activeOpacity={0.8}
                 >
-                  <Ionicons name={tile.icon as any} size={18} color={tile.color} />
-                </View>
-                <Text style={[styles.statValue, { color: tile.color }]}>
-                  {tile.getValue(stats)}
-                </Text>
-                <Text style={styles.statLabel}>{tile.label}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-          {PRODUCT_STAT_TILES.filter((t) => t.fullWidth).map((tile) => (
-            <View key={tile.label} style={styles.statCenterRow}>
-              <TouchableOpacity
-                style={[styles.statCard, { width: "50%" }]}
-                onPress={() => navigation.navigate(tile.screen)}
-                activeOpacity={0.8}
-              >
-                <View
-                  style={[
-                    styles.statIconWrap,
-                    { backgroundColor: tile.color + "18" },
-                  ]}
-                >
-                  <Ionicons name={tile.icon as any} size={18} color={tile.color} />
-                </View>
-                <Text style={[styles.statValue, { color: tile.color }]}>
-                  {tile.getValue(stats)}
-                </Text>
-                <Text style={styles.statLabel}>{tile.label}</Text>
-              </TouchableOpacity>
+                  <View style={[styles.statIconWrap, { backgroundColor: tile.color + "18" }]}>
+                    <Ionicons name={tile.icon as any} size={18} color={tile.color} />
+                  </View>
+                  <Text style={[styles.statValue, { color: tile.color }]}>
+                    {tile.getValue(fgStats)}
+                  </Text>
+                  <Text style={styles.statLabel}>{tile.label}</Text>
+                </TouchableOpacity>
+              ))}
             </View>
-          ))}
+          ) : (
+            /* Raw material roles: existing 2+2+1 layout */
+            <>
+              <View style={styles.statsGrid}>
+                {PRODUCT_STAT_TILES.filter((t) => !t.fullWidth).map((tile) => (
+                  <TouchableOpacity
+                    key={tile.label}
+                    style={styles.statCard}
+                    onPress={() => navigation.navigate(tile.screen)}
+                    activeOpacity={0.8}
+                  >
+                    <View style={[styles.statIconWrap, { backgroundColor: tile.color + "18" }]}>
+                      <Ionicons name={tile.icon as any} size={18} color={tile.color} />
+                    </View>
+                    <Text style={[styles.statValue, { color: tile.color }]}>
+                      {tile.getValue(stats)}
+                    </Text>
+                    <Text style={styles.statLabel}>{tile.label}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              {PRODUCT_STAT_TILES.filter((t) => t.fullWidth).map((tile) => (
+                <View key={tile.label} style={styles.statCenterRow}>
+                  <TouchableOpacity
+                    style={[styles.statCard, { width: "50%" }]}
+                    onPress={() => navigation.navigate(tile.screen)}
+                    activeOpacity={0.8}
+                  >
+                    <View style={[styles.statIconWrap, { backgroundColor: tile.color + "18" }]}>
+                      <Ionicons name={tile.icon as any} size={18} color={tile.color} />
+                    </View>
+                    <Text style={[styles.statValue, { color: tile.color }]}>
+                      {tile.getValue(stats)}
+                    </Text>
+                    <Text style={styles.statLabel}>{tile.label}</Text>
+                  </TouchableOpacity>
+                </View>
+              ))}
+            </>
+          )}
 
           {/* Quick Actions */}
           {quickActions.length > 0 && (

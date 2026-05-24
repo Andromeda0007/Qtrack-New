@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from app.models.finished_goods_models import FinishedGoodsBatch, QAInspection, FGStatus, QAInspectionStatus
+from app.models.notification_models import NotificationType
 from app.models.user_models import User
 from app.audit.service import log_action, audit_status_value
 
@@ -17,8 +18,8 @@ async def inspect_fg(db: AsyncSession, fg_batch_id: int, quantity_verified, rema
     if not fg:
         raise HTTPException(status_code=404, detail="FG batch not found")
 
-    if fg.status != FGStatus.QA_PENDING:
-        raise HTTPException(status_code=400, detail=f"FG batch status is {fg.status}. Must be QA_PENDING for inspection.")
+    if fg.status != FGStatus.CREATED:
+        raise HTTPException(status_code=400, detail=f"FG batch status is {fg.status}. Must be CREATED to start testing.")
 
     inspection = QAInspection(
         fg_batch_id=fg.id,
@@ -28,20 +29,25 @@ async def inspect_fg(db: AsyncSession, fg_batch_id: int, quantity_verified, rema
         inspected_by=inspected_by.id,
     )
     db.add(inspection)
+    fg.status = FGStatus.QA_PENDING
 
     await log_action(
         db, "INSPECT_FG", inspected_by.id, inspected_by.username,
         "fg_batch", fg.id,
-        f"QA inspection submitted for FG batch {fg.batch_number}",
+        f"QA inspection started for FG batch {fg.batch_number}",
+        from_status=audit_status_value(FGStatus.CREATED),
+        to_status=audit_status_value(FGStatus.QA_PENDING),
     )
 
     try:
         from app.notifications.service import notify_roles
+        _ts = datetime.utcnow().strftime("%d %b %Y, %I:%M %p UTC")
         await notify_roles(
             db,
-            ["QA_HEAD"],
-            "FG inspected",
-            f"{fg.batch_number} · {fg.product_name} — inspection recorded. Awaiting approve/reject.",
+            ["PRODUCTION_USER", "QA_EXECUTIVE"],
+            "FG batch moved to Under Test",
+            f"{fg.batch_number} · {fg.product_name} — moved to Under Test. By {inspected_by.username} on {_ts}.",
+            notification_type=NotificationType.FG_ALERT,
             entity_type="fg_batch",
             entity_id=fg.id,
         )
@@ -85,11 +91,13 @@ async def approve_fg(db: AsyncSession, fg_batch_id: int, remarks: str | None, ap
 
     try:
         from app.notifications.service import notify_roles
+        _ts = datetime.utcnow().strftime("%d %b %Y, %I:%M %p UTC")
         await notify_roles(
             db,
-            ["PRODUCTION_USER", "WAREHOUSE_HEAD"],
-            "FG approved",
-            f"{fg.batch_number} · {fg.product_name} — approved by QA.",
+            ["PRODUCTION_USER", "QA_EXECUTIVE"],
+            "FG batch approved",
+            f"{fg.batch_number} · {fg.product_name} — approved. By {approved_by.username} on {_ts}.",
+            notification_type=NotificationType.FG_ALERT,
             entity_type="fg_batch",
             entity_id=fg.id,
         )
@@ -132,11 +140,13 @@ async def reject_fg(db: AsyncSession, fg_batch_id: int, remarks: str, rejected_b
 
     try:
         from app.notifications.service import notify_roles
+        _ts = datetime.utcnow().strftime("%d %b %Y, %I:%M %p UTC")
         await notify_roles(
             db,
-            ["PRODUCTION_USER", "WAREHOUSE_HEAD"],
-            "FG rejected",
-            f"{fg.batch_number} · {fg.product_name} — rejected by QA. Remarks: {remarks}",
+            ["PRODUCTION_USER", "QA_EXECUTIVE"],
+            "FG batch rejected",
+            f"{fg.batch_number} · {fg.product_name} — rejected. By {rejected_by.username} on {_ts}.",
+            notification_type=NotificationType.FG_ALERT,
             entity_type="fg_batch",
             entity_id=fg.id,
         )
