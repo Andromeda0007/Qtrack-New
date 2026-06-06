@@ -397,40 +397,6 @@ export const CreateCardScreen: React.FC = () => {
             <ChipRow options={PACK_TYPES} selected={packType} onSelect={setPackType} />
           </View>
 
-          <SectionTitle title="Purchase Order" />
-          <View style={styles.card}>
-            <Input
-              label="PO Number"
-              placeholder="e.g. PO-2026-001"
-              value={form.po_number}
-              onChangeText={(v) => set('po_number', v)}
-              autoCapitalize="characters"
-            />
-            <DatePickerInput
-              label="PO Date"
-              isoValue={form.po_date}
-              format={dateFormat}
-              onChange={(iso) => set('po_date', iso)}
-            />
-          </View>
-
-          <SectionTitle title="Invoice" />
-          <View style={styles.card}>
-            <Input
-              label="Invoice Number"
-              placeholder="e.g. INV-2026-001"
-              value={form.invoice_number}
-              onChangeText={(v) => set('invoice_number', v)}
-              autoCapitalize="characters"
-            />
-            <DatePickerInput
-              label="Invoice Date"
-              isoValue={form.invoice_date}
-              format={dateFormat}
-              onChange={(iso) => set('invoice_date', iso)}
-            />
-          </View>
-
           <SectionTitle title="Dates" />
           <View style={styles.card}>
             <Text style={styles.fieldLabel}>Date Format</Text>
@@ -465,6 +431,40 @@ export const CreateCardScreen: React.FC = () => {
               isoValue={form.expiry_date}
               format={dateFormat}
               onChange={(iso) => set('expiry_date', iso)}
+            />
+          </View>
+
+          <SectionTitle title="Purchase Order" />
+          <View style={styles.card}>
+            <Input
+              label="PO Number"
+              placeholder="e.g. PO-2026-001"
+              value={form.po_number}
+              onChangeText={(v) => set('po_number', v)}
+              autoCapitalize="characters"
+            />
+            <DatePickerInput
+              label="PO Date"
+              isoValue={form.po_date}
+              format={dateFormat}
+              onChange={(iso) => set('po_date', iso)}
+            />
+          </View>
+
+          <SectionTitle title="Invoice" />
+          <View style={styles.card}>
+            <Input
+              label="Invoice Number"
+              placeholder="e.g. INV-2026-001"
+              value={form.invoice_number}
+              onChangeText={(v) => set('invoice_number', v)}
+              autoCapitalize="characters"
+            />
+            <DatePickerInput
+              label="Invoice Date"
+              isoValue={form.invoice_date}
+              format={dateFormat}
+              onChange={(iso) => set('invoice_date', iso)}
             />
           </View>
 
@@ -686,7 +686,7 @@ const styles = StyleSheet.create({
   remarksInput: {
     fontSize: FontSize.md,
     color: Colors.textPrimary,
-    minHeight: 100,
+    minHeight: 40,
     padding: 0,
     paddingTop: 4,
   },

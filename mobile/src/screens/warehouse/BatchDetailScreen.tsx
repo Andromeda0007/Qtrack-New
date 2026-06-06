@@ -21,7 +21,7 @@ const HISTORY_CONFIG: Record<string, { label: string; byLabel: string; atLabel: 
   APPROVED:             { label: 'Approved',             byLabel: 'Approved by', atLabel: 'Approved at', dot: '#28a745' },
   REJECTED:             { label: 'Rejected',             byLabel: 'Rejected by', atLabel: 'Rejected at', dot: '#dc3545' },
   QUARANTINE_RETEST:    { label: 'Quarantine',           byLabel: 'Created by',  atLabel: 'Created at',  dot: '#fd7e14' },
-  ISSUED_TO_PRODUCTION: { label: 'Issued to Production', byLabel: 'Issued by',   atLabel: 'Issued at',   dot: '#20c997' },
+  ISSUED_TO_PRODUCTION: { label: 'Issued to Production', byLabel: 'Issued by',   atLabel: 'Issued at',   dot: '#1e3a5f' },
 };
 
 const toImageUrl = (path: string | null | undefined): string => {
@@ -37,7 +37,7 @@ const STATUS_CONFIG: Record<string, { label: string; bg: string; text: string; i
   APPROVED:             { label: 'Approved',             bg: '#D4EDDA', text: '#155724', icon: 'checkmark-circle-outline' },
   REJECTED:             { label: 'Rejected',             bg: '#F8D7DA', text: '#721c24', icon: 'close-circle-outline' },
   QUARANTINE_RETEST:    { label: 'Quarantine (Retest)',  bg: '#FFF3CD', text: '#856404', icon: 'refresh-outline' },
-  ISSUED_TO_PRODUCTION: { label: 'Issued to Production', bg: '#D1ECF1', text: '#0c5460', icon: 'arrow-forward-circle-outline' },
+  ISSUED_TO_PRODUCTION: { label: 'Issued to Production', bg: '#e8eef5', text: '#1e3a5f', icon: 'arrow-forward-circle-outline' },
 };
 
 const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
@@ -97,6 +97,7 @@ export const BatchDetailScreen: React.FC = () => {
   const canIssueToProduction =
     batch?.status === 'APPROVED' &&
     !batch?.issued_to_production &&
+    !isRetest &&
     (role === 'WAREHOUSE_USER' || role === 'WAREHOUSE_HEAD');
 
   const handleTransferToQuarantine = () => setShowTransferModal(true);

@@ -50,6 +50,7 @@ const PRODUCT_STAT_TILES: Array<{
   icon: string;
   screen: string;
   fullWidth?: boolean;
+  warehouseOnly?: boolean;
   getValue: (s: ProductStats) => number;
 }> = [
   {
@@ -78,6 +79,7 @@ const PRODUCT_STAT_TILES: Array<{
     color: Colors.statusQuarantine,
     icon: "refresh-circle-outline",
     screen: "RetestList",
+    warehouseOnly: true,
     getValue: (s) => s.retest,
   },
   {
@@ -367,7 +369,7 @@ export const DashboardScreen: React.FC = () => {
             /* Raw material roles: existing 2+2+1 layout */
             <>
               <View style={styles.statsGrid}>
-                {PRODUCT_STAT_TILES.filter((t) => !t.fullWidth).map((tile) => (
+                {PRODUCT_STAT_TILES.filter((t) => !t.fullWidth && (!t.warehouseOnly || role === 'WAREHOUSE_USER' || role === 'WAREHOUSE_HEAD')).map((tile) => (
                   <TouchableOpacity
                     key={tile.label}
                     style={styles.statCard}

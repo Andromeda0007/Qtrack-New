@@ -19,8 +19,8 @@ if not DATABASE_URL:
 
 # Swap internal hostname for external (needed when running locally)
 DATABASE_URL = DATABASE_URL.replace(
-    "dpg-d8i18ar7uimc73a90s4g-a/",
-    "dpg-d8i18ar7uimc73a90s4g-a.oregon-postgres.render.com/",
+    "dpg-d8i3qsldt1ts73ethv50-a/",
+    "dpg-d8i3qsldt1ts73ethv50-a.singapore-postgres.render.com/",
 )
 
 parsed = urlparse(DATABASE_URL)
