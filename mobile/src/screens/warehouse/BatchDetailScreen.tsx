@@ -16,11 +16,11 @@ import { ConfirmModal } from '../../components/common/ConfirmModal';
 import { OperationResultModal } from '../../components/common/OperationResultModal';
 
 const HISTORY_CONFIG: Record<string, { label: string; byLabel: string; atLabel: string; dot: string }> = {
-  QUARANTINE:           { label: 'Quarantine',           byLabel: 'Created by',  atLabel: 'Created at',  dot: '#856404' },
+  QUARANTINE:           { label: 'Quarantine',           byLabel: 'Created by',  atLabel: 'Created at',  dot: '#ffc107' },
   UNDER_TEST:           { label: 'Under Test',           byLabel: 'Updated by',  atLabel: 'Updated at',  dot: '#007bff' },
   APPROVED:             { label: 'Approved',             byLabel: 'Approved by', atLabel: 'Approved at', dot: '#28a745' },
   REJECTED:             { label: 'Rejected',             byLabel: 'Rejected by', atLabel: 'Rejected at', dot: '#dc3545' },
-  QUARANTINE_RETEST:    { label: 'Quarantine',           byLabel: 'Created by',  atLabel: 'Created at',  dot: '#856404' },
+  QUARANTINE_RETEST:    { label: 'Quarantine',           byLabel: 'Created by',  atLabel: 'Created at',  dot: '#ffc107' },
   ISSUED_TO_PRODUCTION: { label: 'Issued to Production', byLabel: 'Issued by',   atLabel: 'Issued at',   dot: '#1e3a5f' },
   RETEST_DUE:           { label: 'Retest Due',           byLabel: 'Scheduled by', atLabel: 'Due on',     dot: '#e67e22' },
 };
