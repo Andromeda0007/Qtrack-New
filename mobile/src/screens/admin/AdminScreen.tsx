@@ -1,11 +1,13 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, FlatList, TouchableOpacity, Alert, RefreshControl, Modal, TextInput, Pressable } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, FlatList, TouchableOpacity, RefreshControl, Modal, TextInput, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { usersApi } from '../../api/users';
 import { Card } from '../../components/common/Card';
 import { Button } from '../../components/common/Button';
+import { ConfirmModal } from '../../components/common/ConfirmModal';
+import { OperationResultModal } from '../../components/common/OperationResultModal';
 import { Input } from '../../components/common/Input';
 import { Colors, FontSize, Spacing, BorderRadius, Shadow } from '../../utils/theme';
 import { formatDateTime, formatRole } from '../../utils/formatters';
@@ -156,6 +158,10 @@ export const AdminScreen: React.FC = () => {
   const [creating, setCreating] = useState(false);
   const [successInfo, setSuccessInfo] = useState<{ name: string; username: string } | null>(null);
 
+  const [confirmToggle, setConfirmToggle] = useState<User | null>(null);
+  const [errorModal, setErrorModal] = useState<{ title: string; message: string } | null>(null);
+  const showError = (title: string, message: string) => setErrorModal({ title, message });
+
   const [auditCategory, setAuditCategory] = useState<AuditCategory>('all');
   const [auditSort, setAuditSort] = useState<AuditSort>('desc');
   const [auditSearchInput, setAuditSearchInput] = useState('');
@@ -209,36 +215,30 @@ export const AdminScreen: React.FC = () => {
     if (activeTab === 'audit') loadAuditLogs();
   }, [activeTab, loadAuditLogs]);
 
-  const handleToggleActive = async (user: User) => {
-    const action = user.is_active ? 'deactivate' : 'reactivate';
-    Alert.alert(`${user.is_active ? 'Deactivate' : 'Reactivate'} User`,
-      `Are you sure you want to ${action} ${user.name}?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Confirm',
-          style: user.is_active ? 'destructive' : 'default',
-          onPress: async () => {
-            try {
-              if (user.is_active) await usersApi.deactivateUser(user.id);
-              else await usersApi.reactivateUser(user.id);
-              loadData();
-            } catch (error) {
-              Alert.alert('Error', extractError(error));
-            }
-          },
-        },
-      ]
-    );
+  const handleToggleActive = (user: User) => {
+    setConfirmToggle(user);
+  };
+
+  const performToggle = async () => {
+    if (!confirmToggle) return;
+    const user = confirmToggle;
+    setConfirmToggle(null);
+    try {
+      if (user.is_active) await usersApi.deactivateUser(user.id);
+      else await usersApi.reactivateUser(user.id);
+      loadData();
+    } catch (error) {
+      showError('Error', extractError(error));
+    }
   };
 
   const handleCreateUser = async () => {
     if (!createForm.name || !createForm.username || !createForm.email || !createForm.phone || !createForm.role_id) {
-      Alert.alert('Error', 'All fields are required. Please fill in Full Name, Username, Email, Phone and select a Role.'); return;
+      showError('Error', 'All fields are required. Please fill in Full Name, Username, Email, Phone and select a Role.'); return;
     }
     const phoneNum = parseInt(createForm.phone, 10);
     if (isNaN(phoneNum) || createForm.phone.length < 10) {
-      Alert.alert('Error', 'Please enter a valid phone number (at least 10 digits).'); return;
+      showError('Error', 'Please enter a valid phone number (at least 10 digits).'); return;
     }
     setCreating(true);
     try {
@@ -255,7 +255,7 @@ export const AdminScreen: React.FC = () => {
       setCreateForm({ name: '', username: '', email: '', phone: '', role_id: purchaseUser?.id || 0 });
       loadData();
     } catch (error) {
-      Alert.alert('Error', extractError(error));
+      showError('Error', extractError(error));
     } finally {
       setCreating(false);
     }
@@ -459,6 +459,24 @@ export const AdminScreen: React.FC = () => {
           </View>
         </View>
       </Modal>
+
+      <ConfirmModal
+        visible={!!confirmToggle}
+        variant={confirmToggle?.is_active ? 'danger' : 'info'}
+        title={confirmToggle?.is_active ? 'Deactivate User' : 'Reactivate User'}
+        message={`Are you sure you want to ${confirmToggle?.is_active ? 'deactivate' : 'reactivate'} ${confirmToggle?.name}?`}
+        confirmLabel="Confirm"
+        cancelLabel="Cancel"
+        onConfirm={performToggle}
+        onCancel={() => setConfirmToggle(null)}
+      />
+      <OperationResultModal
+        visible={!!errorModal}
+        variant="danger"
+        title={errorModal?.title ?? ''}
+        message={errorModal?.message ?? ''}
+        onDismiss={() => setErrorModal(null)}
+      />
 
       {/* Create User Modal */}
       <Modal visible={showCreateUser} animationType="slide" transparent>

@@ -105,6 +105,11 @@ export const inventoryApi = {
     return res.data;
   },
 
+  issueToProduction: async (batchId: number): Promise<any> => {
+    const res = await apiClient.post(`/inventory/batches/${batchId}/issue-to-production`);
+    return res.data;
+  },
+
   // Materials
   getMaterials: async (): Promise<Material[]> => {
     const res = await apiClient.get('/materials/');

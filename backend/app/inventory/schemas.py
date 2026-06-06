@@ -29,6 +29,12 @@ class GRNCreate(BaseModel):
     container_count: int
     container_quantity: Decimal
     total_quantity: Decimal
+    po_number: Optional[str] = None
+    po_date: Optional[date] = None
+    invoice_number: Optional[str] = None
+    invoice_date: Optional[date] = None
+    date_format: Optional[str] = "DD-MM-YYYY"
+    remarks: Optional[str] = None
 
     @field_validator("total_quantity", "container_quantity")
     @classmethod

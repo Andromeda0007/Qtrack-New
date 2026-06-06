@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  Alert, KeyboardAvoidingView, Platform, Modal,
+  TextInput, KeyboardAvoidingView, Platform, Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -9,8 +9,10 @@ import { Ionicons } from '@expo/vector-icons';
 import { productionApi } from '../../api/production';
 import { Input } from '../../components/common/Input';
 import { Button } from '../../components/common/Button';
+import { DatePickerInput } from '../../components/common/DatePickerInput';
+import { OperationResultModal } from '../../components/common/OperationResultModal';
 import { Colors, FontSize, Spacing, BorderRadius, Shadow } from '../../utils/theme';
-import { formatDate, formatDateTime, parseDMYToISO } from '../../utils/formatters';
+import { formatDateByFormat, type DateFormat } from '../../utils/formatters';
 import { extractError } from '../../api/client';
 import { UnitOfMeasure } from '../../types';
 
@@ -23,8 +25,13 @@ const PACK_TYPES = [
   { value: 'OTHER',     label: 'Other' },
 ];
 
-const todayISO     = new Date().toISOString().split('T')[0];
-const todayDisplay = formatDate(todayISO);
+const DATE_FORMATS: { value: DateFormat; label: string }[] = [
+  { value: 'DD-MM-YYYY', label: 'DD-MM-YYYY' },
+  { value: 'YYYY-MM-DD', label: 'YYYY-MM-DD' },
+  { value: 'MM-YYYY',    label: 'MM-YYYY'    },
+];
+
+const todayISO = new Date().toISOString().split('T')[0];
 
 const KG_DEC = /^\d*(?:\.\d{0,3})?$/;
 const INT_RE  = /^\d*$/;
@@ -66,24 +73,29 @@ export const CreateFGBatchScreen: React.FC = () => {
 
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult]         = useState<any | null>(null);
+  const [errorModal, setErrorModal] = useState<{ title: string; message: string } | null>(null);
 
   const [unit, setUnit]             = useState<UnitOfMeasure>('COUNT');
   const [totalQty, setTotalQty]     = useState('');
   const [containers, setContainers] = useState('');
   const [perContainer, setPerContainer] = useState('');
   const [packType, setPackType]     = useState('CARTON');
+  const [dateFormat, setDateFormat] = useState<DateFormat>('DD-MM-YYYY');
 
   const [form, setForm] = useState({
     product_name:      '',
     fg_batch_number:   '',
     supplier_name:     '',
     manufacturer_name: '',
-    date_of_receipt:   todayDisplay,
+    date_of_receipt:   todayISO,
     manufacture_date:  '',
     expiry_date:       '',
+    remarks:           '',
   });
 
   const set = (key: string, value: string) => setForm((f) => ({ ...f, [key]: value }));
+
+  const showError = (title: string, message: string) => setErrorModal({ title, message });
 
   const sanitize = (v: string): string => (unit === 'COUNT' ? v.replace(/[^\d]/g, '') : v);
 
@@ -131,41 +143,39 @@ export const CreateFGBatchScreen: React.FC = () => {
 
   const validate = (): boolean => {
     if (!form.product_name.trim()) {
-      Alert.alert('Required', 'Product name is required.');
+      showError('Required', 'Product name is required.');
       return false;
     }
     if (!form.fg_batch_number.trim()) {
-      Alert.alert('Required', 'FG Batch number is required.');
+      showError('Required', 'FG Batch number is required.');
       return false;
     }
     if (!form.supplier_name.trim() || !form.manufacturer_name.trim()) {
-      Alert.alert('Required', 'Supplier and Manufacturer are required.');
+      showError('Required', 'Supplier and Manufacturer are required.');
       return false;
     }
     if (!totalQty || !containers || !perContainer) {
-      Alert.alert('Required', 'Total, containers, and qty per container are all required.');
+      showError('Required', 'Total, containers, and qty per container are all required.');
       return false;
     }
     const t = parseFloat(totalQty);
     const c = parseInt(containers, 10);
     const p = parseFloat(perContainer);
     if (isNaN(t) || t <= 0 || isNaN(c) || c < 1 || isNaN(p) || p <= 0) {
-      Alert.alert('Invalid', 'All quantities must be positive.');
+      showError('Invalid', 'All quantities must be positive.');
       return false;
     }
     if (qtyMismatch) {
-      Alert.alert('Quantity mismatch', qtyMismatch);
+      showError('Quantity mismatch', qtyMismatch);
       return false;
     }
-    const dateChecks: [string, string][] = [
-      [form.manufacture_date, 'Manufacture Date'],
-      [form.expiry_date,      'Expiry Date'],
-    ];
-    for (const [v, label] of dateChecks) {
-      if (!parseDMYToISO(v)) {
-        Alert.alert('Invalid date', `${label} must be DD-MM-YYYY (e.g. 31-12-2026).`);
-        return false;
-      }
+    if (!form.manufacture_date) {
+      showError('Required', 'Manufacture Date is required.');
+      return false;
+    }
+    if (!form.expiry_date) {
+      showError('Required', 'Expiry Date is required.');
+      return false;
     }
     return true;
   };
@@ -177,14 +187,15 @@ export const CreateFGBatchScreen: React.FC = () => {
       const res = await productionApi.createFGBatch({
         product_name:     form.product_name.trim(),
         batch_number:     form.fg_batch_number.trim(),
-        manufacture_date: parseDMYToISO(form.manufacture_date)!,
-        expiry_date:      parseDMYToISO(form.expiry_date)!,
+        manufacture_date: form.manufacture_date,
+        expiry_date:      form.expiry_date,
         quantity:         parseFloat(totalQty),
         carton_count:     parseInt(containers, 10),
+        remarks:          form.remarks.trim() || undefined,
       });
       setResult(res);
     } catch (error) {
-      Alert.alert('Error', extractError(error));
+      showError('Error', extractError(error));
     } finally {
       setSubmitting(false);
     }
@@ -286,28 +297,55 @@ export const CreateFGBatchScreen: React.FC = () => {
             <ChipRow options={PACK_TYPES} selected={packType} onSelect={setPackType} />
           </View>
 
-          <SectionTitle title="Dates" />
+          <View style={styles.sectionRow}>
+            <Text style={styles.sectionTitleInline}>Dates</Text>
+            <View style={styles.formatToggle}>
+              {DATE_FORMATS.map((f) => (
+                <TouchableOpacity
+                  key={f.value}
+                  style={[styles.formatTab, dateFormat === f.value && styles.formatTabActive]}
+                  onPress={() => setDateFormat(f.value)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.formatTabText, dateFormat === f.value && styles.formatTabTextActive]}>
+                    {f.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
           <View style={styles.card}>
-            <Input
+            <DatePickerInput
               label="Date of Receipt *"
-              placeholder="DD-MM-YYYY"
-              value={form.date_of_receipt}
-              onChangeText={(v) => set('date_of_receipt', v)}
-              keyboardType="numbers-and-punctuation"
+              isoValue={form.date_of_receipt}
+              format={dateFormat}
+              onChange={(iso) => set('date_of_receipt', iso)}
             />
-            <Input
+            <DatePickerInput
               label="Manufacture Date *"
-              placeholder="DD-MM-YYYY"
-              value={form.manufacture_date}
-              onChangeText={(v) => set('manufacture_date', v)}
-              keyboardType="numbers-and-punctuation"
+              isoValue={form.manufacture_date}
+              format={dateFormat}
+              onChange={(iso) => set('manufacture_date', iso)}
             />
-            <Input
+            <DatePickerInput
               label="Expiry Date *"
-              placeholder="DD-MM-YYYY"
-              value={form.expiry_date}
-              onChangeText={(v) => set('expiry_date', v)}
-              keyboardType="numbers-and-punctuation"
+              isoValue={form.expiry_date}
+              format={dateFormat}
+              onChange={(iso) => set('expiry_date', iso)}
+            />
+          </View>
+
+          <SectionTitle title="Remarks" />
+          <View style={styles.card}>
+            <TextInput
+              style={styles.remarksInput}
+              placeholder="Optional notes about this batch…"
+              placeholderTextColor={Colors.textTertiary ?? '#aaa'}
+              value={form.remarks}
+              onChangeText={(v) => set('remarks', v)}
+              multiline
+              numberOfLines={4}
+              textAlignVertical="top"
             />
           </View>
 
@@ -315,6 +353,14 @@ export const CreateFGBatchScreen: React.FC = () => {
           <View style={{ height: 40 }} />
         </ScrollView>
       </KeyboardAvoidingView>
+
+      <OperationResultModal
+        visible={!!errorModal}
+        variant="danger"
+        title={errorModal?.title ?? ''}
+        message={errorModal?.message ?? ''}
+        onDismiss={() => setErrorModal(null)}
+      />
 
       <Modal visible={!!result} animationType="slide" transparent>
         <View style={styles.modalOverlay}>
@@ -341,9 +387,9 @@ export const CreateFGBatchScreen: React.FC = () => {
               <View style={styles.divider} />
               <CardRow label="Cartons"        value={containers} />
               <View style={styles.divider} />
-              <CardRow label="Mfg. Date"      value={formatDate(parseDMYToISO(form.manufacture_date) ?? '')} />
+              <CardRow label="Mfg. Date"      value={formatDateByFormat(form.manufacture_date, dateFormat)} />
               <View style={styles.divider} />
-              <CardRow label="Exp. Date"      value={formatDate(parseDMYToISO(form.expiry_date) ?? '')} />
+              <CardRow label="Exp. Date"      value={formatDateByFormat(form.expiry_date, dateFormat)} />
               <View style={styles.divider} />
               <View style={styles.cardRow}>
                 <Text style={styles.cardRowLabel}>Status</Text>
@@ -377,9 +423,17 @@ const styles = StyleSheet.create({
   scroll: { flex: 1, backgroundColor: Colors.background },
   content: { padding: Spacing.md, paddingBottom: 32 },
 
+  sectionRow: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    marginBottom: 8, marginTop: 16, marginLeft: 4, marginRight: 4,
+  },
   sectionTitle: {
     fontSize: FontSize.sm, fontWeight: '700', color: Colors.textSecondary,
     marginBottom: 8, marginTop: 16, marginLeft: 4, textTransform: 'uppercase', letterSpacing: 0.5,
+  },
+  sectionTitleInline: {
+    fontSize: FontSize.sm, fontWeight: '700', color: Colors.textSecondary,
+    textTransform: 'uppercase', letterSpacing: 0.5,
   },
   card: {
     backgroundColor: Colors.surface, borderRadius: BorderRadius.lg,
@@ -389,6 +443,15 @@ const styles = StyleSheet.create({
     fontSize: FontSize.sm, fontWeight: '600',
     color: Colors.textPrimary, marginBottom: 8, marginTop: 4,
   },
+
+  formatToggle: { flexDirection: 'row', gap: 4 },
+  formatTab: {
+    paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8,
+    borderWidth: 1.5, borderColor: Colors.border, backgroundColor: '#fafafa',
+  },
+  formatTabActive: { borderColor: Colors.primary, backgroundColor: Colors.primary + '15' },
+  formatTabText: { fontSize: 11, fontWeight: '600', color: Colors.textSecondary },
+  formatTabTextActive: { color: Colors.primary },
 
   unitRow: { flexDirection: 'row', gap: 10, marginBottom: 14 },
   unitChip: {
@@ -411,6 +474,13 @@ const styles = StyleSheet.create({
 
   errorText: { color: Colors.danger, fontSize: FontSize.xs, marginTop: 4, marginBottom: 4 },
   submitBtn: { marginTop: 16 },
+
+  remarksInput: {
+    minHeight: 96, fontSize: FontSize.md, color: Colors.textPrimary,
+    backgroundColor: Colors.inputBg ?? '#F8F9FA',
+    borderWidth: 1, borderColor: Colors.border,
+    borderRadius: BorderRadius.md, padding: Spacing.md,
+  },
 
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.65)' },
   modalSheet: {

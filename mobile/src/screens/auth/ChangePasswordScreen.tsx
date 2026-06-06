@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Alert, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { authApi } from '../../api/auth';
 import { useAuthStore } from '../../store/authStore';
 import { Button } from '../../components/common/Button';
 import { Input } from '../../components/common/Input';
+import { OperationResultModal } from '../../components/common/OperationResultModal';
 import { Colors, FontSize, Spacing } from '../../utils/theme';
 import { extractError } from '../../api/client';
 
@@ -14,6 +15,8 @@ export const ChangePasswordScreen: React.FC = () => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [successModal, setSuccessModal] = useState(false);
+  const [errorModal, setErrorModal] = useState<{ title: string; message: string } | null>(null);
   const { updateUser, user, clearAuth } = useAuthStore();
 
   const validate = () => {
@@ -36,11 +39,9 @@ export const ChangePasswordScreen: React.FC = () => {
       await authApi.changePassword(oldPassword, newPassword);
       const updated = await authApi.getMe();
       updateUser(updated);
-      Alert.alert('Success', 'Password changed successfully. Please log in again.', [
-        { text: 'OK', onPress: () => clearAuth() },
-      ]);
+      setSuccessModal(true);
     } catch (error) {
-      Alert.alert('Error', extractError(error));
+      setErrorModal({ title: 'Error', message: extractError(error) });
     } finally {
       setLoading(false);
     }
@@ -74,6 +75,20 @@ export const ChangePasswordScreen: React.FC = () => {
           <Button title="Log Out" onPress={clearAuth} variant="ghost" fullWidth />
         </ScrollView>
       </KeyboardAvoidingView>
+      <OperationResultModal
+        visible={successModal}
+        variant="success"
+        title="Password changed"
+        message="Password changed successfully. Please log in again."
+        onDismiss={() => { setSuccessModal(false); clearAuth(); }}
+      />
+      <OperationResultModal
+        visible={!!errorModal}
+        variant="danger"
+        title={errorModal?.title ?? ''}
+        message={errorModal?.message ?? ''}
+        onDismiss={() => setErrorModal(null)}
+      />
     </SafeAreaView>
   );
 };

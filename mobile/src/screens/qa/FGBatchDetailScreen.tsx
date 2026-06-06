@@ -7,7 +7,7 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '../../store/authStore';
 import { productionApi } from '../../api/production';
-import { formatDate } from '../../utils/formatters';
+import { formatDateByFormat } from '../../utils/formatters';
 import { Colors, FontSize, Spacing, BorderRadius, Shadow } from '../../utils/theme';
 
 const STATUS_META: Record<string, { label: string; color: string }> = {
@@ -152,9 +152,9 @@ export const FGBatchDetailScreen: React.FC = () => {
           {/* Dates */}
           <Text style={styles.sectionTitle}>Dates</Text>
           <View style={styles.card}>
-            <Row label="Manufacture Date" value={formatDate(batch.manufacture_date)} />
+            <Row label="Manufacture Date" value={formatDateByFormat(batch.manufacture_date, batch.date_format)} />
             <Divider />
-            <Row label="Expiry Date"       value={formatDate(batch.expiry_date)} />
+            <Row label="Expiry Date"       value={formatDateByFormat(batch.expiry_date, batch.date_format)} />
           </View>
 
           {batch.remarks ? (

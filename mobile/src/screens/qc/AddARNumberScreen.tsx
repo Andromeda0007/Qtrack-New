@@ -5,7 +5,6 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Alert,
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
@@ -28,11 +27,14 @@ export const AddARNumberScreen: React.FC = () => {
   const [arNumber, setArNumber] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [flowDone, setFlowDone] = useState<{ title: string; message: string } | null>(null);
+  const [errorModal, setErrorModal] = useState<{ title: string; message: string } | null>(null);
+
+  const showError = (title: string, message: string) => setErrorModal({ title, message });
 
   const submit = async () => {
     const ar = arNumber.trim();
     if (!ar) {
-      Alert.alert('Required', 'Enter an AR number.');
+      showError('Required', 'Enter an AR number.');
       return;
     }
     setSubmitting(true);
@@ -43,7 +45,7 @@ export const AddARNumberScreen: React.FC = () => {
         message: 'AR number saved. The batch is still in Quarantine. Return to the batch and tap "Start Testing" to record the sample quantity.',
       });
     } catch (e) {
-      Alert.alert('Error', extractError(e));
+      showError('Error', extractError(e));
     } finally {
       setSubmitting(false);
     }
@@ -97,6 +99,13 @@ export const AddARNumberScreen: React.FC = () => {
           setFlowDone(null);
           navigation.goBack();
         }}
+      />
+      <OperationResultModal
+        visible={!!errorModal}
+        variant="danger"
+        title={errorModal?.title ?? ''}
+        message={errorModal?.message ?? ''}
+        onDismiss={() => setErrorModal(null)}
       />
     </SafeAreaView>
   );

@@ -8,7 +8,7 @@ import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { productionApi } from '../../api/production';
 import { SearchInput } from '../../components/common/SearchInput';
-import { formatDate } from '../../utils/formatters';
+import { formatDateByFormat } from '../../utils/formatters';
 import { Colors, FontSize, Spacing, Shadow, BorderRadius } from '../../utils/theme';
 
 type SortMode = 'last_created' | 'first_created' | 'expiry_soon';
@@ -98,13 +98,13 @@ export const FGStatusListBase: React.FC<Props> = ({
             {item.manufacture_date ? (
               <View style={styles.metaItem}>
                 <Ionicons name="construct-outline" size={13} color={Colors.textMuted} />
-                <Text style={styles.metaText} numberOfLines={1}>{formatDate(item.manufacture_date)}</Text>
+                <Text style={styles.metaText} numberOfLines={1}>{formatDateByFormat(item.manufacture_date, item.date_format)}</Text>
               </View>
             ) : null}
             {item.expiry_date ? (
               <View style={styles.metaItem}>
                 <Ionicons name="calendar-outline" size={13} color={Colors.textMuted} />
-                <Text style={styles.metaText} numberOfLines={1}>{formatDate(item.expiry_date)}</Text>
+                <Text style={styles.metaText} numberOfLines={1}>{formatDateByFormat(item.expiry_date, item.date_format)}</Text>
               </View>
             ) : null}
           </View>

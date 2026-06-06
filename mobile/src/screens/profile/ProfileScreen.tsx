@@ -1,11 +1,12 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity,
-  Alert, ScrollView, Platform,
+  ScrollView, Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '../../store/authStore';
+import { ConfirmModal } from '../../components/common/ConfirmModal';
 import {
   Colors, RoleLabels,
   FontSize, Spacing, BorderRadius, Shadow,
@@ -27,8 +28,8 @@ const Divider = () => <View style={styles.divider} />;
 
 export const ProfileScreen: React.FC = () => {
   const { user, clearAuth } = useAuthStore();
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
 
-  /** Same navy as rest of app — no per-role accent on Profile. */
   const roleLabel = RoleLabels[user?.role || ''] || (user?.role || 'User');
   const initials = (user?.name || user?.username || 'U')
     .split(' ')
@@ -37,12 +38,7 @@ export const ProfileScreen: React.FC = () => {
     .toUpperCase()
     .slice(0, 2);
 
-  const handleLogout = () => {
-    Alert.alert('Log Out', 'Are you sure you want to log out?', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Log Out', style: 'destructive', onPress: clearAuth },
-    ]);
-  };
+  const handleLogout = () => setShowLogoutModal(true);
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -137,6 +133,16 @@ export const ProfileScreen: React.FC = () => {
         <Text style={styles.footer}>QTrack — Warehouse & Quality Management</Text>
 
       </ScrollView>
+      <ConfirmModal
+        visible={showLogoutModal}
+        variant="danger"
+        title="Log Out"
+        message="Are you sure you want to log out?"
+        confirmLabel="Log Out"
+        cancelLabel="Cancel"
+        onConfirm={() => { setShowLogoutModal(false); clearAuth(); }}
+        onCancel={() => setShowLogoutModal(false)}
+      />
     </SafeAreaView>
   );
 };

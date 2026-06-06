@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert,
+  View, Text, StyleSheet, ScrollView, TouchableOpacity,
   KeyboardAvoidingView, Platform, Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -12,6 +12,7 @@ import { Input } from '../../components/common/Input';
 import { Button } from '../../components/common/Button';
 import { materialsApi } from '../../api/materials';
 import { extractError } from '../../api/client';
+import { OperationResultModal } from '../../components/common/OperationResultModal';
 
 export const CreateItemScreen: React.FC = () => {
   const navigation = useNavigation<any>();
@@ -20,14 +21,17 @@ export const CreateItemScreen: React.FC = () => {
   const [description, setDescription] = useState('');
   const [confirming, setConfirming] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [errorModal, setErrorModal] = useState<{ title: string; message: string } | null>(null);
+
+  const showError = (title: string, message: string) => setErrorModal({ title, message });
 
   const handleSubmit = () => {
     if (!name.trim()) {
-      Alert.alert('Required', 'Item name is required.');
+      showError('Required', 'Item name is required.');
       return;
     }
     if (!code.trim()) {
-      Alert.alert('Required', 'Item code is required.');
+      showError('Required', 'Item code is required.');
       return;
     }
     setConfirming(true);
@@ -49,7 +53,7 @@ export const CreateItemScreen: React.FC = () => {
       });
       navigation.goBack();
     } catch (err) {
-      Alert.alert('Error', extractError(err));
+      showError('Error', extractError(err));
     } finally {
       setSubmitting(false);
     }
@@ -156,6 +160,13 @@ export const CreateItemScreen: React.FC = () => {
           </View>
         </View>
       </Modal>
+      <OperationResultModal
+        visible={!!errorModal}
+        variant="danger"
+        title={errorModal?.title ?? ''}
+        message={errorModal?.message ?? ''}
+        onDismiss={() => setErrorModal(null)}
+      />
     </SafeAreaView>
   );
 };

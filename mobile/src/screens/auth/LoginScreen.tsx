@@ -6,7 +6,6 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
-  Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { setStatusBarStyle } from "expo-status-bar";
@@ -15,6 +14,7 @@ import { authApi } from "../../api/auth";
 import { useAuthStore } from "../../store/authStore";
 import { Button } from "../../components/common/Button";
 import { Input } from "../../components/common/Input";
+import { OperationResultModal } from "../../components/common/OperationResultModal";
 import { Colors, FontSize, Spacing } from "../../utils/theme";
 import { extractError } from "../../api/client";
 
@@ -25,9 +25,8 @@ export const LoginScreen: React.FC = () => {
   const [loginId, setLoginId] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const [errors, setErrors] = useState<{ loginId?: string; password?: string }>(
-    {},
-  );
+  const [errors, setErrors] = useState<{ loginId?: string; password?: string }>({});
+  const [errorModal, setErrorModal] = useState<{ title: string; message: string } | null>(null);
   const { setAuth } = useAuthStore();
 
   useFocusEffect(
@@ -54,7 +53,7 @@ export const LoginScreen: React.FC = () => {
       const userProfile = await authApi.getMe(response.access_token);
       await setAuth(response.access_token, userProfile);
     } catch (error) {
-      Alert.alert("Login Failed", extractError(error));
+      setErrorModal({ title: "Login Failed", message: extractError(error) });
     } finally {
       setLoading(false);
     }
@@ -120,6 +119,13 @@ export const LoginScreen: React.FC = () => {
           </Text>
         </ScrollView>
       </KeyboardAvoidingView>
+      <OperationResultModal
+        visible={!!errorModal}
+        variant="danger"
+        title={errorModal?.title ?? ""}
+        message={errorModal?.message ?? ""}
+        onDismiss={() => setErrorModal(null)}
+      />
     </SafeAreaView>
   );
 };

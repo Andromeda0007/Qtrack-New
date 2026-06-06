@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView,
-  TouchableOpacity, Alert, ActivityIndicator,
+  TouchableOpacity, ActivityIndicator,
   KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -31,6 +31,9 @@ export const StartTestingScreen: React.FC = () => {
   const [sampleQty, setSampleQty] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [flowDone, setFlowDone] = useState<{ title: string; message: string } | null>(null);
+  const [errorModal, setErrorModal] = useState<{ title: string; message: string } | null>(null);
+
+  const showError = (title: string, message: string) => setErrorModal({ title, message });
 
   const handleQtyChange = (v: string) => {
     if (isCount) {
@@ -43,16 +46,16 @@ export const StartTestingScreen: React.FC = () => {
   const submit = async () => {
     const raw = sampleQty.trim().replace(',', '.');
     if (!raw) {
-      Alert.alert('Required', 'Enter the sample quantity.');
+      showError('Required', 'Enter the sample quantity.');
       return;
     }
     const n = parseFloat(raw);
     if (Number.isNaN(n) || n <= 0) {
-      Alert.alert('Invalid', 'Sample quantity must be a positive number.');
+      showError('Invalid', 'Sample quantity must be a positive number.');
       return;
     }
     if (isCount && !Number.isInteger(n)) {
-      Alert.alert('Invalid', 'Sample quantity must be a whole number for COUNT items.');
+      showError('Invalid', 'Sample quantity must be a whole number for COUNT items.');
       return;
     }
     setSubmitting(true);
@@ -63,7 +66,7 @@ export const StartTestingScreen: React.FC = () => {
         message: `Sample of ${n} ${isCount ? '' : uomLabel} recorded for AR ${arNumber}. The batch is now Under Test.`,
       });
     } catch (e) {
-      Alert.alert('Error', extractError(e));
+      showError('Error', extractError(e));
     } finally {
       setSubmitting(false);
     }
@@ -119,6 +122,13 @@ export const StartTestingScreen: React.FC = () => {
           setFlowDone(null);
           resetToDashboardHome(navigation);
         }}
+      />
+      <OperationResultModal
+        visible={!!errorModal}
+        variant="danger"
+        title={errorModal?.title ?? ''}
+        message={errorModal?.message ?? ''}
+        onDismiss={() => setErrorModal(null)}
       />
     </SafeAreaView>
   );

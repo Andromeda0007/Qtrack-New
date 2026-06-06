@@ -28,7 +28,8 @@
         {
           "cameraPermission": "Allow QTrack to access your camera to scan QR codes."
         }
-      ]
+      ],
+      "@react-native-community/datetimepicker"
     ],
     "extra": {
       "eas": {

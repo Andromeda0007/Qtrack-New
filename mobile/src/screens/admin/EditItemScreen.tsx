@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert,
+  View, Text, StyleSheet, ScrollView, TouchableOpacity,
   KeyboardAvoidingView, Platform, ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -13,6 +13,8 @@ import { Button } from '../../components/common/Button';
 import { materialsApi } from '../../api/materials';
 import { Material, MaterialBatchCounts } from '../../types';
 import { extractError } from '../../api/client';
+import { ConfirmModal } from '../../components/common/ConfirmModal';
+import { OperationResultModal } from '../../components/common/OperationResultModal';
 
 export const EditItemScreen: React.FC = () => {
   const navigation = useNavigation<any>();
@@ -26,6 +28,10 @@ export const EditItemScreen: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [deactivating, setDeactivating] = useState(false);
+  const [deactivateMsg, setDeactivateMsg] = useState<string | null>(null);
+  const [errorModal, setErrorModal] = useState<{ title: string; message: string } | null>(null);
+
+  const showError = (title: string, message: string) => setErrorModal({ title, message });
 
   useEffect(() => {
     (async () => {
@@ -36,7 +42,7 @@ export const EditItemScreen: React.FC = () => {
         setDescription(m.description ?? '');
         setIsActive(m.is_active);
       } catch (e) {
-        Alert.alert('Error', extractError(e));
+        showError('Error', extractError(e));
       } finally {
         setLoading(false);
       }
@@ -51,7 +57,7 @@ export const EditItemScreen: React.FC = () => {
   const handleSave = async () => {
     if (!item) return;
     if (!name.trim()) {
-      Alert.alert('Required', 'Name cannot be empty.');
+      showError('Required', 'Name cannot be empty.');
       return;
     }
     setSaving(true);
@@ -63,7 +69,7 @@ export const EditItemScreen: React.FC = () => {
       setItem(updated);
       Toast.show({ type: 'success', text1: 'Item updated' });
     } catch (e) {
-      Alert.alert('Error', extractError(e));
+      showError('Error', extractError(e));
     } finally {
       setSaving(false);
     }
@@ -73,7 +79,6 @@ export const EditItemScreen: React.FC = () => {
     if (!item) return;
     setDeactivating(true);
     try {
-      // Fetch impact
       let counts: MaterialBatchCounts | null = null;
       try {
         counts = await materialsApi.batchCounts(item.id);
@@ -93,27 +98,23 @@ export const EditItemScreen: React.FC = () => {
             'Deactivating hides this item from future GRN creation. ' +
             'Existing batches continue to work unchanged. Proceed?'
           : 'This item has no active batches. Deactivate?';
-
-      Alert.alert('Deactivate item?', msg, [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Deactivate',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              const updated = await materialsApi.update(item.id, { is_active: false });
-              setItem(updated);
-              setIsActive(false);
-              Toast.show({ type: 'info', text1: 'Item deactivated' });
-              navigation.goBack();
-            } catch (e) {
-              Alert.alert('Error', extractError(e));
-            }
-          },
-        },
-      ]);
+      setDeactivateMsg(msg);
     } finally {
       setDeactivating(false);
+    }
+  };
+
+  const executeDeactivate = async () => {
+    if (!item) return;
+    setDeactivateMsg(null);
+    try {
+      const updated = await materialsApi.update(item.id, { is_active: false });
+      setItem(updated);
+      setIsActive(false);
+      Toast.show({ type: 'info', text1: 'Item deactivated' });
+      navigation.goBack();
+    } catch (e) {
+      showError('Error', extractError(e));
     }
   };
 
@@ -125,7 +126,7 @@ export const EditItemScreen: React.FC = () => {
       setIsActive(true);
       Toast.show({ type: 'success', text1: 'Item re-activated' });
     } catch (e) {
-      Alert.alert('Error', extractError(e));
+      showError('Error', extractError(e));
     }
   };
 
@@ -213,6 +214,23 @@ export const EditItemScreen: React.FC = () => {
           )}
         </ScrollView>
       </KeyboardAvoidingView>
+      <ConfirmModal
+        visible={!!deactivateMsg}
+        variant="danger"
+        title="Deactivate item?"
+        message={deactivateMsg ?? ''}
+        confirmLabel="Deactivate"
+        cancelLabel="Cancel"
+        onConfirm={executeDeactivate}
+        onCancel={() => setDeactivateMsg(null)}
+      />
+      <OperationResultModal
+        visible={!!errorModal}
+        variant="danger"
+        title={errorModal?.title ?? ''}
+        message={errorModal?.message ?? ''}
+        onDismiss={() => setErrorModal(null)}
+      />
     </SafeAreaView>
   );
 };

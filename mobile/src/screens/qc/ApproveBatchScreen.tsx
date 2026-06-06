@@ -5,7 +5,6 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Alert,
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
@@ -31,11 +30,14 @@ export const ApproveBatchScreen: React.FC = () => {
   const [remarks, setRemarks] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [flowDone, setFlowDone] = useState<{ title: string; message: string } | null>(null);
+  const [errorModal, setErrorModal] = useState<{ title: string; message: string } | null>(null);
+
+  const showError = (title: string, message: string) => setErrorModal({ title, message });
 
   const submit = async () => {
     const iso = parseDMYToISO(retestDate);
     if (!iso) {
-      Alert.alert('Required', 'Enter next retest date as DD-MM-YYYY (required for approval).');
+      showError('Required', 'Enter next retest date as DD-MM-YYYY (required for approval).');
       return;
     }
     setSubmitting(true);
@@ -46,7 +48,7 @@ export const ApproveBatchScreen: React.FC = () => {
         message: 'The batch has been approved. You can continue from Home.',
       });
     } catch (e) {
-      Alert.alert('Error', extractError(e));
+      showError('Error', extractError(e));
     } finally {
       setSubmitting(false);
     }
@@ -99,6 +101,13 @@ export const ApproveBatchScreen: React.FC = () => {
           setFlowDone(null);
           resetToDashboardHome(navigation);
         }}
+      />
+      <OperationResultModal
+        visible={!!errorModal}
+        variant="danger"
+        title={errorModal?.title ?? ''}
+        message={errorModal?.message ?? ''}
+        onDismiss={() => setErrorModal(null)}
       />
     </SafeAreaView>
   );

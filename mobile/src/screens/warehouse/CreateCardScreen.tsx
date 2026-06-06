@@ -1,7 +1,7 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  Alert, KeyboardAvoidingView, Platform, Modal, Image,
+  TextInput, KeyboardAvoidingView, Platform, Modal, Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -10,8 +10,10 @@ import { inventoryApi } from '../../api/inventory';
 import { Input } from '../../components/common/Input';
 import { Button } from '../../components/common/Button';
 import { ItemPicker } from '../../components/common/ItemPicker';
+import { OperationResultModal } from '../../components/common/OperationResultModal';
+import { DatePickerInput } from '../../components/common/DatePickerInput';
 import { Colors, FontSize, Spacing, BorderRadius, Shadow } from '../../utils/theme';
-import { formatDate, formatDateTime, parseDMYToISO } from '../../utils/formatters';
+import { formatDateByFormat, formatDateTime, type DateFormat } from '../../utils/formatters';
 import { extractError } from '../../api/client';
 import { Material, UnitOfMeasure } from '../../types';
 
@@ -25,7 +27,12 @@ const PACK_TYPES = [
 ];
 
 const todayISO = new Date().toISOString().split('T')[0];
-const todayDisplay = formatDate(todayISO);
+
+const DATE_FORMATS: { value: DateFormat; label: string }[] = [
+  { value: 'DD-MM-YYYY', label: 'DD-MM-YYYY' },
+  { value: 'YYYY-MM-DD', label: 'YYYY-MM-DD' },
+  { value: 'MM-YYYY',    label: 'MM-YYYY' },
+];
 
 // Allow up to 3 decimals in KG mode (1 gm precision). COUNT requires integers.
 const KG_DEC = /^\d*(?:\.\d{0,3})?$/;
@@ -100,6 +107,7 @@ export const CreateCardScreen: React.FC = () => {
 
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<GRNResult | null>(null);
+  const [errorModal, setErrorModal] = useState({ visible: false, title: '', message: '' });
 
   const [selectedItem, setSelectedItem] = useState<Material | null>(null);
   const [unit, setUnit] = useState<UnitOfMeasure>('KG');
@@ -107,6 +115,7 @@ export const CreateCardScreen: React.FC = () => {
   const [containers, setContainers] = useState('');
   const [perContainer, setPerContainer] = useState('');
   const [packType, setPackType] = useState('BAG');
+  const [dateFormat, setDateFormat] = useState<DateFormat>('DD-MM-YYYY');
 
   const [form, setForm] = useState({
     grn_number: '',
@@ -114,10 +123,18 @@ export const CreateCardScreen: React.FC = () => {
     batch_number: '',
     supplier_name: '',
     manufacturer_name: '',
-    date_of_receipt: todayDisplay,
+    date_of_receipt: todayISO,
     manufacture_date: '',
     expiry_date: '',
+    po_number: '',
+    po_date: '',
+    invoice_number: '',
+    invoice_date: '',
+    remarks: '',
   });
+
+  const showError = (title: string, message: string) =>
+    setErrorModal({ visible: true, title, message });
 
   // Pre-populate form when arriving from "Transfer to Quarantine" flow
   useEffect(() => {
@@ -134,9 +151,14 @@ export const CreateCardScreen: React.FC = () => {
       batch_number: '',
       supplier_name: prefill.supplier_name ?? '',
       manufacturer_name: prefill.manufacturer_name ?? '',
-      date_of_receipt: todayDisplay,
-      manufacture_date: prefill.manufacture_date ? formatDate(String(prefill.manufacture_date)) : '',
-      expiry_date: prefill.expiry_date ? formatDate(String(prefill.expiry_date)) : '',
+      date_of_receipt: todayISO,
+      manufacture_date: prefill.manufacture_date ? String(prefill.manufacture_date).substring(0, 10) : '',
+      expiry_date: prefill.expiry_date ? String(prefill.expiry_date).substring(0, 10) : '',
+      po_number: '',
+      po_date: '',
+      invoice_number: '',
+      invoice_date: '',
+      remarks: '',
     });
     if (prefill.material_id) {
       setSelectedItem({
@@ -200,52 +222,28 @@ export const CreateCardScreen: React.FC = () => {
   }, [totalQty, containers, perContainer, unit]);
 
   const validate = (): boolean => {
-    if (!selectedItem) {
-      Alert.alert('Required', 'Please select an item.');
-      return false;
-    }
-    if (!form.grn_number.trim()) {
-      Alert.alert('Required', 'GRN number is required.');
-      return false;
-    }
+    if (!selectedItem) { showError('Required', 'Please select an item.'); return false; }
+    if (!form.grn_number.trim()) { showError('Required', 'GRN number is required.'); return false; }
     if (originalBatchId != null && !form.retesting_number.trim()) {
-      Alert.alert('Required', 'Retesting number is required.');
-      return false;
+      showError('Required', 'Retesting number is required.'); return false;
     }
-    if (!form.batch_number.trim()) {
-      Alert.alert('Required', 'Batch / Lot number is required.');
-      return false;
-    }
+    if (!form.batch_number.trim()) { showError('Required', 'Batch / Lot number is required.'); return false; }
     if (!form.supplier_name.trim() || !form.manufacturer_name.trim()) {
-      Alert.alert('Required', 'Supplier and Manufacturer are required.');
-      return false;
+      showError('Required', 'Supplier and Manufacturer are required.'); return false;
     }
     if (!totalQty || !containers || !perContainer) {
-      Alert.alert('Required', 'Total, containers, and qty per container are all required.');
-      return false;
+      showError('Required', 'Total, containers, and qty per container are all required.'); return false;
     }
     const t = parseFloat(totalQty);
     const c = parseInt(containers, 10);
     const p = parseFloat(perContainer);
     if (isNaN(t) || t <= 0 || isNaN(c) || c < 1 || isNaN(p) || p <= 0) {
-      Alert.alert('Invalid', 'All quantities must be positive.');
-      return false;
+      showError('Invalid', 'All quantities must be positive.'); return false;
     }
-    if (qtyMismatch) {
-      Alert.alert('Quantity mismatch', qtyMismatch);
-      return false;
-    }
-    const dateChecks: [string, string][] = [
-      [form.date_of_receipt, 'Date of Receipt'],
-      [form.manufacture_date, 'Manufacture Date'],
-      [form.expiry_date, 'Expiry Date'],
-    ];
-    for (const [v, label] of dateChecks) {
-      if (!parseDMYToISO(v)) {
-        Alert.alert('Invalid date', `${label} must be DD-MM-YYYY (e.g. 31-12-2026).`);
-        return false;
-      }
-    }
+    if (qtyMismatch) { showError('Quantity mismatch', qtyMismatch); return false; }
+    if (!form.date_of_receipt) { showError('Required', 'Date of Receipt is required.'); return false; }
+    if (!form.manufacture_date) { showError('Required', 'Manufacture Date is required.'); return false; }
+    if (!form.expiry_date) { showError('Required', 'Expiry Date is required.'); return false; }
     return true;
   };
 
@@ -259,20 +257,26 @@ export const CreateCardScreen: React.FC = () => {
         batch_number: form.batch_number.trim(),
         supplier_name: form.supplier_name.trim(),
         manufacturer_name: form.manufacturer_name.trim(),
-        date_of_receipt: parseDMYToISO(form.date_of_receipt)!,
-        manufacture_date: parseDMYToISO(form.manufacture_date)!,
-        expiry_date: parseDMYToISO(form.expiry_date)!,
+        date_of_receipt: form.date_of_receipt,
+        manufacture_date: form.manufacture_date,
+        expiry_date: form.expiry_date,
         pack_type: packType,
         unit_of_measure: unit,
         container_count: parseInt(containers, 10),
         container_quantity: parseFloat(perContainer),
         total_quantity: parseFloat(totalQty),
+        date_format: dateFormat,
+        ...(form.po_number.trim() && { po_number: form.po_number.trim() }),
+        ...(form.po_date && { po_date: form.po_date }),
+        ...(form.invoice_number.trim() && { invoice_number: form.invoice_number.trim() }),
+        ...(form.invoice_date && { invoice_date: form.invoice_date }),
+        ...(form.remarks.trim() && { remarks: form.remarks.trim() }),
         ...(originalBatchId != null && { original_batch_id: originalBatchId }),
         ...(originalBatchId != null && { retesting_number: form.retesting_number.trim() }),
       });
       setResult(res);
     } catch (error) {
-      Alert.alert('Error', extractError(error));
+      showError('Error', extractError(error));
     } finally {
       setSubmitting(false);
     }
@@ -393,28 +397,74 @@ export const CreateCardScreen: React.FC = () => {
             <ChipRow options={PACK_TYPES} selected={packType} onSelect={setPackType} />
           </View>
 
-          <SectionTitle title="Dates" />
+          <SectionTitle title="Purchase Order" />
           <View style={styles.card}>
             <Input
+              label="PO Number"
+              placeholder="e.g. PO-2026-001"
+              value={form.po_number}
+              onChangeText={(v) => set('po_number', v)}
+              autoCapitalize="characters"
+            />
+            <DatePickerInput
+              label="PO Date"
+              isoValue={form.po_date}
+              format={dateFormat}
+              onChange={(iso) => set('po_date', iso)}
+            />
+          </View>
+
+          <SectionTitle title="Invoice" />
+          <View style={styles.card}>
+            <Input
+              label="Invoice Number"
+              placeholder="e.g. INV-2026-001"
+              value={form.invoice_number}
+              onChangeText={(v) => set('invoice_number', v)}
+              autoCapitalize="characters"
+            />
+            <DatePickerInput
+              label="Invoice Date"
+              isoValue={form.invoice_date}
+              format={dateFormat}
+              onChange={(iso) => set('invoice_date', iso)}
+            />
+          </View>
+
+          <SectionTitle title="Dates" />
+          <View style={styles.card}>
+            <Text style={styles.fieldLabel}>Date Format</Text>
+            <View style={styles.unitRow}>
+              {DATE_FORMATS.map((df) => (
+                <TouchableOpacity
+                  key={df.value}
+                  style={[styles.unitChip, dateFormat === df.value && styles.unitChipActive]}
+                  onPress={() => setDateFormat(df.value)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.unitText, { fontSize: 11 }, dateFormat === df.value && styles.unitTextActive]}>
+                    {df.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            <DatePickerInput
               label="Date of Receipt *"
-              placeholder="DD-MM-YYYY"
-              value={form.date_of_receipt}
-              onChangeText={(v) => set('date_of_receipt', v)}
-              keyboardType="numbers-and-punctuation"
+              isoValue={form.date_of_receipt}
+              format={dateFormat}
+              onChange={(iso) => set('date_of_receipt', iso)}
             />
-            <Input
+            <DatePickerInput
               label="Manufacture Date *"
-              placeholder="DD-MM-YYYY"
-              value={form.manufacture_date}
-              onChangeText={(v) => set('manufacture_date', v)}
-              keyboardType="numbers-and-punctuation"
+              isoValue={form.manufacture_date}
+              format={dateFormat}
+              onChange={(iso) => set('manufacture_date', iso)}
             />
-            <Input
+            <DatePickerInput
               label="Expiry Date *"
-              placeholder="DD-MM-YYYY"
-              value={form.expiry_date}
-              onChangeText={(v) => set('expiry_date', v)}
-              keyboardType="numbers-and-punctuation"
+              isoValue={form.expiry_date}
+              format={dateFormat}
+              onChange={(iso) => set('expiry_date', iso)}
             />
           </View>
 
@@ -444,6 +494,20 @@ export const CreateCardScreen: React.FC = () => {
             />
           </View>
 
+          <SectionTitle title="Remarks" />
+          <View style={styles.card}>
+            <TextInput
+              style={styles.remarksInput}
+              placeholder="Add any remarks or notes..."
+              placeholderTextColor={Colors.textSecondary}
+              value={form.remarks}
+              onChangeText={(v) => set('remarks', v)}
+              multiline
+              numberOfLines={4}
+              textAlignVertical="top"
+            />
+          </View>
+
           <Button
             title="Create"
             onPress={handleSubmit}
@@ -453,6 +517,15 @@ export const CreateCardScreen: React.FC = () => {
           <View style={{ height: 40 }} />
         </ScrollView>
       </KeyboardAvoidingView>
+
+      <OperationResultModal
+        visible={errorModal.visible}
+        variant="danger"
+        title={errorModal.title}
+        message={errorModal.message}
+        onDismiss={() => setErrorModal({ visible: false, title: '', message: '' })}
+        dismissLabel="OK"
+      />
 
       <Modal visible={!!result} animationType="slide" transparent>
         <View style={styles.modalOverlay}>
@@ -526,11 +599,11 @@ export const CreateCardScreen: React.FC = () => {
               <View style={styles.divider} />
               <CardRow label="Manufacturer" value={result?.manufacturer_name ?? ''} />
               <View style={styles.divider} />
-              <CardRow label="Date of Receipt" value={formatDate(result?.date_of_receipt)} />
+              <CardRow label="Date of Receipt" value={formatDateByFormat(result?.date_of_receipt, dateFormat)} />
               <View style={styles.divider} />
-              <CardRow label="Mfg. Date" value={formatDate(result?.manufacture_date)} />
+              <CardRow label="Mfg. Date" value={formatDateByFormat(result?.manufacture_date, dateFormat)} />
               <View style={styles.divider} />
-              <CardRow label="Exp. Date" value={formatDate(result?.expiry_date)} />
+              <CardRow label="Exp. Date" value={formatDateByFormat(result?.expiry_date, dateFormat)} />
               <View style={styles.divider} />
               <View style={styles.cardRow}>
                 <Text style={styles.cardRowLabel}>Status</Text>
@@ -609,6 +682,14 @@ const styles = StyleSheet.create({
   chipTextSelected: { color: Colors.primary, fontWeight: '700' },
 
   errorText: { color: Colors.danger, fontSize: FontSize.xs, marginTop: 4, marginBottom: 4 },
+
+  remarksInput: {
+    fontSize: FontSize.md,
+    color: Colors.textPrimary,
+    minHeight: 100,
+    padding: 0,
+    paddingTop: 4,
+  },
 
   submitBtn: { marginTop: 16 },
 

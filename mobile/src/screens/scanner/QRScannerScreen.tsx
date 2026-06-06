@@ -3,7 +3,6 @@ import {
   View,
   Text,
   StyleSheet,
-  Alert,
   ScrollView,
   Dimensions,
   ActivityIndicator,
@@ -31,9 +30,10 @@ import {
   BatchStatusColors,
   FGStatusColors,
 } from "../../utils/theme";
-import { formatDate, formatQuantity } from "../../utils/formatters";
+import { formatDate, formatDateByFormat, formatQuantity } from "../../utils/formatters";
 import { useAuthStore } from "../../store/authStore";
 import { extractError } from "../../api/client";
+import { OperationResultModal } from "../../components/common/OperationResultModal";
 import {
   type ScanFlow,
   normalizeScanFlow,
@@ -106,7 +106,7 @@ const ScanSummaryCard: React.FC<{ batchData: any }> = ({ batchData }) => {
             />
             <ScanMetaItem
               icon="calendar-outline"
-              label={formatDate(batchData.expiry_date)}
+              label={formatDateByFormat(batchData.expiry_date, batchData.date_format)}
             />
           </View>
         </>
@@ -122,7 +122,7 @@ const ScanSummaryCard: React.FC<{ batchData: any }> = ({ batchData }) => {
             <ScanMetaItem icon="layers-outline" label={balanceLine} />
             <ScanMetaItem
               icon="calendar-outline"
-              label={formatDate(batchData.expiry_date)}
+              label={formatDateByFormat(batchData.expiry_date, batchData.date_format)}
             />
             {batchData.retest_date ? (
               <ScanMetaItem
@@ -398,7 +398,7 @@ const WrongFlowScanResult: React.FC<{
             <GateCompactRow label="Batch" value={batchData.batch_number || "—"} />
             <GateCompactRow label="Product" value={batchData.product_name || "—"} />
             <GateCompactRow label="Qty" value={formatQuantity(batchData.quantity)} />
-            <GateCompactRow label="Expiry" value={formatDate(batchData.expiry_date)} />
+            <GateCompactRow label="Expiry" value={formatDateByFormat(batchData.expiry_date, batchData.date_format)} />
             <GateCompactRow label="Track" value={trackLine} />
           </>
         ) : (
@@ -407,7 +407,7 @@ const WrongFlowScanResult: React.FC<{
             <GateCompactRow label="Material" value={batchData.material_name || "—"} />
             <GateCompactRow label="Code" value={batchData.material_code || "—"} />
             <GateCompactRow label="Prod. no." value={batchData.grn_number || "—"} />
-            <GateCompactRow label="Expiry" value={formatDate(batchData.expiry_date)} />
+            <GateCompactRow label="Expiry" value={formatDateByFormat(batchData.expiry_date, batchData.date_format)} />
           </>
         )}
 
@@ -432,6 +432,7 @@ export const QCScanScreen: React.FC = () => {
   const [scanned, setScanned] = useState(false);
   const [batchData, setBatchData] = useState<any>(null);
   const [loading, setLoading] = useState(false);
+  const [errorModal, setErrorModal] = useState<{ title: string; message: string } | null>(null);
   const { user } = useAuthStore();
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
@@ -466,15 +467,7 @@ export const QCScanScreen: React.FC = () => {
         }
       }
     } catch (error) {
-      Alert.alert("Scan Error", extractError(error), [
-        {
-          text: "Try Again",
-          onPress: () => {
-            setScanned(false);
-            setBatchData(null);
-          },
-        },
-      ]);
+      setErrorModal({ title: "Scan Error", message: extractError(error) });
     } finally {
       setLoading(false);
     }
@@ -660,11 +653,11 @@ export const QCScanScreen: React.FC = () => {
                   value={formatQuantity(batchData.quantity)}
                 />
                 <View style={scanCardStyles.detailDivider} />
-                <DetailRow label="Expiry" value={formatDate(batchData.expiry_date)} />
+                <DetailRow label="Expiry" value={formatDateByFormat(batchData.expiry_date, batchData.date_format)} />
                 <View style={scanCardStyles.detailDivider} />
                 <DetailRow
                   label="Mfg date"
-                  value={formatDate(batchData.manufacture_date)}
+                  value={formatDateByFormat(batchData.manufacture_date, batchData.date_format)}
                 />
               </>
             ) : (
@@ -693,7 +686,7 @@ export const QCScanScreen: React.FC = () => {
                 <View style={scanCardStyles.detailDivider} />
                 <DetailRow
                   label="Date of receipt"
-                  value={formatDate(batchData.date_of_receipt)}
+                  value={formatDateByFormat(batchData.date_of_receipt, batchData.date_format)}
                 />
                 <View style={scanCardStyles.detailDivider} />
                 <DetailRow label="Pack type" value={batchData.pack_type || "—"} />
@@ -718,10 +711,10 @@ export const QCScanScreen: React.FC = () => {
                 <View style={scanCardStyles.detailDivider} />
                 <DetailRow
                   label="Mfg date"
-                  value={formatDate(batchData.manufacture_date)}
+                  value={formatDateByFormat(batchData.manufacture_date, batchData.date_format)}
                 />
                 <View style={scanCardStyles.detailDivider} />
-                <DetailRow label="Expiry" value={formatDate(batchData.expiry_date)} />
+                <DetailRow label="Expiry" value={formatDateByFormat(batchData.expiry_date, batchData.date_format)} />
                 <View style={scanCardStyles.detailDivider} />
                 <DetailRow
                   label="Total received"
@@ -790,6 +783,13 @@ export const QCScanScreen: React.FC = () => {
           )}
         </ScrollView>
       )}
+      <OperationResultModal
+        visible={!!errorModal}
+        variant="danger"
+        title={errorModal?.title ?? ""}
+        message={errorModal?.message ?? ""}
+        onDismiss={() => { setErrorModal(null); setScanned(false); setBatchData(null); }}
+      />
     </SafeAreaView>
   );
 };

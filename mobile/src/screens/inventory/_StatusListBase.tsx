@@ -13,7 +13,7 @@ import { useNavigation } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 import { inventoryApi } from "../../api/inventory";
 import { SearchInput } from "../../components/common/SearchInput";
-import { formatDate } from "../../utils/formatters";
+import { formatDateByFormat } from "../../utils/formatters";
 import {
   Colors,
   FontSize,
@@ -137,7 +137,7 @@ export const StatusListBase: React.FC<Props> = ({
                   color={Colors.textMuted}
                 />
                 <Text style={styles.metaText} numberOfLines={1}>
-                  {formatDate(item.expiry_date)}
+                  {formatDateByFormat(item.expiry_date, item.date_format)}
                 </Text>
               </View>
             ) : null}
@@ -149,6 +149,18 @@ export const StatusListBase: React.FC<Props> = ({
               />
               <Text style={styles.metaText} numberOfLines={1}>{item.batch_number}</Text>
             </View>
+            {item.po_number ? (
+              <View style={styles.metaItem}>
+                <Ionicons name="receipt-outline" size={13} color={Colors.textMuted} />
+                <Text style={styles.metaText} numberOfLines={1}>{item.po_number}</Text>
+              </View>
+            ) : null}
+            {item.invoice_number ? (
+              <View style={styles.metaItem}>
+                <Ionicons name="document-outline" size={13} color={Colors.textMuted} />
+                <Text style={styles.metaText} numberOfLines={1}>{item.invoice_number}</Text>
+              </View>
+            ) : null}
           </View>
         </View>
         <Ionicons

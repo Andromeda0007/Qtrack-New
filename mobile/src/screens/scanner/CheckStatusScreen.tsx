@@ -3,7 +3,6 @@ import {
   View,
   Text,
   StyleSheet,
-  Alert,
   ScrollView,
   Dimensions,
   ActivityIndicator,
@@ -20,6 +19,7 @@ import { inventoryApi } from "../../api/inventory";
 import { useAuthStore } from "../../store/authStore";
 import { Button } from "../../components/common/Button";
 import { StatusBadge } from "../../components/common/StatusBadge";
+import { OperationResultModal } from "../../components/common/OperationResultModal";
 import {
   Colors,
   FontSize,
@@ -29,7 +29,7 @@ import {
   BatchStatusColors,
   FGStatusColors,
 } from "../../utils/theme";
-import { formatDate, formatQuantity } from "../../utils/formatters";
+import { formatDate, formatDateByFormat, formatQuantity } from "../../utils/formatters";
 import { extractError } from "../../api/client";
 
 const OVERLAY = "rgba(0,0,0,0.62)";
@@ -142,6 +142,7 @@ export const CheckStatusScreen: React.FC = () => {
   const [data, setData] = useState<any>(null);
   const [wrongKind, setWrongKind] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [errorModal, setErrorModal] = useState<{ title: string; message: string } | null>(null);
   const insets = useSafeAreaInsets();
 
   const scanSize = useMemo(() => {
@@ -176,15 +177,7 @@ export const CheckStatusScreen: React.FC = () => {
         }
       }
     } catch (e) {
-      Alert.alert("Could not read QR", extractError(e), [
-        {
-          text: "Try again",
-          onPress: () => {
-            setScanned(false);
-            setData(null);
-          },
-        },
-      ]);
+      setErrorModal({ title: "Could not read QR", message: extractError(e) });
     } finally {
       setLoading(false);
     }
@@ -380,13 +373,13 @@ export const CheckStatusScreen: React.FC = () => {
                 <GlanceChip
                   icon="calendar-outline"
                   label="Expiry"
-                  sub={formatDate(data.expiry_date)}
+                  sub={formatDateByFormat(data.expiry_date, data.date_format)}
                   tint={Colors.danger}
                 />
                 <GlanceChip
                   icon="construct-outline"
                   label="Mfg"
-                  sub={formatDate(data.manufacture_date)}
+                  sub={formatDateByFormat(data.manufacture_date, data.date_format)}
                   tint={Colors.info}
                 />
               </>
@@ -405,7 +398,7 @@ export const CheckStatusScreen: React.FC = () => {
                 <GlanceChip
                   icon="calendar-outline"
                   label="Expiry"
-                  sub={formatDate(data.expiry_date)}
+                  sub={formatDateByFormat(data.expiry_date, data.date_format)}
                   tint={Colors.danger}
                 />
                 <GlanceChip
@@ -481,6 +474,13 @@ export const CheckStatusScreen: React.FC = () => {
           />
         </ScrollView>
       )}
+      <OperationResultModal
+        visible={!!errorModal}
+        variant="danger"
+        title={errorModal?.title ?? ""}
+        message={errorModal?.message ?? ""}
+        onDismiss={() => { setErrorModal(null); setScanned(false); }}
+      />
     </SafeAreaView>
   );
 };

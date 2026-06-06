@@ -11,7 +11,7 @@ import { SearchInput } from '../../components/common/SearchInput';
 import { Card } from '../../components/common/Card';
 import { StatusBadge } from '../../components/common/StatusBadge';
 import { Colors, FontSize, Spacing } from '../../utils/theme';
-import { formatDate, formatQuantity } from '../../utils/formatters';
+import { formatDate, formatDateByFormat, formatQuantity } from '../../utils/formatters';
 import { Batch } from '../../types';
 
 const STATUS_FILTERS = [
@@ -73,7 +73,7 @@ export const BatchListScreen: React.FC = () => {
         <Text style={styles.materialName}>{item.material_name || '—'}</Text>
         <View style={styles.batchMeta}>
           <MetaItem icon="layers" label={`${formatQuantity(item.remaining_quantity)} / ${formatQuantity(item.total_quantity)}`} />
-          <MetaItem icon="calendar" label={formatDate(item.expiry_date)} />
+          <MetaItem icon="calendar" label={formatDateByFormat(item.expiry_date, item.date_format)} />
           {item.retest_date && <MetaItem icon="refresh" label={formatDate(item.retest_date)} color={Colors.warning} />}
         </View>
         {item.grn_number && <Text style={styles.grnText}>Product: {item.grn_number}</Text>}

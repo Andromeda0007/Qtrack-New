@@ -70,6 +70,18 @@ export interface Batch {
   ar_number?: string | null;
   labels_printed?: boolean;
   qr_base64?: string | null;
+  po_number?: string | null;
+  po_date?: string | null;
+  invoice_number?: string | null;
+  invoice_date?: string | null;
+  date_format?: string | null;
+  remarks?: string | null;
+  issued_to_production?: boolean;
+  issued_at?: string | null;
+  retesting_number?: string | null;
+  original_batch_id?: number | null;
+  manufacturer_name?: string | null;
+  date_of_receipt?: string | null;
 }
 
 export interface StockMovement {

@@ -5,7 +5,6 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Alert,
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
@@ -29,11 +28,14 @@ export const RejectBatchScreen: React.FC = () => {
   const [remarks, setRemarks] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [flowDone, setFlowDone] = useState<{ title: string; message: string } | null>(null);
+  const [errorModal, setErrorModal] = useState<{ title: string; message: string } | null>(null);
+
+  const showError = (title: string, message: string) => setErrorModal({ title, message });
 
   const submit = async () => {
     const r = remarks.trim();
     if (!r) {
-      Alert.alert('Required', 'Enter rejection remarks.');
+      showError('Required', 'Enter rejection remarks.');
       return;
     }
     setSubmitting(true);
@@ -44,7 +46,7 @@ export const RejectBatchScreen: React.FC = () => {
         message: 'The batch has been rejected. You can continue from Home.',
       });
     } catch (e) {
-      Alert.alert('Error', extractError(e));
+      showError('Error', extractError(e));
     } finally {
       setSubmitting(false);
     }
@@ -90,6 +92,13 @@ export const RejectBatchScreen: React.FC = () => {
           setFlowDone(null);
           resetToDashboardHome(navigation);
         }}
+      />
+      <OperationResultModal
+        visible={!!errorModal}
+        variant="danger"
+        title={errorModal?.title ?? ''}
+        message={errorModal?.message ?? ''}
+        onDismiss={() => setErrorModal(null)}
       />
     </SafeAreaView>
   );

@@ -5,7 +5,6 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Alert,
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
@@ -33,13 +32,16 @@ export const InspectFGScreen: React.FC = () => {
   const [remarks, setRemarks] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [flowDone, setFlowDone] = useState<{ title: string; message: string } | null>(null);
+  const [errorModal, setErrorModal] = useState<{ title: string; message: string } | null>(null);
+
+  const showError = (title: string, message: string) => setErrorModal({ title, message });
 
   const submit = async () => {
     let qty: number | undefined;
     if (quantityVerified.trim()) {
       const n = parseFloat(quantityVerified.replace(",", "."));
       if (Number.isNaN(n)) {
-        Alert.alert("Invalid", "Enter a valid quantity or leave it blank.");
+        showError("Invalid", "Enter a valid quantity or leave it blank.");
         return;
       }
       qty = n;
@@ -52,7 +54,7 @@ export const InspectFGScreen: React.FC = () => {
         message: "QA inspection has been saved. You can continue from Home.",
       });
     } catch (e) {
-      Alert.alert("Error", extractError(e));
+      showError("Error", extractError(e));
     } finally {
       setSubmitting(false);
     }
@@ -113,6 +115,13 @@ export const InspectFGScreen: React.FC = () => {
           setFlowDone(null);
           resetToDashboardHome(navigation);
         }}
+      />
+      <OperationResultModal
+        visible={!!errorModal}
+        variant="danger"
+        title={errorModal?.title ?? ""}
+        message={errorModal?.message ?? ""}
+        onDismiss={() => setErrorModal(null)}
       />
     </SafeAreaView>
   );

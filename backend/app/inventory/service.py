@@ -211,9 +211,15 @@ async def create_product(db: AsyncSession, data: dict, created_by: User) -> dict
         remaining_quantity=total_q,
         status=BatchStatus.QUARANTINE,
         location_id=quarantine.id if quarantine else None,
-        rack_number=None,  # rack is assigned post-approval, not at GRN time
+        rack_number=None,
         retesting_number=retesting_number,
         original_batch_id=original_batch_id,
+        po_number=data.get("po_number"),
+        po_date=data.get("po_date"),
+        invoice_number=data.get("invoice_number"),
+        invoice_date=data.get("invoice_date"),
+        date_format=data.get("date_format") or "DD-MM-YYYY",
+        remarks=data.get("remarks"),
         created_by=created_by.id,
     )
     db.add(batch)

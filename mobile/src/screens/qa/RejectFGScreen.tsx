@@ -5,7 +5,6 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Alert,
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
@@ -32,11 +31,14 @@ export const RejectFGScreen: React.FC = () => {
   const [remarks, setRemarks] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [flowDone, setFlowDone] = useState<{ title: string; message: string } | null>(null);
+  const [errorModal, setErrorModal] = useState<{ title: string; message: string } | null>(null);
+
+  const showError = (title: string, message: string) => setErrorModal({ title, message });
 
   const submit = async () => {
     const r = remarks.trim();
     if (!r) {
-      Alert.alert("Required", "Enter a reason for rejection.");
+      showError("Required", "Enter a reason for rejection.");
       return;
     }
     setSubmitting(true);
@@ -47,7 +49,7 @@ export const RejectFGScreen: React.FC = () => {
         message: "Finished goods batch rejected. You can continue from Home.",
       });
     } catch (e) {
-      Alert.alert("Error", extractError(e));
+      showError("Error", extractError(e));
     } finally {
       setSubmitting(false);
     }
@@ -102,6 +104,13 @@ export const RejectFGScreen: React.FC = () => {
           setFlowDone(null);
           resetToDashboardHome(navigation);
         }}
+      />
+      <OperationResultModal
+        visible={!!errorModal}
+        variant="danger"
+        title={errorModal?.title ?? ""}
+        message={errorModal?.message ?? ""}
+        onDismiss={() => setErrorModal(null)}
       />
     </SafeAreaView>
   );

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -7,6 +7,7 @@ import * as Sharing from 'expo-sharing';
 import * as FileSystem from 'expo-file-system/legacy';
 import { Platform } from 'react-native';
 import { inventoryApi } from '../../api/inventory';
+import { OperationResultModal } from '../../components/common/OperationResultModal';
 import { Colors, FontSize, Spacing, BorderRadius, Shadow } from '../../utils/theme';
 
 export const PrintLabelsScreen: React.FC = () => {
@@ -22,6 +23,7 @@ export const PrintLabelsScreen: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [infoModal, setInfoModal] = useState<{ variant: 'success' | 'danger'; title: string; message: string } | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -45,14 +47,14 @@ export const PrintLabelsScreen: React.FC = () => {
         const dest = `${FileSystem.documentDirectory}container-labels-${batchId}.pdf`;
         await FileSystem.copyAsync({ from: uri, to: dest });
         await inventoryApi.markLabelsPrinted(batchId);
-        Alert.alert('Saved', 'PDF saved to your Files app.');
+        setInfoModal({ variant: 'success', title: 'Saved', message: 'PDF saved to your Files app.' });
       } else {
         // Android: documentDirectory is internal — use share sheet so user can save to Downloads/Drive
         await Sharing.shareAsync(uri, { mimeType: 'application/pdf' });
         await inventoryApi.markLabelsPrinted(batchId);
       }
     } catch (e: any) {
-      Alert.alert('Error', e?.message || 'Unable to save PDF.');
+      setInfoModal({ variant: 'danger', title: 'Error', message: e?.message || 'Unable to save PDF.' });
     } finally {
       setBusy(false);
     }
@@ -65,7 +67,7 @@ export const PrintLabelsScreen: React.FC = () => {
       await Sharing.shareAsync(uri, { mimeType: 'application/pdf', ...(Platform.OS === 'ios' && { UTI: 'com.adobe.pdf' }) });
       await inventoryApi.markLabelsPrinted(batchId);
     } catch (e: any) {
-      Alert.alert('Error', e?.message || 'Unable to open share sheet.');
+      setInfoModal({ variant: 'danger', title: 'Error', message: e?.message || 'Unable to open share sheet.' });
     } finally {
       setBusy(false);
     }
@@ -127,6 +129,13 @@ export const PrintLabelsScreen: React.FC = () => {
           <Text style={{ fontWeight: '700' }}>Print</Text> in the menu → full printer settings (printer, copies, pages).
         </Text>
       </View>
+      <OperationResultModal
+        visible={!!infoModal}
+        variant={infoModal?.variant ?? 'success'}
+        title={infoModal?.title ?? ''}
+        message={infoModal?.message ?? ''}
+        onDismiss={() => setInfoModal(null)}
+      />
     </SafeAreaView>
   );
 };

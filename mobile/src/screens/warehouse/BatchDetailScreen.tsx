@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView,
-  TouchableOpacity, ActivityIndicator, Image, Modal, Alert, Platform,
+  TouchableOpacity, ActivityIndicator, Image, Platform,
 } from 'react-native';
 import * as Sharing from 'expo-sharing';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -11,7 +11,9 @@ import { inventoryApi } from '../../api/inventory';
 import { useAuthStore } from '../../store/authStore';
 import { BASE_URL } from '../../api/client';
 import { Colors, FontSize, Spacing, BorderRadius, Shadow } from '../../utils/theme';
-import { formatDate } from '../../utils/formatters';
+import { formatDateByFormat } from '../../utils/formatters';
+import { ConfirmModal } from '../../components/common/ConfirmModal';
+import { OperationResultModal } from '../../components/common/OperationResultModal';
 
 const HISTORY_CONFIG: Record<string, { label: string; byLabel: string; atLabel: string; dot: string }> = {
   QUARANTINE:           { label: 'Quarantine',           byLabel: 'Created by',  atLabel: 'Created at',  dot: '#fd7e14' },
@@ -75,8 +77,13 @@ export const BatchDetailScreen: React.FC = () => {
   const [transferLoading, setTransferLoading] = useState(false);
   const [showTransferTip, setShowTransferTip] = useState(false);
   const [showTransferModal, setShowTransferModal] = useState(false);
+  const [showIssueModal, setShowIssueModal] = useState(false);
+  const [issueLoading, setIssueLoading] = useState(false);
+  const [errorModal, setErrorModal] = useState<{ title: string; message: string } | null>(null);
 
   const role = user?.role || '';
+
+  const showError = (title: string, message: string) => setErrorModal({ title, message });
 
   const isRetest = (() => {
     if (!batch || batch.status !== 'APPROVED' || !batch.retest_date) return false;
@@ -87,7 +94,30 @@ export const BatchDetailScreen: React.FC = () => {
   const canTransferToQuarantine =
     isRetest && (role === 'WAREHOUSE_USER' || role === 'WAREHOUSE_HEAD');
 
+  const canIssueToProduction =
+    batch?.status === 'APPROVED' &&
+    !batch?.issued_to_production &&
+    (role === 'WAREHOUSE_USER' || role === 'WAREHOUSE_HEAD');
+
   const handleTransferToQuarantine = () => setShowTransferModal(true);
+
+  const confirmIssueToProduction = async () => {
+    setShowIssueModal(false);
+    setIssueLoading(true);
+    try {
+      await inventoryApi.issueToProduction(batchId);
+      const [data, hist] = await Promise.all([
+        inventoryApi.getBatchById(batchId),
+        inventoryApi.getBatchHistory(batchId).catch(() => []),
+      ]);
+      setBatch(data);
+      setHistory(hist);
+    } catch (e: any) {
+      showError('Error', e?.response?.data?.detail || 'Could not issue batch to production.');
+    } finally {
+      setIssueLoading(false);
+    }
+  };
 
   const confirmTransfer = async () => {
     setShowTransferModal(false);
@@ -96,7 +126,7 @@ export const BatchDetailScreen: React.FC = () => {
       const prefill = await inventoryApi.getRetestPrefill(batchId);
       navigation.navigate('CreateCard', { prefill, originalBatchId: batchId });
     } catch (e: any) {
-      Alert.alert('Error', e?.response?.data?.detail || 'Could not load batch details.');
+      showError('Error', e?.response?.data?.detail || 'Could not load batch details.');
     } finally {
       setTransferLoading(false);
     }
@@ -153,12 +183,12 @@ export const BatchDetailScreen: React.FC = () => {
       const uri = await inventoryApi.downloadContainerLabelsPdf(batch.id);
       const available = await Sharing.isAvailableAsync();
       if (!available) {
-        Alert.alert('Unavailable', 'PDF viewer is not available on this device.');
+        showError('Unavailable', 'PDF viewer is not available on this device.');
         return;
       }
       await Sharing.shareAsync(uri, { mimeType: 'application/pdf', ...(Platform.OS === 'ios' && { UTI: 'com.adobe.pdf' }) });
     } catch (e: any) {
-      Alert.alert('Error', e?.message || 'Could not open PDF.');
+      showError('Error', e?.message || 'Could not open PDF.');
     } finally {
       setPdfLoading(false);
     }
@@ -260,6 +290,23 @@ export const BatchDetailScreen: React.FC = () => {
                 <Text style={styles.transferBtnText}>Transfer to Quarantine</Text>
               </TouchableOpacity>
             </View>
+          )}
+
+          {/* Issue to Production — shown for WH User/Head on APPROVED batches not yet issued */}
+          {canIssueToProduction && (
+            <TouchableOpacity
+              style={styles.issueBtn}
+              onPress={() => setShowIssueModal(true)}
+              disabled={issueLoading}
+              activeOpacity={0.75}
+            >
+              {issueLoading ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <Ionicons name="arrow-forward-circle-outline" size={18} color="#fff" />
+              )}
+              <Text style={styles.issueBtnText}>Issue to Production</Text>
+            </TouchableOpacity>
           )}
 
           {/* QR Code */}
@@ -371,18 +418,52 @@ export const BatchDetailScreen: React.FC = () => {
           {/* Dates */}
           <SectionTitle title="Dates" />
           <View style={styles.card}>
-            <Row label="Date of Receipt" value={formatDate(batch.date_of_receipt)} />
+            <Row label="Date of Receipt" value={formatDateByFormat(batch.date_of_receipt, batch.date_format)} />
             <Divider />
-            <Row label="Mfg. Date" value={formatDate(batch.manufacture_date)} />
+            <Row label="Mfg. Date" value={formatDateByFormat(batch.manufacture_date, batch.date_format)} />
             <Divider />
-            <Row label="Exp. Date" value={formatDate(batch.expiry_date)} />
+            <Row label="Exp. Date" value={formatDateByFormat(batch.expiry_date, batch.date_format)} />
             {batch.retest_date ? (
               <>
                 <Divider />
-                <Row label="Retest Date" value={formatDate(batch.retest_date)} />
+                <Row label="Retest Date" value={formatDateByFormat(batch.retest_date, batch.date_format)} />
               </>
             ) : null}
           </View>
+
+          {/* Purchase Order — hidden if both null */}
+          {(batch.po_number || batch.po_date) ? (
+            <>
+              <SectionTitle title="Purchase Order" />
+              <View style={styles.card}>
+                {batch.po_number ? <Row label="PO Number" value={batch.po_number} /> : null}
+                {batch.po_number && batch.po_date ? <Divider /> : null}
+                {batch.po_date ? <Row label="PO Date" value={formatDateByFormat(batch.po_date, batch.date_format)} /> : null}
+              </View>
+            </>
+          ) : null}
+
+          {/* Invoice — hidden if both null */}
+          {(batch.invoice_number || batch.invoice_date) ? (
+            <>
+              <SectionTitle title="Invoice" />
+              <View style={styles.card}>
+                {batch.invoice_number ? <Row label="Invoice Number" value={batch.invoice_number} /> : null}
+                {batch.invoice_number && batch.invoice_date ? <Divider /> : null}
+                {batch.invoice_date ? <Row label="Invoice Date" value={formatDateByFormat(batch.invoice_date, batch.date_format)} /> : null}
+              </View>
+            </>
+          ) : null}
+
+          {/* Remarks — hidden if empty */}
+          {batch.remarks ? (
+            <>
+              <SectionTitle title="Remarks" />
+              <View style={styles.card}>
+                <Text style={styles.remarksText}>{batch.remarks}</Text>
+              </View>
+            </>
+          ) : null}
 
           {/* QC Info (if tested) */}
           {batch.ar_number ? (
@@ -496,37 +577,33 @@ export const BatchDetailScreen: React.FC = () => {
         </ScrollView>
       )}
 
-      {/* Transfer to Quarantine confirmation modal */}
-      <Modal visible={showTransferModal} transparent animationType="fade">
-        <View style={styles.transferModalOverlay}>
-          <View style={styles.transferModalCard}>
-            <View style={styles.transferModalIconWrap}>
-              <Ionicons name="swap-horizontal-outline" size={30} color="#856404" />
-            </View>
-            <Text style={styles.transferModalTitle}>Transfer to Quarantine</Text>
-            <Text style={styles.transferModalBody}>
-              This batch is due for retest. Transferring it to Quarantine will start a fresh QC cycle.
-            </Text>
-            <View style={styles.transferModalActions}>
-              <TouchableOpacity
-                style={styles.transferModalCancel}
-                onPress={() => setShowTransferModal(false)}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.transferModalCancelText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.transferModalConfirm}
-                onPress={confirmTransfer}
-                activeOpacity={0.8}
-              >
-                <Ionicons name="swap-horizontal-outline" size={16} color="#856404" />
-                <Text style={styles.transferModalConfirmText}>Transfer</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
+      <ConfirmModal
+        visible={showTransferModal}
+        variant="warning"
+        title="Transfer to Quarantine"
+        message="This batch is due for retest. Transferring it to Quarantine will start a fresh QC cycle."
+        confirmLabel="Transfer"
+        onConfirm={confirmTransfer}
+        onCancel={() => setShowTransferModal(false)}
+      />
+
+      <ConfirmModal
+        visible={showIssueModal}
+        variant="info"
+        title="Issue to Production"
+        message="Mark this batch as issued to production? This action cannot be undone."
+        confirmLabel="Issue"
+        onConfirm={confirmIssueToProduction}
+        onCancel={() => setShowIssueModal(false)}
+      />
+
+      <OperationResultModal
+        visible={!!errorModal}
+        variant="danger"
+        title={errorModal?.title ?? ''}
+        message={errorModal?.message ?? ''}
+        onDismiss={() => setErrorModal(null)}
+      />
 
     </SafeAreaView>
   );
@@ -666,47 +743,18 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
   },
   transferTipText: { color: '#fff', fontSize: FontSize.xs, textAlign: 'center' },
-  transferModalOverlay: {
-    flex: 1, backgroundColor: 'rgba(0,0,0,0.6)',
-    justifyContent: 'center', alignItems: 'center', padding: 32,
+
+  issueBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10,
+    backgroundColor: Colors.primary, borderRadius: BorderRadius.lg,
+    paddingVertical: 14, marginTop: 12, marginBottom: 4,
+    shadowColor: Colors.primary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 6,
   },
-  transferModalCard: {
-    backgroundColor: '#fff', borderRadius: 20, padding: 28, width: '100%',
-    alignItems: 'center',
-    shadowColor: '#000', shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.25, shadowRadius: 24, elevation: 16,
+  issueBtnText: { color: '#fff', fontWeight: '800', fontSize: FontSize.sm },
+
+  remarksText: {
+    fontSize: FontSize.sm, color: Colors.textPrimary, lineHeight: 22,
   },
-  transferModalIconWrap: {
-    width: 64, height: 64, borderRadius: 32,
-    backgroundColor: '#FFF3CD', justifyContent: 'center', alignItems: 'center',
-    marginBottom: 16,
-    shadowColor: '#ffc107', shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3, shadowRadius: 8, elevation: 4,
-  },
-  transferModalTitle: {
-    fontSize: FontSize.lg, fontWeight: '800', color: Colors.textPrimary,
-    marginBottom: 10, textAlign: 'center',
-  },
-  transferModalBody: {
-    fontSize: FontSize.sm, color: Colors.textMuted, textAlign: 'center',
-    lineHeight: 22, marginBottom: 28,
-  },
-  transferModalActions: {
-    flexDirection: 'row', gap: 12, width: '100%',
-  },
-  transferModalCancel: {
-    flex: 1, paddingVertical: 13, borderRadius: 12,
-    borderWidth: 1.5, borderColor: Colors.border, alignItems: 'center',
-  },
-  transferModalCancelText: { color: Colors.textMuted, fontWeight: '700', fontSize: FontSize.sm },
-  transferModalConfirm: {
-    flex: 1.5, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    gap: 8, paddingVertical: 13, borderRadius: 12,
-    backgroundColor: '#FFF3CD',
-    shadowColor: '#856404', shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.2, shadowRadius: 8, elevation: 5,
-  },
-  transferModalConfirmText: { color: '#856404', fontWeight: '800', fontSize: FontSize.sm },
 
   actionsRow: { flexDirection: 'row', gap: 12, marginBottom: 4 },
   actionBtn: {

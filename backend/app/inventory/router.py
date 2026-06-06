@@ -254,6 +254,14 @@ async def get_batch(
         "original_batch_id": getattr(batch, "original_batch_id", None),
         "original_batch_number": None,
         "original_grn_number": None,
+        "po_number": getattr(batch, "po_number", None),
+        "po_date": getattr(batch, "po_date", None),
+        "invoice_number": getattr(batch, "invoice_number", None),
+        "invoice_date": getattr(batch, "invoice_date", None),
+        "date_format": getattr(batch, "date_format", "DD-MM-YYYY") or "DD-MM-YYYY",
+        "remarks": getattr(batch, "remarks", None),
+        "issued_to_production": getattr(batch, "issued_to_production", False),
+        "issued_at": getattr(batch, "issued_at", None),
     }
 
     orig_id = getattr(batch, "original_batch_id", None)
@@ -270,6 +278,55 @@ async def get_batch(
             response["original_grn_number"] = orig.grn.grn_number if orig.grn else None  # type: ignore[union-attr]
 
     return response
+
+
+@router.post("/batches/{batch_id}/issue-to-production")
+async def issue_to_production(
+    batch_id: int,
+    current_user: User = Depends(require_permission("VIEW_STOCK")),
+    db: AsyncSession = Depends(get_db),
+):
+    from datetime import datetime as dt
+    from sqlalchemy import select
+    from app.models.inventory_models import Batch as BatchModel, BatchStatus, BatchStatusHistory
+
+    result = await db.execute(select(BatchModel).where(BatchModel.id == batch_id))
+    batch = result.scalar_one_or_none()
+    if not batch:
+        raise HTTPException(status_code=404, detail="Batch not found")
+    if batch.status != BatchStatus.APPROVED:
+        raise HTTPException(status_code=400, detail=f"Batch must be APPROVED to issue to production (current: {batch.status})")
+    if batch.issued_to_production:
+        raise HTTPException(status_code=400, detail="Batch has already been issued to production")
+
+    now = dt.utcnow()
+    batch.issued_to_production = True
+    batch.issued_at = now
+
+    db.add(BatchStatusHistory(
+        batch_id=batch.id,
+        old_status=BatchStatus.APPROVED,
+        new_status=BatchStatus.ISSUED_TO_PRODUCTION,
+        changed_by=current_user.id,
+        remarks="Issued to Production",
+    ))
+
+    try:
+        from app.notifications.service import notify_all_active_users
+        _ts = now.strftime("%d %b %Y, %I:%M %p UTC")
+        await notify_all_active_users(
+            db,
+            "Batch issued to production",
+            f"{batch.batch_number} — Issued to Production. By {current_user.username} on {_ts}.",
+            entity_type="batch",
+            entity_id=batch.id,
+        )
+    except Exception as e:
+        logger.warning("Issue-to-production notification failed: %s", e)
+
+    await db.commit()
+    await db.refresh(batch)
+    return {"success": True, "issued_to_production": True, "issued_at": batch.issued_at}
 
 
 @router.get("/batches/{batch_id}/history")

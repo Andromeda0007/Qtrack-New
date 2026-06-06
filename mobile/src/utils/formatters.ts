@@ -123,6 +123,88 @@ export const formatTimeOrDateIST = (iso: string | null | undefined): string => {
   return `${ist.getUTCDate()} ${MONTHS[ist.getUTCMonth()]}`;
 };
 
+export type DateFormat = 'DD-MM-YYYY' | 'YYYY-MM-DD' | 'MM-YYYY';
+
+/**
+ * Format a stored ISO date (YYYY-MM-DD) according to the batch's chosen date_format.
+ * Falls back to DD-MM-YYYY for null/undefined format.
+ */
+export const formatDateByFormat = (
+  date: string | null | undefined,
+  format: string | null | undefined,
+): string => {
+  if (!date) return '—';
+  const s = String(date).trim();
+  if (!s) return '—';
+
+  // Normalize to YYYY-MM-DD first
+  let iso = s;
+  if (/^\d{2}-\d{2}-\d{4}$/.test(s)) {
+    const m = /^(\d{2})-(\d{2})-(\d{4})$/.exec(s);
+    if (m) iso = `${m[3]}-${m[2]}-${m[1]}`;
+  }
+  // If it's an ISO datetime, extract the date part
+  if (iso.length > 10) iso = iso.substring(0, 10);
+
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
+  if (!m) return s;
+
+  const [, yyyy, mm, dd] = m;
+
+  switch (format) {
+    case 'YYYY-MM-DD':
+      return `${yyyy}-${mm}-${dd}`;
+    case 'MM-YYYY':
+      return `${mm}-${yyyy}`;
+    default:
+      return `${dd}-${mm}-${yyyy}`;
+  }
+};
+
+/**
+ * Parse user text input into ISO YYYY-MM-DD for API submission, based on chosen format.
+ * Returns null if input is empty or invalid.
+ */
+export const parseDateByFormat = (input: string, format: DateFormat): string | null => {
+  const t = input.trim();
+  if (!t) return null;
+
+  if (format === 'DD-MM-YYYY') {
+    return parseDMYToISO(t);
+  }
+
+  if (format === 'YYYY-MM-DD') {
+    if (/^\d{4}-\d{2}-\d{2}$/.test(t)) {
+      const [yyyy, mm, dd] = t.split('-').map(Number);
+      if (mm < 1 || mm > 12 || dd < 1 || dd > 31 || yyyy < 1900 || yyyy > 2100) return null;
+      return t;
+    }
+    return null;
+  }
+
+  if (format === 'MM-YYYY') {
+    const mmy = /^(\d{1,2})[-/](\d{4})$/.exec(t);
+    if (!mmy) return null;
+    const mm = parseInt(mmy[1], 10);
+    const yyyy = parseInt(mmy[2], 10);
+    if (mm < 1 || mm > 12 || yyyy < 1900 || yyyy > 2100) return null;
+    return `${yyyy}-${pad2(mm)}-01`;
+  }
+
+  return null;
+};
+
+/**
+ * Returns a placeholder hint string for the chosen date format.
+ */
+export const datePlaceholder = (format: DateFormat): string => {
+  switch (format) {
+    case 'YYYY-MM-DD': return 'YYYY-MM-DD';
+    case 'MM-YYYY':    return 'MM-YYYY';
+    default:           return 'DD-MM-YYYY';
+  }
+};
+
 export const formatQuantity = (qty: string | number | null | undefined, unit = ''): string => {
   if (qty === null || qty === undefined) return '—';
   const num = parseFloat(String(qty));

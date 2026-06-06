@@ -5,7 +5,6 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Alert,
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
@@ -32,6 +31,7 @@ export const ApproveFGScreen: React.FC = () => {
   const [remarks, setRemarks] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [flowDone, setFlowDone] = useState<{ title: string; message: string } | null>(null);
+  const [errorModal, setErrorModal] = useState<{ title: string; message: string } | null>(null);
 
   const submit = async () => {
     setSubmitting(true);
@@ -42,7 +42,7 @@ export const ApproveFGScreen: React.FC = () => {
         message: "Finished goods batch approved. You can continue from Home.",
       });
     } catch (e) {
-      Alert.alert("Error", extractError(e));
+      setErrorModal({ title: "Error", message: extractError(e) });
     } finally {
       setSubmitting(false);
     }
@@ -93,6 +93,13 @@ export const ApproveFGScreen: React.FC = () => {
           setFlowDone(null);
           resetToDashboardHome(navigation);
         }}
+      />
+      <OperationResultModal
+        visible={!!errorModal}
+        variant="danger"
+        title={errorModal?.title ?? ""}
+        message={errorModal?.message ?? ""}
+        onDismiss={() => setErrorModal(null)}
       />
     </SafeAreaView>
   );
