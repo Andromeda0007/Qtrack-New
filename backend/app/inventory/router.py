@@ -161,6 +161,7 @@ async def get_expiring_soon_batches(
         .options(
             selectinload(Batch.material),
             selectinload(Batch.grn),
+            selectinload(Batch.supplier),
         )
         .where(
             and_(
