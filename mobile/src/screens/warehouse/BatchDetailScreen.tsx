@@ -22,6 +22,7 @@ const HISTORY_CONFIG: Record<string, { label: string; byLabel: string; atLabel: 
   REJECTED:             { label: 'Rejected',             byLabel: 'Rejected by', atLabel: 'Rejected at', dot: '#dc3545' },
   QUARANTINE_RETEST:    { label: 'Quarantine',           byLabel: 'Created by',  atLabel: 'Created at',  dot: '#fd7e14' },
   ISSUED_TO_PRODUCTION: { label: 'Issued to Production', byLabel: 'Issued by',   atLabel: 'Issued at',   dot: '#1e3a5f' },
+  RETEST_DUE:           { label: 'Retest Due',           byLabel: 'Scheduled by', atLabel: 'Due on',     dot: '#e67e22' },
 };
 
 const toImageUrl = (path: string | null | undefined): string => {
@@ -497,12 +498,27 @@ export const BatchDetailScreen: React.FC = () => {
             <>
               <SectionTitle title="History" />
               <View style={styles.timeline}>
-                {history.map((h, idx) => {
+                {(() => {
+                  const displayHistory = [...history];
+                  if (batch?.retest_date) {
+                    const days = Math.ceil(
+                      (new Date(batch.retest_date).getTime() - Date.now()) / (1000 * 60 * 60 * 24)
+                    );
+                    if (days <= 15) {
+                      displayHistory.push({
+                        new_status: 'RETEST_DUE',
+                        changed_by_name: 'System',
+                        changed_at: batch.retest_date + 'T12:00:00',
+                      });
+                    }
+                  }
+                  return displayHistory;
+                })().map((h, idx, all) => {
                   const cfg = HISTORY_CONFIG[h.new_status] ?? {
                     label: h.new_status.replace(/_/g, ' '),
                     byLabel: 'By', atLabel: 'At', dot: '#999',
                   };
-                  const isLast = idx === history.length - 1;
+                  const isLast = idx === all.length - 1;
                   return (
                     <View key={idx} style={styles.timelineRow}>
                       {/* Left: dot + connector */}
