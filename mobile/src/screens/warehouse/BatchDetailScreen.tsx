@@ -432,39 +432,27 @@ export const BatchDetailScreen: React.FC = () => {
             ) : null}
           </View>
 
-          {/* Purchase Order — hidden if both null */}
-          {(batch.po_number || batch.po_date) ? (
-            <>
-              <SectionTitle title="Purchase Order" />
-              <View style={styles.card}>
-                {batch.po_number ? <Row label="PO Number" value={batch.po_number} /> : null}
-                {batch.po_number && batch.po_date ? <Divider /> : null}
-                {batch.po_date ? <Row label="PO Date" value={formatDateByFormat(batch.po_date, batch.date_format)} /> : null}
-              </View>
-            </>
-          ) : null}
+          {/* Purchase Order */}
+          <SectionTitle title="Purchase Order" />
+          <View style={styles.card}>
+            <Row label="PO Number" value={batch.po_number} />
+            <Divider />
+            <Row label="PO Date" value={formatDateByFormat(batch.po_date, batch.date_format)} />
+          </View>
 
-          {/* Invoice — hidden if both null */}
-          {(batch.invoice_number || batch.invoice_date) ? (
-            <>
-              <SectionTitle title="Invoice" />
-              <View style={styles.card}>
-                {batch.invoice_number ? <Row label="Invoice Number" value={batch.invoice_number} /> : null}
-                {batch.invoice_number && batch.invoice_date ? <Divider /> : null}
-                {batch.invoice_date ? <Row label="Invoice Date" value={formatDateByFormat(batch.invoice_date, batch.date_format)} /> : null}
-              </View>
-            </>
-          ) : null}
+          {/* Invoice */}
+          <SectionTitle title="Invoice" />
+          <View style={styles.card}>
+            <Row label="Invoice Number" value={batch.invoice_number} />
+            <Divider />
+            <Row label="Invoice Date" value={formatDateByFormat(batch.invoice_date, batch.date_format)} />
+          </View>
 
-          {/* Remarks — hidden if empty */}
-          {batch.remarks ? (
-            <>
-              <SectionTitle title="Remarks" />
-              <View style={styles.card}>
-                <Text style={styles.remarksText}>{batch.remarks}</Text>
-              </View>
-            </>
-          ) : null}
+          {/* Remarks */}
+          <SectionTitle title="Remarks" />
+          <View style={styles.card}>
+            <Text style={styles.remarksText}>{batch.remarks || 'Nil'}</Text>
+          </View>
 
           {/* QC Info (if tested) */}
           {batch.ar_number ? (

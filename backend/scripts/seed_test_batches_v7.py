@@ -49,18 +49,12 @@ conn = psycopg2.connect(db_url + "?sslmode=require")
 conn.autocommit = False
 cur = conn.cursor()
 
-# ── 1. Clean up old seed batches ──────────────────────────────────────────────
-SEED_PREFIXES = [
-    "SEED-%", "PC-2025-%", "MCC-%", "ETH-%", "MGS-%", "NaCl-%",
-    "TAL-%", "STR-%", "CAF-%", "ASD-%", "LCT-%", "POV-%",
-    "STA-%", "GEL-%", "MAN-%", "ZNC-%", "V7-%",
-]
-conditions = " OR ".join("b.batch_number LIKE %s" for _ in SEED_PREFIXES)
-cur.execute(f"SELECT b.id, b.batch_number FROM batches b WHERE {conditions}", SEED_PREFIXES)
+# ── 1. Clean up ALL existing batches ──────────────────────────────────────────
+cur.execute("SELECT id, batch_number FROM batches")
 old = cur.fetchall()
 if old:
     ids = [r[0] for r in old]
-    print(f"Removing {len(old)} old seed batches...")
+    print(f"Removing all {len(old)} existing batches...")
     cur.execute("DELETE FROM batch_status_history WHERE batch_id = ANY(%s)", (ids,))
     cur.execute("DELETE FROM stock_movements    WHERE batch_id = ANY(%s)", (ids,))
     cur.execute("DELETE FROM qc_results         WHERE batch_id = ANY(%s)", (ids,))
@@ -82,6 +76,16 @@ def get_or_create_material(name, code, uom):
         INSERT INTO materials (material_name, material_code, unit_of_measure, is_active, created_at, updated_at)
         VALUES (%s, %s, %s, TRUE, NOW(), NOW()) RETURNING id
     """, (name, code, uom))
+    return cur.fetchone()[0]
+
+def get_or_create_supplier(name):
+    cur.execute("SELECT id FROM suppliers WHERE supplier_name = %s", (name,))
+    row = cur.fetchone()
+    if row:
+        return row[0]
+    cur.execute("""
+        INSERT INTO suppliers (supplier_name, is_active, created_at) VALUES (%s, TRUE, NOW()) RETURNING id
+    """, (name,))
     return cur.fetchone()[0]
 
 cur.execute("SELECT id FROM locations WHERE location_type = 'QUARANTINE' LIMIT 1")
@@ -118,9 +122,11 @@ ITEMS = [
         batch_number=f"V7-PC-{uid()}",        pack_type="DRUM",
         containers=6,  per_container=25.0,    total=150.0,
         mfg=today - timedelta(days=10),       exp=today + timedelta(days=700),
-        retest_date=None,                     po_number="PO-2026-001",
-        invoice_number="INV-2026-010",        date_format="DD-MM-YYYY",
-        issued_to_production=False,
+        retest_date=None,
+        po_number="PO-2026-001",              po_date=today - timedelta(days=12),
+        invoice_number="INV-2026-010",        invoice_date=today - timedelta(days=11),
+        date_format="DD-MM-YYYY",             issued_to_production=False,
+        remarks="Standard quality grade. Handle with care.",
     ),
     dict(
         status="QUARANTINE",
@@ -129,9 +135,11 @@ ITEMS = [
         batch_number=f"V7-IB-{uid()}",         pack_type="BAG",
         containers=4,  per_container=50.0,     total=200.0,
         mfg=today - timedelta(days=5),         exp=today + timedelta(days=730),
-        retest_date=None,                      po_number="PO-2026-002",
-        invoice_number="INV-2026-011",         date_format="YYYY-MM-DD",
-        issued_to_production=False,
+        retest_date=None,
+        po_number="PO-2026-002",               po_date=today - timedelta(days=7),
+        invoice_number="INV-2026-011",         invoice_date=today - timedelta(days=6),
+        date_format="YYYY-MM-DD",              issued_to_production=False,
+        remarks="Micronized grade — store below 25°C.",
     ),
 
     # ── UNDER_TEST ×2 ─────────────────────────────────────────────────────────
@@ -142,9 +150,11 @@ ITEMS = [
         batch_number=f"V7-MCC-{uid()}",             pack_type="BAG",
         containers=10, per_container=20.0,          total=200.0,
         mfg=today - timedelta(days=20),             exp=today + timedelta(days=1095),
-        retest_date=None,                           po_number="PO-2026-003",
-        invoice_number=None,                        date_format="DD-MM-YYYY",
-        issued_to_production=False,
+        retest_date=None,
+        po_number="PO-2026-003",                    po_date=today - timedelta(days=22),
+        invoice_number="INV-2026-012",              invoice_date=today - timedelta(days=21),
+        date_format="DD-MM-YYYY",                   issued_to_production=False,
+        remarks="PH102 grade. COA attached.",
     ),
     dict(
         status="UNDER_TEST",
@@ -153,9 +163,11 @@ ITEMS = [
         batch_number=f"V7-TAL-{uid()}",      pack_type="DRUM",
         containers=3,  per_container=40.0,   total=120.0,
         mfg=today - timedelta(days=30),      exp=today + timedelta(days=900),
-        retest_date=None,                    po_number=None,
-        invoice_number="INV-2026-012",       date_format="MM-YYYY",
-        issued_to_production=False,
+        retest_date=None,
+        po_number="PO-2026-004",             po_date=today - timedelta(days=32),
+        invoice_number="INV-2026-013",       invoice_date=today - timedelta(days=31),
+        date_format="MM-YYYY",               issued_to_production=False,
+        remarks=None,
     ),
 
     # ── APPROVED ×3 ───────────────────────────────────────────────────────────
@@ -166,9 +178,11 @@ ITEMS = [
         batch_number=f"V7-ETH-{uid()}",       pack_type="DRUM",
         containers=4,  per_container=50.0,    total=200.0,
         mfg=today - timedelta(days=120),      exp=today + timedelta(days=548),
-        retest_date=None,                     po_number="PO-2026-004",
-        invoice_number="INV-2026-013",        date_format="DD-MM-YYYY",
-        issued_to_production=False,
+        retest_date=None,
+        po_number="PO-2026-005",              po_date=today - timedelta(days=122),
+        invoice_number="INV-2026-014",        invoice_date=today - timedelta(days=121),
+        date_format="DD-MM-YYYY",             issued_to_production=False,
+        remarks="IPA grade. Flammable — store in solvent room.",
     ),
     dict(
         status="APPROVED",
@@ -177,9 +191,11 @@ ITEMS = [
         batch_number=f"V7-STR-{uid()}",       pack_type="BAG",
         containers=5,  per_container=40.0,    total=200.0,
         mfg=today - timedelta(days=90),       exp=today + timedelta(days=365),
-        retest_date=today + timedelta(days=8),  # ← triggers Retest tile
-        po_number="PO-2026-005",              invoice_number="INV-2026-014",
+        retest_date=today + timedelta(days=8),
+        po_number="PO-2026-006",              po_date=today - timedelta(days=92),
+        invoice_number="INV-2026-015",        invoice_date=today - timedelta(days=91),
         date_format="DD-MM-YYYY",             issued_to_production=False,
+        remarks="Retest due soon — schedule QC.",
     ),
     dict(
         status="APPROVED",
@@ -188,9 +204,11 @@ ITEMS = [
         batch_number=f"V7-CAF-{uid()}",       pack_type="BOX",
         containers=2,  per_container=10.0,    total=20.0,
         mfg=today - timedelta(days=200),      exp=today + timedelta(days=600),
-        retest_date=None,                     po_number="PO-2026-006",
-        invoice_number="INV-2026-015",        date_format="YYYY-MM-DD",
-        issued_to_production=True,            # ← issued to production
+        retest_date=None,
+        po_number="PO-2026-007",              po_date=today - timedelta(days=202),
+        invoice_number="INV-2026-016",        invoice_date=today - timedelta(days=201),
+        date_format="YYYY-MM-DD",             issued_to_production=True,
+        remarks="Issued to production line 3.",
     ),
 
     # ── REJECTED ×2 ───────────────────────────────────────────────────────────
@@ -201,9 +219,11 @@ ITEMS = [
         batch_number=f"V7-MGS-{uid()}",       pack_type="BAG",
         containers=2,  per_container=10.0,    total=20.0,
         mfg=today - timedelta(days=180),      exp=today + timedelta(days=400),
-        retest_date=None,                     po_number=None,
-        invoice_number=None,                  date_format="DD-MM-YYYY",
-        issued_to_production=False,
+        retest_date=None,
+        po_number="PO-2026-008",              po_date=today - timedelta(days=182),
+        invoice_number="INV-2026-017",        invoice_date=today - timedelta(days=181),
+        date_format="DD-MM-YYYY",             issued_to_production=False,
+        remarks="Failed assay test. Return to supplier.",
     ),
     dict(
         status="REJECTED",
@@ -212,12 +232,14 @@ ITEMS = [
         batch_number=f"V7-LCT-{uid()}",       pack_type="BAG",
         containers=8,  per_container=25.0,    total=200.0,
         mfg=today - timedelta(days=150),      exp=today + timedelta(days=600),
-        retest_date=None,                     po_number="PO-2026-007",
-        invoice_number="INV-2026-016",        date_format="DD-MM-YYYY",
-        issued_to_production=False,
+        retest_date=None,
+        po_number="PO-2026-009",              po_date=today - timedelta(days=152),
+        invoice_number="INV-2026-018",        invoice_date=today - timedelta(days=151),
+        date_format="DD-MM-YYYY",             issued_to_production=False,
+        remarks="Moisture content out of spec.",
     ),
 
-    # ── APPROVED (issued to production, one more) ─────────────────────────────
+    # ── APPROVED ×1 ───────────────────────────────────────────────────────────
     dict(
         status="APPROVED",
         material_name="Povidone K30",         material_code="ITM-V10", uom="KG",
@@ -225,9 +247,11 @@ ITEMS = [
         batch_number=f"V7-POV-{uid()}",       pack_type="BAG",
         containers=3,  per_container=33.333,  total=100.0,
         mfg=today - timedelta(days=60),       exp=today + timedelta(days=800),
-        retest_date=None,                     po_number="PO-2026-008",
-        invoice_number="INV-2026-017",        date_format="MM-YYYY",
-        issued_to_production=False,
+        retest_date=None,
+        po_number="PO-2026-010",              po_date=today - timedelta(days=62),
+        invoice_number="INV-2026-019",        invoice_date=today - timedelta(days=61),
+        date_format="MM-YYYY",               issued_to_production=False,
+        remarks=None,
     ),
 ]
 
@@ -245,6 +269,8 @@ for i, item in enumerate(ITEMS):
     grn_number = f"GRN-{year}-{grn_base + i + 1:03d}"
     public_code = ''.join(random.choices(string.ascii_lowercase + string.digits, k=8))
 
+    supplier_id = get_or_create_supplier(item["supplier"])
+
     cur.execute("""
         INSERT INTO batches (
             material_id, batch_number, public_code,
@@ -252,7 +278,9 @@ for i, item in enumerate(ITEMS):
             pack_type, unit_of_measure, container_count, container_quantity,
             total_quantity, remaining_quantity, status, location_id,
             retest_date, retest_cycle, labels_printed,
-            po_number, invoice_number, date_format,
+            supplier_id, po_number, po_date,
+            invoice_number, invoice_date,
+            date_format, remarks,
             issued_to_production,
             created_by, created_at, updated_at
         ) VALUES (
@@ -262,6 +290,8 @@ for i, item in enumerate(ITEMS):
             %s, %s, %s, %s,
             %s, 0, FALSE,
             %s, %s, %s,
+            %s, %s,
+            %s, %s,
             %s,
             %s, NOW(), NOW()
         ) RETURNING id
@@ -271,7 +301,9 @@ for i, item in enumerate(ITEMS):
         item["pack_type"], item["uom"], item["containers"], item["per_container"],
         item["total"], item["total"], item["status"], quarantine_loc_id,
         item["retest_date"],
-        item.get("po_number"), item.get("invoice_number"), item["date_format"],
+        supplier_id, item.get("po_number"), item.get("po_date"),
+        item.get("invoice_number"), item.get("invoice_date"),
+        item["date_format"], item.get("remarks"),
         item["issued_to_production"],
         created_by,
     ))

@@ -119,92 +119,24 @@ export const StatusListBase: React.FC<Props> = ({
           <Text style={styles.itemName}>{item.material_name || "—"}</Text>
 
           <View style={styles.cardMeta}>
-            {/* GRN number */}
-            {item.grn_number ? (
-              <View style={styles.metaItem}>
-                <Ionicons name="document-text-outline" size={13} color={Colors.textMuted} />
-                <Text style={styles.metaText} numberOfLines={1}>{item.grn_number}</Text>
-              </View>
-            ) : null}
-            {/* Batch / Lot */}
-            <View style={styles.metaItem}>
-              <Ionicons name="barcode-outline" size={13} color={Colors.textMuted} />
-              <Text style={styles.metaText} numberOfLines={1}>{item.batch_number}</Text>
-            </View>
-            {/* Supplier */}
-            {item.supplier_name ? (
-              <View style={styles.metaItem}>
-                <Ionicons name="business-outline" size={13} color={Colors.textMuted} />
-                <Text style={styles.metaText} numberOfLines={1}>{item.supplier_name}</Text>
-              </View>
-            ) : null}
-            {/* Manufacturer */}
-            {item.manufacturer_name ? (
-              <View style={styles.metaItem}>
-                <Ionicons name="construct-outline" size={13} color={Colors.textMuted} />
-                <Text style={styles.metaText} numberOfLines={1}>{item.manufacturer_name}</Text>
-              </View>
-            ) : null}
-            {/* Quantity */}
             <View style={styles.metaItem}>
               <Ionicons name="layers-outline" size={13} color={Colors.textMuted} />
               <Text style={styles.metaText} numberOfLines={1}>
-                {item.remaining_quantity} / {item.total_quantity} {item.unit_of_measure !== 'COUNT' ? item.unit_of_measure : ''}
-                {item.container_count ? `  ·  ${item.container_count} × ${item.container_quantity} (${item.pack_type})` : ''}
+                {item.remaining_quantity} / {item.total_quantity}
               </Text>
             </View>
-            {/* Date of Receipt */}
-            {item.date_of_receipt ? (
-              <View style={styles.metaItem}>
-                <Ionicons name="log-in-outline" size={13} color={Colors.textMuted} />
-                <Text style={styles.metaText} numberOfLines={1}>
-                  Received: {formatDateByFormat(item.date_of_receipt, item.date_format)}
-                </Text>
-              </View>
-            ) : null}
-            {/* Manufacture Date */}
-            {item.manufacture_date ? (
-              <View style={styles.metaItem}>
-                <Ionicons name="hammer-outline" size={13} color={Colors.textMuted} />
-                <Text style={styles.metaText} numberOfLines={1}>
-                  Mfg: {formatDateByFormat(item.manufacture_date, item.date_format)}
-                </Text>
-              </View>
-            ) : null}
-            {/* Expiry Date */}
             {item.expiry_date ? (
               <View style={styles.metaItem}>
                 <Ionicons name="calendar-outline" size={13} color={Colors.textMuted} />
                 <Text style={styles.metaText} numberOfLines={1}>
-                  Exp: {formatDateByFormat(item.expiry_date, item.date_format)}
+                  {formatDateByFormat(item.expiry_date, item.date_format)}
                 </Text>
               </View>
             ) : null}
-            {/* PO */}
-            {item.po_number ? (
-              <View style={styles.metaItem}>
-                <Ionicons name="receipt-outline" size={13} color={Colors.textMuted} />
-                <Text style={styles.metaText} numberOfLines={1}>
-                  PO: {item.po_number}{item.po_date ? `  ·  ${formatDateByFormat(item.po_date, item.date_format)}` : ''}
-                </Text>
-              </View>
-            ) : null}
-            {/* Invoice */}
-            {item.invoice_number ? (
-              <View style={styles.metaItem}>
-                <Ionicons name="newspaper-outline" size={13} color={Colors.textMuted} />
-                <Text style={styles.metaText} numberOfLines={1}>
-                  Inv: {item.invoice_number}{item.invoice_date ? `  ·  ${formatDateByFormat(item.invoice_date, item.date_format)}` : ''}
-                </Text>
-              </View>
-            ) : null}
-            {/* Remarks */}
-            {item.remarks ? (
-              <View style={styles.metaItem}>
-                <Ionicons name="chatbox-ellipses-outline" size={13} color={Colors.textMuted} />
-                <Text style={styles.metaText} numberOfLines={2}>{item.remarks}</Text>
-              </View>
-            ) : null}
+            <View style={styles.metaItem}>
+              <Ionicons name="barcode-outline" size={13} color={Colors.textMuted} />
+              <Text style={styles.metaText} numberOfLines={1}>{item.batch_number}</Text>
+            </View>
           </View>
         </View>
         <Ionicons

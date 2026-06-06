@@ -686,7 +686,7 @@ const styles = StyleSheet.create({
   remarksInput: {
     fontSize: FontSize.md,
     color: Colors.textPrimary,
-    minHeight: 40,
+    minHeight: 30,
     padding: 0,
     paddingTop: 4,
   },
