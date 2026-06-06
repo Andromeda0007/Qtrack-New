@@ -269,10 +269,17 @@ export const DashboardScreen: React.FC = () => {
           inventoryApi.getBatches(),
           inventoryApi.getExpiringSoon().catch(() => []),
         ]);
+        const now = Date.now();
+        const RETEST_DAYS = 15;
         setStats({
           quarantine: batches.filter((b) => b.status === "QUARANTINE").length,
           underTest: batches.filter((b) => b.status === "UNDER_TEST").length,
-          approved: batches.filter((b) => b.status === "APPROVED").length,
+          approved: batches.filter((b) => {
+            if (b.status !== "APPROVED") return false;
+            if (!b.retest_date) return true;
+            const days = Math.ceil((new Date(b.retest_date).getTime() - now) / (1000 * 60 * 60 * 24));
+            return days > RETEST_DAYS;
+          }).length,
           rejected: batches.filter((b) => b.status === "REJECTED").length,
           retest: retestBatches.length,
         });
