@@ -6,7 +6,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { inventoryApi } from '../../api/inventory';
 import { SearchInput } from './SearchInput';
-import { formatDate } from '../../utils/formatters';
+import { formatDateByFormat } from '../../utils/formatters';
 import { Colors, FontSize, Spacing, BorderRadius, Shadow } from '../../utils/theme';
 
 type SortMode = 'last_created' | 'first_created' | 'expiry_soon';
@@ -141,7 +141,7 @@ export const BatchListView: React.FC<Props> = ({
                   {item.expiry_date ? (
                     <View style={styles.metaItem}>
                       <Ionicons name="calendar-outline" size={13} color={Colors.textMuted} />
-                      <Text style={styles.metaText}>{formatDate(item.expiry_date)}</Text>
+                      <Text style={styles.metaText}>{formatDateByFormat(item.expiry_date, item.date_format)}</Text>
                     </View>
                   ) : null}
                   <View style={styles.metaItem}>

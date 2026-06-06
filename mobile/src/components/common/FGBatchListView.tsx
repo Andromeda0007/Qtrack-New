@@ -5,7 +5,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { qaApi } from '../../api/qa';
-import { formatDate } from '../../utils/formatters';
+import { formatDateByFormat } from '../../utils/formatters';
 import { Colors, FontSize, Spacing, Shadow, BorderRadius } from '../../utils/theme';
 
 interface Props {
@@ -102,7 +102,7 @@ export const FGBatchListView: React.FC<Props> = ({
                   {item.expiry_date && (
                     <View style={styles.metaItem}>
                       <Ionicons name="calendar-outline" size={12} color={Colors.textMuted} />
-                      <Text style={styles.metaText}>Exp: {formatDate(item.expiry_date)}</Text>
+                      <Text style={styles.metaText}>Exp: {formatDateByFormat(item.expiry_date, item.date_format)}</Text>
                     </View>
                   )}
                   {item.carton_count && (

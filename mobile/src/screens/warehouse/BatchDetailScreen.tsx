@@ -75,6 +75,7 @@ export const BatchDetailScreen: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [pdfLoading, setPdfLoading] = useState(false);
+  const [labelLoading, setLabelLoading] = useState(false);
   const [transferLoading, setTransferLoading] = useState(false);
   const [showTransferTip, setShowTransferTip] = useState(false);
   const [showTransferModal, setShowTransferModal] = useState(false);
@@ -193,6 +194,23 @@ export const BatchDetailScreen: React.FC = () => {
       showError('Error', e?.message || 'Could not open PDF.');
     } finally {
       setPdfLoading(false);
+    }
+  };
+
+  const handleDownloadLabel = async () => {
+    setLabelLoading(true);
+    try {
+      const uri = await inventoryApi.downloadQuarantineLabelPdf(batch.id, 2);
+      const available = await Sharing.isAvailableAsync();
+      if (!available) {
+        showError('Unavailable', 'PDF viewer is not available on this device.');
+        return;
+      }
+      await Sharing.shareAsync(uri, { mimeType: 'application/pdf', ...(Platform.OS === 'ios' && { UTI: 'com.adobe.pdf' }) });
+    } catch (e: any) {
+      showError('Error', e?.message || 'Could not download label.');
+    } finally {
+      setLabelLoading(false);
     }
   };
 
@@ -329,6 +347,21 @@ export const BatchDetailScreen: React.FC = () => {
               <Text style={styles.qrHint}>Scan to track this item</Text>
             </View>
           ) : null}
+
+          {/* Download quarantine label */}
+          <TouchableOpacity
+            style={styles.printRow}
+            onPress={handleDownloadLabel}
+            disabled={labelLoading}
+            activeOpacity={0.85}
+          >
+            {labelLoading
+              ? <ActivityIndicator size="small" color={Colors.primary} />
+              : <Ionicons name="document-text-outline" size={18} color={Colors.primary} />
+            }
+            <Text style={styles.printRowText}>Download Quarantine Label</Text>
+            <Ionicons name="chevron-forward" size={18} color={Colors.primary} />
+          </TouchableOpacity>
 
           {/* Print labels — only in QUARANTINE, only once */}
           {(role === 'WAREHOUSE_USER' || role === 'WAREHOUSE_HEAD') &&

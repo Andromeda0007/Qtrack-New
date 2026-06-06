@@ -436,39 +436,47 @@ async def batch_movements(
 @router.get("/batches/{batch_id}/label")
 async def download_quarantine_label(
     batch_id: int,
+    count: int = Query(default=1, ge=1, le=500),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     batch = await service.get_batch_by_id(db, batch_id)
     label_data = {
-        "batch_id": batch.id,
-        "material_name": batch.material.material_name if batch.material else "",
-        "batch_number": batch.batch_number,
-        "grn_number": batch.grn.grn_number if batch.grn else "",
-        "pack_size": str(batch.pack_size or ""),
+        "batch_id":          batch.id,
+        "public_code":       batch.public_code,
+        "material_name":     batch.material.material_name if batch.material else "",
+        "material_code":     batch.material.material_code if batch.material else "",
+        "batch_number":      batch.batch_number,
+        "grn_number":        batch.grn.grn_number if batch.grn else "",
+        "grn_date":          str(batch.grn.received_date) if batch.grn and getattr(batch.grn, "received_date", None) else "",
+        "pack_size":         str(batch.pack_size or ""),
         "per_container_qty": str(batch.pack_size or ""),
-        "pack_type": service.pack_type_display(batch),
+        "pack_type":         service.pack_type_display(batch),
         "pack_size_description": batch.pack_size_description or "",
-        "total_quantity": str(batch.total_quantity),
-        "unit": batch.material.unit_of_measure if batch.material else "kg",
-        "manufacture_date": str(batch.manufacture_date or ""),
-        "expiry_date": str(batch.expiry_date or ""),
-        "supplier_name": batch.supplier.supplier_name if batch.supplier else "",
-        "qr_path": batch.qr_code_path or "",
-        "track_id": f"#{batch.public_code}",
-        "public_code": batch.public_code,
+        "total_quantity":    str(batch.total_quantity),
+        "container_count":   str(batch.container_count or ""),
+        "container_qty":     str(batch.container_quantity or ""),
+        "unit":              batch.material.unit_of_measure if batch.material else "kg",
+        "manufacture_date":  str(batch.manufacture_date or ""),
+        "expiry_date":       str(batch.expiry_date or ""),
+        "supplier_name":     batch.supplier.supplier_name if batch.supplier else "",
+        "manufacturer_name": batch.manufacturer_name or "",
+        "qr_path":           batch.qr_code_path or "",
+        "track_id":          f"#{batch.public_code}",
+        "date_format":       getattr(batch, "date_format", "DD-MM-YYYY") or "DD-MM-YYYY",
     }
-    pdf_path = generate_quarantine_label(label_data)
+    pdf_path = generate_quarantine_label(label_data, count=count)
     return FileResponse(pdf_path, media_type="application/pdf", filename=f"quarantine_label_{batch.batch_number}.pdf")
 
 
 @router.get("/batches/{batch_id}/label-retest")
 async def download_retest_quarantine_label(
     batch_id: int,
+    count: int = Query(default=1, ge=1, le=500),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """New quarantine label for material in QUARANTINE_RETEST (per client retest SOP)."""
+    """Quarantine label for a batch in QUARANTINE_RETEST."""
     batch = await service.get_batch_by_id(db, batch_id)
     st = batch.status.value if hasattr(batch.status, "value") else str(batch.status)
     if st != BatchStatus.QUARANTINE_RETEST.value:
@@ -476,28 +484,33 @@ async def download_retest_quarantine_label(
             status_code=400,
             detail="Retest label is only for batches in QUARANTINE (RETESTING).",
         )
-    ar_number = getattr(batch, "ar_number", "") or ""
     label_data = {
-        "batch_id": batch.id,
-        "material_name": batch.material.material_name if batch.material else "",
-        "batch_number": batch.batch_number,
-        "grn_number": batch.grn.grn_number if batch.grn else "",
-        "pack_size": str(batch.pack_size or ""),
+        "batch_id":          batch.id,
+        "public_code":       batch.public_code,
+        "material_name":     batch.material.material_name if batch.material else "",
+        "material_code":     batch.material.material_code if batch.material else "",
+        "batch_number":      batch.batch_number,
+        "grn_number":        batch.grn.grn_number if batch.grn else "",
+        "grn_date":          str(batch.grn.received_date) if batch.grn and getattr(batch.grn, "received_date", None) else "",
+        "pack_size":         str(batch.pack_size or ""),
         "per_container_qty": str(batch.pack_size or ""),
-        "pack_type": service.pack_type_display(batch),
+        "pack_type":         service.pack_type_display(batch),
         "pack_size_description": batch.pack_size_description or "",
-        "total_quantity": str(batch.total_quantity),
-        "unit": batch.material.unit_of_measure if batch.material else "kg",
-        "manufacture_date": str(batch.manufacture_date or ""),
-        "expiry_date": str(batch.expiry_date or ""),
-        "supplier_name": batch.supplier.supplier_name if batch.supplier else "",
-        "qr_path": batch.qr_code_path or "",
-        "track_id": f"#{batch.public_code}",
-        "public_code": batch.public_code,
-        "ar_number": ar_number,
-        "retest_ref": f"Cycle {batch.retest_cycle}",
+        "total_quantity":    str(batch.total_quantity),
+        "container_count":   str(batch.container_count or ""),
+        "container_qty":     str(batch.container_quantity or ""),
+        "unit":              batch.material.unit_of_measure if batch.material else "kg",
+        "manufacture_date":  str(batch.manufacture_date or ""),
+        "expiry_date":       str(batch.expiry_date or ""),
+        "supplier_name":     batch.supplier.supplier_name if batch.supplier else "",
+        "manufacturer_name": batch.manufacturer_name or "",
+        "qr_path":           batch.qr_code_path or "",
+        "track_id":          f"#{batch.public_code}",
+        "date_format":       getattr(batch, "date_format", "DD-MM-YYYY") or "DD-MM-YYYY",
+        "ar_number":         getattr(batch, "ar_number", "") or "",
+        "retest_ref":        f"Cycle {getattr(batch, 'retest_cycle', '')}",
     }
-    pdf_path = generate_quarantine_label(label_data, variant="retest")
+    pdf_path = generate_quarantine_label(label_data, variant="retest", count=count)
     return FileResponse(
         pdf_path,
         media_type="application/pdf",
