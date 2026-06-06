@@ -18,7 +18,6 @@ import {
   Colors,
   FontSize,
   Spacing,
-  Shadow,
   BorderRadius,
 } from "../../utils/theme";
 
@@ -92,13 +91,29 @@ export const StatusListBase: React.FC<Props> = ({
     load();
   };
 
+  const RETEST_THRESHOLD_DAYS = 15;
+
   const displayed = applySort(
-    search.trim()
-      ? batches.filter((b) =>
-          (b.material_code || "").toLowerCase().includes(search.toLowerCase()),
-        )
-      : batches,
-    sort,
+    (() => {
+      let list = batches;
+      if (search.trim()) {
+        list = list.filter((b) =>
+          (b.material_code || "").toLowerCase().includes(search.toLowerCase())
+        );
+      }
+      if (status === "APPROVED") {
+        const now = Date.now();
+        list = list.filter((b) => {
+          if (!b.retest_date) return true;
+          const days = Math.ceil(
+            (new Date(b.retest_date).getTime() - now) / (1000 * 60 * 60 * 24)
+          );
+          return days > RETEST_THRESHOLD_DAYS;
+        });
+      }
+      return list;
+    })(),
+    sort
   );
 
   const renderItem = ({ item }: { item: any }) => (
