@@ -398,7 +398,7 @@ def pack_type_display(batch: Batch) -> str:
 def _user_is_qa_role(user: User | None) -> bool:
     if not user or not user.role:
         return False
-    return user.role.role_name in ("QA_EXECUTIVE", "QA_HEAD")
+    return user.role.role_name == "QA_EXECUTIVE"
 
 
 def _batch_scan_payload(
