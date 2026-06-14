@@ -387,11 +387,7 @@ def _batch_status_str(batch: Batch) -> str:
 
 
 def remaining_quantity_for_api(batch: Batch) -> str | None:
-    """Client spec: show remaining quantity only for approved / issued-to-production."""
-    st = _batch_status_str(batch)
-    if st == "APPROVED":
-        return str(batch.remaining_quantity)
-    return None
+    return str(batch.remaining_quantity)
 
 
 def pack_type_display(batch: Batch) -> str:

@@ -2,6 +2,7 @@ import React, { useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView,
   TouchableOpacity, ActivityIndicator, Image, Platform,
+  Modal, TextInput, KeyboardAvoidingView,
 } from 'react-native';
 import * as Sharing from 'expo-sharing';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -80,6 +81,7 @@ export const BatchDetailScreen: React.FC = () => {
   const [showTransferModal, setShowTransferModal] = useState(false);
   const [showIssueModal, setShowIssueModal] = useState(false);
   const [issueLoading, setIssueLoading] = useState(false);
+  const [issueFormValues, setIssueFormValues] = useState({ productName: '', batchNo: '', grnNumber: '' });
   const [errorModal, setErrorModal] = useState<{ title: string; message: string } | null>(null);
 
   const role = user?.role || '';
@@ -101,10 +103,24 @@ export const BatchDetailScreen: React.FC = () => {
     !isRetest &&
     (role === 'WAREHOUSE_USER' || role === 'WAREHOUSE_HEAD');
 
+  const productNameMatch = issueFormValues.productName.trim() !== '' &&
+    issueFormValues.productName.trim().toLowerCase() === (batch?.material?.name ?? '').toLowerCase();
+  const batchNoMatch = issueFormValues.batchNo.trim() !== '' &&
+    issueFormValues.batchNo.trim() === (batch?.batch_number ?? '');
+  const grnNumberMatch = issueFormValues.grnNumber.trim() !== '' &&
+    issueFormValues.grnNumber.trim() === (batch?.grn_number ?? '');
+  const issueFormValid = productNameMatch && batchNoMatch && grnNumberMatch;
+
+  const closeIssueModal = () => {
+    setShowIssueModal(false);
+    setIssueFormValues({ productName: '', batchNo: '', grnNumber: '' });
+  };
+
   const handleTransferToQuarantine = () => setShowTransferModal(true);
 
   const confirmIssueToProduction = async () => {
     setShowIssueModal(false);
+    setIssueFormValues({ productName: '', batchNo: '', grnNumber: '' });
     setIssueLoading(true);
     try {
       await inventoryApi.issueToProduction(batchId);
@@ -593,15 +609,170 @@ export const BatchDetailScreen: React.FC = () => {
         onCancel={() => setShowTransferModal(false)}
       />
 
-      <ConfirmModal
+      <Modal
         visible={showIssueModal}
-        variant="info"
-        title="Issue to Production"
-        message="Mark this batch as issued to production? This action cannot be undone."
-        confirmLabel="Issue"
-        onConfirm={confirmIssueToProduction}
-        onCancel={() => setShowIssueModal(false)}
-      />
+        transparent
+        animationType="slide"
+        onRequestClose={closeIssueModal}
+      >
+        <KeyboardAvoidingView
+          style={styles.issueModalOverlay}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
+          <View style={styles.issueModalSheet}>
+
+            {/* drag handle */}
+            <View style={styles.issueHandle} />
+
+            {/* navy header */}
+            <View style={styles.issueHeader}>
+              <View style={styles.issueHeaderIcon}>
+                <Ionicons name="shield-checkmark-outline" size={24} color="#fff" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.issueHeaderTitle}>Verify to Issue</Text>
+                <Text style={styles.issueHeaderSub}>All 3 fields must match exactly</Text>
+              </View>
+              <TouchableOpacity onPress={closeIssueModal} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                <Ionicons name="close-circle" size={24} color="rgba(255,255,255,0.55)" />
+              </TouchableOpacity>
+            </View>
+
+            {/* progress steps */}
+            <View style={styles.issueStepsRow}>
+              {([
+                { matched: productNameMatch, typed: issueFormValues.productName.trim() !== '', label: 'Product' },
+                { matched: batchNoMatch,     typed: issueFormValues.batchNo.trim() !== '',     label: 'Batch' },
+                { matched: grnNumberMatch,   typed: issueFormValues.grnNumber.trim() !== '',   label: 'GRN' },
+              ] as { matched: boolean; typed: boolean; label: string }[]).map((s, i, arr) => (
+                <React.Fragment key={i}>
+                  <View style={styles.issueStep}>
+                    <View style={[
+                      styles.issueStepDot,
+                      s.matched ? styles.issueStepDotGreen : s.typed ? styles.issueStepDotRed : null,
+                    ]}>
+                      {s.matched
+                        ? <Ionicons name="checkmark" size={12} color="#fff" />
+                        : s.typed
+                          ? <Ionicons name="close" size={12} color="#fff" />
+                          : <Text style={styles.issueStepNum}>{i + 1}</Text>
+                      }
+                    </View>
+                    <Text style={[styles.issueStepLabel, s.matched && { color: Colors.success }]}>{s.label}</Text>
+                  </View>
+                  {i < arr.length - 1 && (
+                    <View style={[styles.issueStepLine, arr[i + 1].matched && styles.issueStepLineGreen]} />
+                  )}
+                </React.Fragment>
+              ))}
+            </View>
+
+            {/* form body */}
+            <View style={styles.issueBody}>
+
+              {/* Product Name */}
+              <View style={styles.issueField}>
+                <Text style={styles.issueFieldLabel}>PRODUCT NAME</Text>
+                <View style={[
+                  styles.issueInputWrap,
+                  productNameMatch ? styles.issueInputWrapGreen
+                    : issueFormValues.productName.trim() ? styles.issueInputWrapRed : null,
+                ]}>
+                  <TextInput
+                    style={styles.issueInputInner}
+                    value={issueFormValues.productName}
+                    onChangeText={v => setIssueFormValues(s => ({ ...s, productName: v }))}
+                    placeholder={batch?.material?.name ?? ''}
+                    placeholderTextColor={Colors.textMuted}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                  />
+                  {productNameMatch
+                    ? <Ionicons name="checkmark-circle" size={20} color={Colors.success} />
+                    : issueFormValues.productName.trim()
+                      ? <Ionicons name="close-circle" size={20} color={Colors.danger} />
+                      : null
+                  }
+                </View>
+              </View>
+
+              {/* Batch No. */}
+              <View style={styles.issueField}>
+                <Text style={styles.issueFieldLabel}>BATCH NO.</Text>
+                <View style={[
+                  styles.issueInputWrap,
+                  batchNoMatch ? styles.issueInputWrapGreen
+                    : issueFormValues.batchNo.trim() ? styles.issueInputWrapRed : null,
+                ]}>
+                  <TextInput
+                    style={styles.issueInputInner}
+                    value={issueFormValues.batchNo}
+                    onChangeText={v => setIssueFormValues(s => ({ ...s, batchNo: v }))}
+                    placeholder={batch?.batch_number ?? ''}
+                    placeholderTextColor={Colors.textMuted}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                  />
+                  {batchNoMatch
+                    ? <Ionicons name="checkmark-circle" size={20} color={Colors.success} />
+                    : issueFormValues.batchNo.trim()
+                      ? <Ionicons name="close-circle" size={20} color={Colors.danger} />
+                      : null
+                  }
+                </View>
+              </View>
+
+              {/* GRN Number */}
+              <View style={styles.issueField}>
+                <Text style={styles.issueFieldLabel}>GRN NUMBER</Text>
+                <View style={[
+                  styles.issueInputWrap,
+                  grnNumberMatch ? styles.issueInputWrapGreen
+                    : issueFormValues.grnNumber.trim() ? styles.issueInputWrapRed : null,
+                ]}>
+                  <TextInput
+                    style={styles.issueInputInner}
+                    value={issueFormValues.grnNumber}
+                    onChangeText={v => setIssueFormValues(s => ({ ...s, grnNumber: v }))}
+                    placeholder={batch?.grn_number ?? ''}
+                    placeholderTextColor={Colors.textMuted}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                  />
+                  {grnNumberMatch
+                    ? <Ionicons name="checkmark-circle" size={20} color={Colors.success} />
+                    : issueFormValues.grnNumber.trim()
+                      ? <Ionicons name="close-circle" size={20} color={Colors.danger} />
+                      : null
+                  }
+                </View>
+              </View>
+
+              {/* Confirm button */}
+              <TouchableOpacity
+                style={[styles.issueConfirmBtn, issueFormValid && styles.issueConfirmBtnActive]}
+                onPress={issueFormValid ? confirmIssueToProduction : undefined}
+                disabled={!issueFormValid}
+                activeOpacity={0.82}
+              >
+                <Ionicons
+                  name="arrow-forward-circle-outline"
+                  size={20}
+                  color={issueFormValid ? '#fff' : Colors.textMuted}
+                />
+                <Text style={[styles.issueConfirmBtnText, issueFormValid && styles.issueConfirmBtnTextActive]}>
+                  Confirm Issue
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity style={styles.issueCancelLink} onPress={closeIssueModal}>
+                <Text style={styles.issueCancelLinkText}>Cancel</Text>
+              </TouchableOpacity>
+
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
 
       <OperationResultModal
         visible={!!errorModal}
@@ -769,4 +940,101 @@ const styles = StyleSheet.create({
     borderWidth: 2, backgroundColor: Colors.surface, ...Shadow.sm,
   },
   actionBtnLabel: { fontSize: FontSize.sm, fontWeight: '700' },
+
+  issueModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    justifyContent: 'flex-end',
+  },
+  issueModalSheet: {
+    backgroundColor: Colors.surface,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    overflow: 'hidden',
+    ...Shadow.lg,
+  },
+  issueHandle: {
+    width: 40, height: 4, borderRadius: 2,
+    backgroundColor: Colors.border,
+    alignSelf: 'center', marginTop: 10, marginBottom: 4,
+  },
+  issueHeader: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    backgroundColor: Colors.primary,
+    paddingHorizontal: Spacing.lg, paddingVertical: 16,
+  },
+  issueHeaderIcon: {
+    width: 44, height: 44, borderRadius: 22,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    justifyContent: 'center', alignItems: 'center',
+  },
+  issueHeaderTitle: {
+    fontSize: FontSize.lg, fontWeight: '800', color: '#fff',
+  },
+  issueHeaderSub: {
+    fontSize: FontSize.xs, color: 'rgba(255,255,255,0.65)', marginTop: 2,
+  },
+  issueStepsRow: {
+    flexDirection: 'row', alignItems: 'center',
+    paddingHorizontal: Spacing.lg, paddingVertical: 16,
+    backgroundColor: Colors.background,
+    borderBottomWidth: 1, borderBottomColor: Colors.borderLight,
+  },
+  issueStep: { alignItems: 'center', gap: 4 },
+  issueStepDot: {
+    width: 28, height: 28, borderRadius: 14,
+    backgroundColor: Colors.border,
+    justifyContent: 'center', alignItems: 'center',
+  },
+  issueStepDotGreen: { backgroundColor: Colors.success },
+  issueStepDotRed:   { backgroundColor: Colors.danger },
+  issueStepNum: { fontSize: 11, fontWeight: '700', color: Colors.textMuted },
+  issueStepLabel: {
+    fontSize: 10, fontWeight: '600', color: Colors.textMuted, textTransform: 'uppercase', letterSpacing: 0.3,
+  },
+  issueStepLine: {
+    flex: 1, height: 2, backgroundColor: Colors.border, marginBottom: 14, marginHorizontal: 4,
+  },
+  issueStepLineGreen: { backgroundColor: Colors.success },
+  issueBody: {
+    padding: Spacing.lg,
+  },
+  issueField: { marginBottom: 14 },
+  issueFieldLabel: {
+    fontSize: 10, fontWeight: '700', color: Colors.primary,
+    letterSpacing: 0.8, marginBottom: 6,
+  },
+  issueInputWrap: {
+    flexDirection: 'row', alignItems: 'center',
+    borderWidth: 1.5, borderColor: Colors.border,
+    borderRadius: BorderRadius.md,
+    paddingHorizontal: 14, paddingVertical: 12,
+    backgroundColor: Colors.background,
+    gap: 8,
+  },
+  issueInputWrapGreen: { borderColor: Colors.success, backgroundColor: '#f0faf3' },
+  issueInputWrapRed:   { borderColor: Colors.danger,  backgroundColor: '#fff5f5' },
+  issueInputInner: {
+    flex: 1, fontSize: FontSize.sm, color: Colors.textPrimary, padding: 0,
+  },
+  issueConfirmBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    backgroundColor: '#e8eef5',
+    borderRadius: BorderRadius.lg, paddingVertical: 15, marginTop: 4,
+  },
+  issueConfirmBtnActive: {
+    backgroundColor: Colors.success,
+    shadowColor: Colors.success, shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35, shadowRadius: 8, elevation: 6,
+  },
+  issueConfirmBtnText: {
+    fontWeight: '800', fontSize: FontSize.sm, color: Colors.primary,
+  },
+  issueConfirmBtnTextActive: { color: '#fff' },
+  issueCancelLink: {
+    alignItems: 'center', paddingVertical: 14,
+  },
+  issueCancelLinkText: {
+    fontSize: FontSize.sm, color: Colors.textSecondary, fontWeight: '600',
+  },
 });

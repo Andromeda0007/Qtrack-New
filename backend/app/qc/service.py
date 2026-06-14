@@ -263,6 +263,7 @@ async def approve_material(db: AsyncSession, batch_id: int, retest_date: date | 
 
     batch.retest_date = retest_date
     batch.retest_cycle = (batch.retest_cycle or 0)  # Preserve cycle count
+    batch.remaining_quantity = batch.total_quantity  # QC sample returned to stock on approval
 
     old_status = batch.status
     await _update_batch_status(db, batch, BatchStatus.APPROVED, approved_by.id, remarks or "QC Approved", "APPROVED")
@@ -309,6 +310,8 @@ async def reject_material(db: AsyncSession, batch_id: int, remarks: str, rejecte
         qc.approved_rejected_by = rejected_by.id
         qc.approved_rejected_at = datetime.utcnow()
         qc.test_remarks = remarks
+
+    batch.remaining_quantity = batch.total_quantity  # QC sample returned to stock on rejection
 
     old_status = batch.status
     await _update_batch_status(db, batch, BatchStatus.REJECTED, rejected_by.id, remarks, "REJECTED")
