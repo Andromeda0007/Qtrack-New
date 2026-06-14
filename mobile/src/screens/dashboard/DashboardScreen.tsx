@@ -102,7 +102,6 @@ interface ProductStats {
 
 interface FGStats {
   created: number;
-  underTest: number;
   approved: number;
   rejected: number;
 }
@@ -112,12 +111,12 @@ const FG_STAT_TILES: Array<{
   color: string;
   icon: string;
   screen: string;
+  fullWidth?: boolean;
   getValue: (s: FGStats) => number;
 }> = [
   { label: 'Finished Good', color: '#856404',      icon: 'cube-outline',             screen: 'FGFinishedGoodList', getValue: (s) => s.created },
-  { label: 'Under Test',    color: Colors.info,    icon: 'flask-outline',            screen: 'FGUnderTestList',    getValue: (s) => s.underTest },
   { label: 'Rejected',      color: Colors.danger,  icon: 'close-circle-outline',     screen: 'FGRejectedList',     getValue: (s) => s.rejected },
-  { label: 'Approved',      color: Colors.success, icon: 'checkmark-circle-outline', screen: 'FGApprovedList',     getValue: (s) => s.approved },
+  { label: 'Approved',      color: Colors.success, icon: 'checkmark-circle-outline', screen: 'FGApprovedList',     fullWidth: true, getValue: (s) => s.approved },
 ];
 
 /**
@@ -187,17 +186,6 @@ const ROLE_QUICK_ACTIONS: Record<RoleName, QuickAction[]> = {
   QA_EXECUTIVE: [
     CHECK_STATUS_ACTION,
   ],
-  /** R1: Approve / Reject FG | Check Status */
-  QA_HEAD: [
-    {
-      label: "Approve / Reject FG",
-      icon: "clipboard-outline",
-      color: Colors.primary,
-      screen: "WorkflowHub",
-      params: { mode: "qa_decision" },
-    },
-    CHECK_STATUS_ACTION,
-  ],
   /** R1: Create FG | Check Status */
   PRODUCTION_USER: [
     {
@@ -228,6 +216,7 @@ const ROLE_QUICK_ACTIONS: Record<RoleName, QuickAction[]> = {
 
 const FG_ROLES: RoleName[] = ['PRODUCTION_USER', 'QA_EXECUTIVE'];
 
+
 export const DashboardScreen: React.FC = () => {
   const { user } = useAuthStore();
   const navigation = useNavigation<any>();
@@ -243,7 +232,6 @@ export const DashboardScreen: React.FC = () => {
   });
   const [fgStats, setFgStats] = useState<FGStats>({
     created: 0,
-    underTest: 0,
     approved: 0,
     rejected: 0,
   });
@@ -252,15 +240,13 @@ export const DashboardScreen: React.FC = () => {
   const loadData = useCallback(async () => {
     try {
       if (isFGRole) {
-        const [created, underTest, approved, rejected] = await Promise.all([
+        const [created, approved, rejected] = await Promise.all([
           productionApi.listFGBatches('CREATED').catch(() => []),
-          productionApi.listFGBatches('QA_PENDING').catch(() => []),
           productionApi.listFGBatches('QA_APPROVED').catch(() => []),
           productionApi.listFGBatches('QA_REJECTED').catch(() => []),
         ]);
         setFgStats({
           created: created.length,
-          underTest: underTest.length,
           approved: approved.length,
           rejected: rejected.length,
         });
@@ -353,25 +339,44 @@ export const DashboardScreen: React.FC = () => {
           <Text style={[styles.sectionTitle, styles.statsSectionTitle]}>Product Stats</Text>
 
           {isFGRole ? (
-            /* FG roles: 2×2 grid of FG status tiles */
-            <View style={styles.statsGrid}>
-              {FG_STAT_TILES.map((tile) => (
-                <TouchableOpacity
-                  key={tile.label}
-                  style={styles.statCard}
-                  onPress={() => navigation.navigate(tile.screen)}
-                  activeOpacity={0.8}
-                >
-                  <View style={[styles.statIconWrap, { backgroundColor: tile.color + "18" }]}>
-                    <Ionicons name={tile.icon as any} size={18} color={tile.color} />
-                  </View>
-                  <Text style={[styles.statValue, { color: tile.color }]}>
-                    {tile.getValue(fgStats)}
-                  </Text>
-                  <Text style={styles.statLabel}>{tile.label}</Text>
-                </TouchableOpacity>
+            /* FG roles: 2+1 layout — row 1: Finished Good + Rejected, row 2: Approved (centered) */
+            <>
+              <View style={styles.statsGrid}>
+                {FG_STAT_TILES.filter((t) => !t.fullWidth).map((tile) => (
+                  <TouchableOpacity
+                    key={tile.label}
+                    style={styles.statCard}
+                    onPress={() => navigation.navigate(tile.screen)}
+                    activeOpacity={0.8}
+                  >
+                    <View style={[styles.statIconWrap, { backgroundColor: tile.color + "18" }]}>
+                      <Ionicons name={tile.icon as any} size={18} color={tile.color} />
+                    </View>
+                    <Text style={[styles.statValue, { color: tile.color }]}>
+                      {tile.getValue(fgStats)}
+                    </Text>
+                    <Text style={styles.statLabel}>{tile.label}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              {FG_STAT_TILES.filter((t) => t.fullWidth).map((tile) => (
+                <View key={tile.label} style={styles.statCenterRow}>
+                  <TouchableOpacity
+                    style={[styles.statCard, { width: "50%" }]}
+                    onPress={() => navigation.navigate(tile.screen)}
+                    activeOpacity={0.8}
+                  >
+                    <View style={[styles.statIconWrap, { backgroundColor: tile.color + "18" }]}>
+                      <Ionicons name={tile.icon as any} size={18} color={tile.color} />
+                    </View>
+                    <Text style={[styles.statValue, { color: tile.color }]}>
+                      {tile.getValue(fgStats)}
+                    </Text>
+                    <Text style={styles.statLabel}>{tile.label}</Text>
+                  </TouchableOpacity>
+                </View>
               ))}
-            </View>
+            </>
           ) : (
             /* Raw material roles: existing 2+2+1 layout */
             <>

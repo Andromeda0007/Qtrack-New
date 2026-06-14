@@ -130,7 +130,7 @@ const FactRow: React.FC<{ icon: string; label: string; value: string }> = ({
   </View>
 );
 
-const FG_ROLES = ['PRODUCTION_USER', 'QA_EXECUTIVE', 'QA_HEAD'];
+const FG_ROLES = ['PRODUCTION_USER', 'QA_EXECUTIVE'];
 
 export const CheckStatusScreen: React.FC = () => {
   const navigation = useNavigation<any>();

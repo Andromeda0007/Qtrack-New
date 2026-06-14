@@ -22,7 +22,6 @@ ROLES = [
     {"role_name": "QC_EXECUTIVE", "description": "Quality Control testing staff"},
     {"role_name": "QC_HEAD", "description": "Quality Control authority"},
     {"role_name": "QA_EXECUTIVE", "description": "Quality Assurance inspection staff"},
-    {"role_name": "QA_HEAD", "description": "Quality Assurance authority"},
     {"role_name": "PRODUCTION_USER", "description": "Production department"},
     {"role_name": "PURCHASE_USER", "description": "Purchase department (read-only)"},
 ]
@@ -66,10 +65,6 @@ ROLE_PERMISSION_MAP = {
     ],
     "QA_EXECUTIVE": [
         "INSPECT_FG", "APPROVE_FG", "REJECT_FG", "VIEW_STOCK", "SEND_MESSAGE",
-    ],
-    "QA_HEAD": [
-        "INSPECT_FG", "APPROVE_FG", "REJECT_FG", "VIEW_STOCK",
-        "VIEW_REPORTS", "SEND_MESSAGE",
     ],
     "PRODUCTION_USER": [
         "CREATE_FG_BATCH", "GENERATE_SHIPPER_LABEL", "VIEW_STOCK", "SEND_MESSAGE",

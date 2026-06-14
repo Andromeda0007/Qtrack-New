@@ -41,11 +41,6 @@ const ROLE_TABS: Record<RoleName, Array<{ name: string; component: any; icon: st
     { name: 'Notifications', component: NotificationsScreen, icon: 'notifications', label: 'Notifications' },
     { name: 'Chat',          component: ChatRoomsScreen,     icon: 'chatbubbles',   label: 'Chat' },
   ],
-  QA_HEAD: [
-    { name: 'Dashboard',     component: DashboardScreen,     icon: 'home',          label: 'Home' },
-    { name: 'Notifications', component: NotificationsScreen, icon: 'notifications', label: 'Notifications' },
-    { name: 'Chat',          component: ChatRoomsScreen,     icon: 'chatbubbles',   label: 'Chat' },
-  ],
   PRODUCTION_USER: [
     { name: 'Dashboard',     component: DashboardScreen,     icon: 'home',          label: 'Home' },
     { name: 'Notifications', component: NotificationsScreen, icon: 'notifications', label: 'Notifications' },

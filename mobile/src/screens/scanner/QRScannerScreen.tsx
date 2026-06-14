@@ -853,7 +853,7 @@ const RoleActions: React.FC<{
   const isFg = batchData?.qr_kind === "fg";
 
   if (
-    (role === "QA_EXECUTIVE" || role === "QA_HEAD") &&
+    role === "QA_EXECUTIVE" &&
     batchData?.qa_scan_blocked
   ) {
     return null;
@@ -908,34 +908,21 @@ const RoleActions: React.FC<{
     }
   }
 
-  if (
-    (role === "QA_EXECUTIVE" || role === "QA_HEAD") &&
-    isFg &&
-    status === "QA_PENDING"
-  ) {
+  if (role === "QA_EXECUTIVE" && isFg && status === "CREATED") {
     return (
       <View style={{ gap: Spacing.sm, marginTop: Spacing.sm }}>
         <Button
-          title="Submit Inspection"
-          onPress={() => goToFg("InspectFG")}
+          title="Approve FG"
+          onPress={() => goToFg("ApproveFG")}
+          variant="success"
           fullWidth
         />
-        {role === "QA_HEAD" && (
-          <>
-            <Button
-              title="Approve FG"
-              onPress={() => goToFg("ApproveFG")}
-              variant="success"
-              fullWidth
-            />
-            <Button
-              title="Reject FG"
-              onPress={() => goToFg("RejectFG")}
-              variant="danger"
-              fullWidth
-            />
-          </>
-        )}
+        <Button
+          title="Reject FG"
+          onPress={() => goToFg("RejectFG")}
+          variant="danger"
+          fullWidth
+        />
       </View>
     );
   }

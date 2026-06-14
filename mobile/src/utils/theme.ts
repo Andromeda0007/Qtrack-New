@@ -44,7 +44,6 @@ export const RoleColors: Record<string, string> = {
   QC_EXECUTIVE:     '#1a6ea8', // medium blue   — quality control
   QC_HEAD:          '#134f7a', // deep blue     — QC head
   QA_EXECUTIVE:     '#2e7d7e', // muted teal    — quality assurance
-  QA_HEAD:          '#1d5c5d', // deep teal     — QA head
   PRODUCTION_USER:  '#b7791f', // warm amber    — production
   PURCHASE_USER:    '#2d7a4f', // forest green  — procurement
 };
@@ -76,7 +75,6 @@ export const RoleLabels: Record<string, string> = {
   QC_EXECUTIVE:     'QC Executive',
   QC_HEAD:          'QC Head',
   QA_EXECUTIVE:     'QA Executive',
-  QA_HEAD:          'QA Head',
   PRODUCTION_USER:  'Production User',
   PURCHASE_USER:    'Purchase User',
 };

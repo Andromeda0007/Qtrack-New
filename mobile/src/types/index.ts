@@ -27,7 +27,6 @@ export type RoleName =
   | 'QC_EXECUTIVE'
   | 'QC_HEAD'
   | 'QA_EXECUTIVE'
-  | 'QA_HEAD'
   | 'PRODUCTION_USER'
   | 'PURCHASE_USER';
 

@@ -7,12 +7,15 @@ from datetime import date
 class FGBatchCreate(BaseModel):
     product_name: str
     batch_number: str
+    fgtn_number: Optional[str] = None
     manufacture_date: date
     expiry_date: date
     net_weight: Optional[Decimal] = None
     gross_weight: Optional[Decimal] = None
     quantity: Decimal
     carton_count: Optional[int] = None
+    pack_size_count: Optional[int] = None
+    pack_size_unit: Optional[str] = None
     remarks: Optional[str] = None
 
     @field_validator("quantity")

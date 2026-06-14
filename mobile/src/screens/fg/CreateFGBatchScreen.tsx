@@ -83,15 +83,15 @@ export const CreateFGBatchScreen: React.FC = () => {
   const [dateFormat, setDateFormat] = useState<DateFormat>('DD-MM-YYYY');
 
   const [form, setForm] = useState({
-    product_name:      '',
-    fg_batch_number:   '',
-    supplier_name:     '',
-    manufacturer_name: '',
-    date_of_receipt:   todayISO,
-    manufacture_date:  '',
-    expiry_date:       '',
-    remarks:           '',
+    product_name:    '',
+    fg_batch_number: '',
+    fgtn_number:     '',
+    manufacture_date: '',
+    expiry_date:      '',
+    remarks:          '',
   });
+  const [packSizeCount, setPackSizeCount] = useState('');
+  const [packSizeUnit, setPackSizeUnit]   = useState('');
 
   const set = (key: string, value: string) => setForm((f) => ({ ...f, [key]: value }));
 
@@ -150,10 +150,6 @@ export const CreateFGBatchScreen: React.FC = () => {
       showError('Required', 'FG Batch number is required.');
       return false;
     }
-    if (!form.supplier_name.trim() || !form.manufacturer_name.trim()) {
-      showError('Required', 'Supplier and Manufacturer are required.');
-      return false;
-    }
     if (!totalQty || !containers || !perContainer) {
       showError('Required', 'Total, containers, and qty per container are all required.');
       return false;
@@ -187,10 +183,13 @@ export const CreateFGBatchScreen: React.FC = () => {
       const res = await productionApi.createFGBatch({
         product_name:     form.product_name.trim(),
         batch_number:     form.fg_batch_number.trim(),
+        fgtn_number:      form.fgtn_number.trim() || undefined,
         manufacture_date: form.manufacture_date,
         expiry_date:      form.expiry_date,
         quantity:         parseFloat(totalQty),
         carton_count:     parseInt(containers, 10),
+        pack_size_count:  packSizeCount ? parseInt(packSizeCount, 10) : undefined,
+        pack_size_unit:   packSizeUnit.trim() || undefined,
         remarks:          form.remarks.trim() || undefined,
       });
       setResult(res);
@@ -224,24 +223,15 @@ export const CreateFGBatchScreen: React.FC = () => {
             />
           </View>
 
-          <SectionTitle title="Supplier & Manufacturer" />
-          <View style={styles.card}>
-            <Input
-              label="Supplier Name *"
-              placeholder="e.g. ABC Trading Co."
-              value={form.supplier_name}
-              onChangeText={(v) => set('supplier_name', v)}
-            />
-            <Input
-              label="Manufacturer Name *"
-              placeholder="e.g. Generic Pharma Ltd."
-              value={form.manufacturer_name}
-              onChangeText={(v) => set('manufacturer_name', v)}
-            />
-          </View>
-
           <SectionTitle title="Batch Reference" />
           <View style={styles.card}>
+            <Input
+              label="FGTN No."
+              placeholder="e.g. FGTN-2026-001"
+              value={form.fgtn_number}
+              onChangeText={(v) => set('fgtn_number', v)}
+              autoCapitalize="characters"
+            />
             <Input
               label="Batch / Lot Number *"
               placeholder="e.g. BTH-2026-001"
@@ -295,6 +285,27 @@ export const CreateFGBatchScreen: React.FC = () => {
 
             <Text style={[styles.fieldLabel, { marginTop: 10 }]}>Pack Type *</Text>
             <ChipRow options={PACK_TYPES} selected={packType} onSelect={setPackType} />
+
+            <Text style={[styles.fieldLabel, { marginTop: 10 }]}>Pack Size (inner pack)</Text>
+            <View style={styles.packSizeRow}>
+              <View style={{ flex: 1 }}>
+                <Input
+                  label="Count"
+                  placeholder="e.g. 10"
+                  value={packSizeCount}
+                  onChangeText={(v) => setPackSizeCount(v.replace(/[^\d]/g, ''))}
+                  keyboardType="number-pad"
+                />
+              </View>
+              <View style={{ flex: 2, marginLeft: 8 }}>
+                <Input
+                  label="Unit"
+                  placeholder="e.g. tablets/blister"
+                  value={packSizeUnit}
+                  onChangeText={setPackSizeUnit}
+                />
+              </View>
+            </View>
           </View>
 
           <View style={styles.sectionRow}>
@@ -315,12 +326,6 @@ export const CreateFGBatchScreen: React.FC = () => {
             </View>
           </View>
           <View style={styles.card}>
-            <DatePickerInput
-              label="Date of Receipt *"
-              isoValue={form.date_of_receipt}
-              format={dateFormat}
-              onChange={(iso) => set('date_of_receipt', iso)}
-            />
             <DatePickerInput
               label="Manufacture Date *"
               isoValue={form.manufacture_date}
@@ -464,6 +469,7 @@ const styles = StyleSheet.create({
   unitTextActive: { color: Colors.primary },
 
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 8 },
+  packSizeRow: { flexDirection: 'row', alignItems: 'flex-start' },
   chip: {
     paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20,
     borderWidth: 1.5, borderColor: Colors.border, backgroundColor: '#f5f5f5',

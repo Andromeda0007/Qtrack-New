@@ -64,8 +64,8 @@ async def approve_fg(db: AsyncSession, fg_batch_id: int, remarks: str | None, ap
     if not fg:
         raise HTTPException(status_code=404, detail="FG batch not found")
 
-    if fg.status != FGStatus.QA_PENDING:
-        raise HTTPException(status_code=400, detail=f"FG batch must be QA_PENDING to approve. Current: {fg.status}")
+    if fg.status != FGStatus.CREATED:
+        raise HTTPException(status_code=400, detail=f"FG batch must be CREATED to approve. Current: {fg.status}")
 
     old_status = fg.status
     fg.status = FGStatus.QA_APPROVED
@@ -114,8 +114,8 @@ async def reject_fg(db: AsyncSession, fg_batch_id: int, remarks: str, rejected_b
     if not fg:
         raise HTTPException(status_code=404, detail="FG batch not found")
 
-    if fg.status != FGStatus.QA_PENDING:
-        raise HTTPException(status_code=400, detail=f"FG batch must be QA_PENDING to reject. Current: {fg.status}")
+    if fg.status != FGStatus.CREATED:
+        raise HTTPException(status_code=400, detail=f"FG batch must be CREATED to reject. Current: {fg.status}")
 
     old_status = fg.status
     fg.status = FGStatus.QA_REJECTED

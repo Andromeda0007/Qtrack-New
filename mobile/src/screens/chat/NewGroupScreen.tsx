@@ -20,7 +20,6 @@ const ROLE_LABELS: Record<string, string> = {
   QC_EXECUTIVE: 'QC Executive',
   QC_HEAD: 'QC Head',
   QA_EXECUTIVE: 'QA Executive',
-  QA_HEAD: 'QA Head',
   PRODUCTION_USER: 'Production User',
   PURCHASE_USER: 'Purchase User',
 };
@@ -28,7 +27,7 @@ const ROLE_LABELS: Record<string, string> = {
 const ROLE_ORDER = [
   'WAREHOUSE_HEAD', 'WAREHOUSE_USER',
   'QC_HEAD', 'QC_EXECUTIVE',
-  'QA_HEAD', 'QA_EXECUTIVE',
+  'QA_EXECUTIVE',
   'PRODUCTION_USER', 'PURCHASE_USER',
 ];
 

@@ -48,10 +48,6 @@ export const FGBatchDetailScreen: React.FC = () => {
   const statusMeta = STATUS_META[status] ?? { label: status, color: Colors.textMuted };
   const statusBg = statusMeta.color + '22';
 
-  const handleStartTesting = () => {
-    navigation.navigate('InspectFG', { fgBatchId, fgBatchNumber: batch?.batch_number });
-  };
-
   const handleApprove = () => {
     navigation.navigate('ApproveFG', { fgBatchId, fgBatchNumber: batch?.batch_number });
   };
@@ -61,7 +57,7 @@ export const FGBatchDetailScreen: React.FC = () => {
   };
 
   const showQAExecutiveActions =
-    role === 'QA_EXECUTIVE' && (status === 'CREATED' || status === 'QA_PENDING');
+    role === 'QA_EXECUTIVE' && status === 'CREATED';
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -99,36 +95,22 @@ export const FGBatchDetailScreen: React.FC = () => {
             <>
               <Text style={styles.sectionTitle}>Actions</Text>
               <View style={styles.actionsRow}>
-                {status === 'CREATED' && (
-                  <TouchableOpacity
-                    style={[styles.actionBtn, { borderColor: Colors.info }]}
-                    onPress={handleStartTesting}
-                    activeOpacity={0.8}
-                  >
-                    <Ionicons name="flask-outline" size={20} color={Colors.info} />
-                    <Text style={[styles.actionLabel, { color: Colors.info }]}>Start QA Testing</Text>
-                  </TouchableOpacity>
-                )}
-                {status === 'QA_PENDING' && (
-                  <>
-                    <TouchableOpacity
-                      style={[styles.actionBtn, { borderColor: Colors.success }]}
-                      onPress={handleApprove}
-                      activeOpacity={0.8}
-                    >
-                      <Ionicons name="checkmark-circle-outline" size={20} color={Colors.success} />
-                      <Text style={[styles.actionLabel, { color: Colors.success }]}>Approve</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={[styles.actionBtn, { borderColor: Colors.danger }]}
-                      onPress={handleReject}
-                      activeOpacity={0.8}
-                    >
-                      <Ionicons name="close-circle-outline" size={20} color={Colors.danger} />
-                      <Text style={[styles.actionLabel, { color: Colors.danger }]}>Reject</Text>
-                    </TouchableOpacity>
-                  </>
-                )}
+                <TouchableOpacity
+                  style={[styles.actionBtn, { borderColor: Colors.success }]}
+                  onPress={handleApprove}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons name="checkmark-circle-outline" size={20} color={Colors.success} />
+                  <Text style={[styles.actionLabel, { color: Colors.success }]}>Approve</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.actionBtn, { borderColor: Colors.danger }]}
+                  onPress={handleReject}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons name="close-circle-outline" size={20} color={Colors.danger} />
+                  <Text style={[styles.actionLabel, { color: Colors.danger }]}>Reject</Text>
+                </TouchableOpacity>
               </View>
             </>
           )}
