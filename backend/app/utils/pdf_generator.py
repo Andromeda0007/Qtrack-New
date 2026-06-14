@@ -66,10 +66,10 @@ def _draw_inducare_header(
     c.setFillColor(_HEADER_BG)
     c.rect(lx + 0.75, hdr_bottom + 0.75, lw - 1.5, hdr_h - 0.75, fill=1, stroke=0)
 
-    # Logo (left side)
-    LOGO_H = hdr_h * 0.70
+    # Logo (left side) — 88% of header height gives proper top/bottom padding
+    LOGO_H = hdr_h * 0.96
     LOGO_W = LOGO_H
-    logo_x = lx + 0.18 * inch
+    logo_x = lx + 0.34 * inch
     logo_y = hdr_bottom + (hdr_h - LOGO_H) / 2
 
     has_logo = False
@@ -83,21 +83,24 @@ def _draw_inducare_header(
         except Exception:
             pass
 
-    # Company name (3 lines, centred in the space right of the logo)
-    txt_start = logo_x + LOGO_W + 0.10 * inch if has_logo else lx + 0.15 * inch
-    txt_cx = txt_start + (lx + lw - 0.12 * inch - txt_start) / 2
+    # Vertical divider after logo
+    logo_divider_x = logo_x + LOGO_W + 0.34 * inch
+    c.setStrokeColor(_RULE_C)
+    c.setLineWidth(1.0)
+    c.line(logo_divider_x, hdr_bottom, logo_divider_x, label_top)
+
+    # Company name (2 lines, centred in the space right of the divider)
+    txt_cx = logo_divider_x + (lx + lw - 0.12 * inch - logo_divider_x) / 2
 
     c.setFillColor(_GREEN)
-    c.setFont("Helvetica-Bold", 13)
-    c.drawCentredString(txt_cx, hdr_bottom + hdr_h * 0.64, "Inducare Pharmaceuticals")
-    c.setFont("Helvetica", 9)
-    c.drawCentredString(txt_cx, hdr_bottom + hdr_h * 0.40, "and")
-    c.setFont("Helvetica-Bold", 13)
-    c.drawCentredString(txt_cx, hdr_bottom + hdr_h * 0.14, "Research Foundation")
+    c.setFont("Helvetica", 20)
+    c.drawCentredString(txt_cx, hdr_bottom + hdr_h * 0.62, "Inducare Pharmaceuticals and Research")
+    c.setFont("Helvetica", 20)
+    c.drawCentredString(txt_cx, hdr_bottom + hdr_h * 0.26, "Foundation")
 
     # Divider below header
     c.setStrokeColor(_RULE_C)
-    c.setLineWidth(0.8)
+    c.setLineWidth(1.0)
     c.line(lx, hdr_bottom, lx + lw, hdr_bottom)
 
     return hdr_bottom
@@ -119,12 +122,16 @@ def _draw_quarantine_label(
 
     # Outer border
     c.setStrokeColor(_DARK)
-    c.setLineWidth(1.5)
+    c.setLineWidth(1.0)
     c.rect(lx, lb, lw, lh)
+    # Top edge thicker
+    c.setLineWidth(1.5)
+    c.line(lx, label_top, lx + lw, label_top)
 
     # Header (returns body_top)
-    HDR_H = 0.80 * inch
+    HDR_H = 1.10 * inch
     body_top = _draw_inducare_header(c, lx, label_top, lw, HDR_H)
+
     body_bottom = lb
     body_h = body_top - body_bottom
 
@@ -132,16 +139,16 @@ def _draw_quarantine_label(
     DIV_X = lx + lw * 0.38
 
     c.setStrokeColor(_RULE_C)
-    c.setLineWidth(0.75)
+    c.setLineWidth(1.0)
     c.line(DIV_X, body_top, DIV_X, body_bottom)
 
     # ── Left column ───────────────────────────────────────────────────────
     left_cx = lx + (DIV_X - lx) / 2
 
     # Label counter
-    ctr_y = body_top - 0.28 * inch
+    ctr_y = body_top - 0.60 * inch
     c.setFillColor(_DARK)
-    c.setFont("Helvetica-Bold", 9)
+    c.setFont("Helvetica-Bold", 11)
     c.drawCentredString(left_cx, ctr_y, f"{label_num}  /  {total_labels}")
 
     # QR code (sized to fill available space with room for counter + dates)
@@ -161,10 +168,10 @@ def _draw_quarantine_label(
     dfmt = data.get("date_format", "DD-MM-YYYY")
     mfg = _fmt_date(data.get("manufacture_date", ""), dfmt)
     exp = _fmt_date(data.get("expiry_date", ""), dfmt)
-    dy1 = body_bottom + date_area_h - 0.18 * inch
-    dy2 = dy1 - 0.22 * inch
+    dy1 = body_bottom + date_area_h - 0.04 * inch
+    dy2 = dy1 - 0.20 * inch
     c.setFillColor(_DARK)
-    c.setFont("Helvetica-Bold", 8)
+    c.setFont("Helvetica-Bold", 10)
     c.drawCentredString(left_cx, dy1, f"Mfg:  {mfg}")
     c.drawCentredString(left_cx, dy2, f"Exp:  {exp}")
 
@@ -174,8 +181,7 @@ def _draw_quarantine_label(
     RC_RIGHT = label_right - 0.10 * inch
     MAX_VAL_W = RC_RIGHT - RV_X
     LH = 0.255 * inch
-    SEP_BEFORE = 0.08 * inch
-    SEP_AFTER = 0.10 * inch
+    SEP_TOTAL = 0.26 * inch   # total vertical space consumed by each separator
 
     unit = data.get("unit", "")
     total_qty = f"{data.get('total_quantity', '')} {unit}".strip()
@@ -205,29 +211,32 @@ def _draw_quarantine_label(
     ]
 
     n_rows = len(sec1) + len(sec2) + len(sec3)
-    content_h = n_rows * LH + 2 * (SEP_BEFORE + SEP_AFTER)
-    y = body_top - (body_h - content_h) / 2 - LH * 0.2
+    content_h = n_rows * LH + 2 * SEP_TOTAL
+    y = body_top - (body_h - content_h) / 2 - LH * 0.5
 
     def row(cur_y, label, value):
         val = str(value or "—")
-        c.setFont("Helvetica-Bold", 7.5)
+        c.setFont("Helvetica-Bold", 10)
         c.setFillColor(colors.HexColor("#555555"))
         c.drawString(RC_X, cur_y, f"{label}:")
-        c.setFont("Helvetica", 8.5)
+        c.setFont("Helvetica", 11)
         c.setFillColor(_DARK)
         for _ in range(60):
-            if c.stringWidth(val, "Helvetica", 8.5) <= MAX_VAL_W:
+            if c.stringWidth(val, "Helvetica", 11) <= MAX_VAL_W:
                 break
             val = val[:-2] + "…"
         c.drawString(RV_X, cur_y, val)
         return cur_y - LH
 
     def sep(cur_y):
-        y2 = cur_y - SEP_BEFORE
+        # cur_y is LH below the last drawn row — compute true midpoint between sections
+        last_row_y = cur_y + LH
+        next_row_y = last_row_y - LH - SEP_TOTAL
+        line_y = (last_row_y + next_row_y) / 2
         c.setStrokeColor(_RULE_C)
         c.setLineWidth(0.5)
-        c.line(RC_X - 0.05 * inch, y2, RC_RIGHT, y2)
-        return y2 - SEP_AFTER
+        c.line(RC_X - 0.05 * inch, line_y, RC_RIGHT, line_y)
+        return next_row_y
 
     for lbl, val in sec1:
         y = row(y, lbl, val)
